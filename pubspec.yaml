@@ -17,6 +17,7 @@ dependencies:
   image_picker: ^1.1.2
   intl: ^0.19.0
   cupertino_icons: ^1.0.8
+  flutter_native_splash: ^2.4.8
 
 dev_dependencies:
   flutter_test:
@@ -30,6 +31,13 @@ flutter_launcher_icons:
   image_path: "assets/icon/icon.png"
   adaptive_icon_background: "#1F4E79"
   adaptive_icon_foreground: "assets/icon/icon.png"
+
+flutter_native_splash:
+  color: "#1F4E79"
+  image: assets/icon/icon.png
+  color_dark: "#1F4E79"
+  image_dark: assets/icon/icon.png
+  android_12:
 
 flutter:
   uses-material-design: true
