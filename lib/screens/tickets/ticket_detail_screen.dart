@@ -1,0 +1,456 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../providers/auth_provider.dart';
+import '../../core/responsive.dart';
+
+class TicketDetailScreen extends StatefulWidget {
+  final String ticketId;
+  const TicketDetailScreen({super.key, required this.ticketId});
+
+  @override
+  State<TicketDetailScreen> createState() => _TicketDetailScreenState();
+}
+
+class _TicketDetailScreenState extends State<TicketDetailScreen> {
+  final _supabase = Supabase.instance.client;
+  Map<String, dynamic>? _ticket;
+  List<Map<String, dynamic>> _historial = [];
+  List<Map<String, dynamic>> _tecnicos = [];
+  String _nombreCreadoPor = '';
+  String _nombreTecnico = '';
+  bool _cargando = true;
+
+  @override
+  void initState() { super.initState(); _cargarTicket(); }
+
+  Future<void> _cargarTicket() async {
+    setState(() => _cargando = true);
+    try {
+      // Ticket con máquina
+      final ticket = await _supabase
+          .from('tickets')
+          .select('*, maquinas(nombre, codigo, sector_id, sectores(nombre))')
+          .eq('id', widget.ticketId)
+          .single();
+
+      // Nombres de usuarios por separado
+      final idsABuscar = <String>[];
+      if (ticket['creado_por'] != null) idsABuscar.add(ticket['creado_por']);
+      if (ticket['tecnico_id'] != null) idsABuscar.add(ticket['tecnico_id']);
+
+      String nombreCreadoPor = '';
+      String nombreTecnico = '';
+
+      if (idsABuscar.isNotEmpty) {
+        final usuariosData = await _supabase
+            .from('usuarios')
+            .select('id, nombre')
+            .inFilter('id', idsABuscar);
+        for (final u in usuariosData as List) {
+          if (u['id'] == ticket['creado_por']) nombreCreadoPor = u['nombre'];
+          if (u['id'] == ticket['tecnico_id']) nombreTecnico = u['nombre'];
+        }
+      }
+
+      // Historial
+      final historialRaw = await _supabase
+          .from('ticket_historial')
+          .select('*, usuarios(nombre)')
+          .eq('ticket_id', widget.ticketId)
+          .order('fecha', ascending: false);
+
+      // Técnicos disponibles
+      final tecnicosRaw = await _supabase
+          .from('usuarios')
+          .select('id, nombre, roles(nombre)')
+          .eq('empresa_id', context.read<AuthProvider>().usuario?.empresaId ?? '')
+          .eq('estado', 'activo');
+
+      setState(() {
+        _ticket = Map<String, dynamic>.from(ticket);
+        _nombreCreadoPor = nombreCreadoPor;
+        _nombreTecnico = nombreTecnico;
+        _historial = List<Map<String, dynamic>>.from(historialRaw);
+        _tecnicos = (tecnicosRaw as List)
+            .where((u) => (u['roles'] as Map?)?['nombre'] == 'tecnico')
+            .map((u) => Map<String, dynamic>.from(u))
+            .toList();
+      });
+    } catch (e) {
+      _mostrarError('Error al cargar ticket: $e');
+    } finally {
+      setState(() => _cargando = false);
+    }
+  }
+
+  Future<void> _cambiarEstado(String nuevoEstado, {String? comentario, String? tecnicoId}) async {
+    try {
+      final usuario = context.read<AuthProvider>().usuario;
+      if (usuario == null) return;
+
+      final estadoAnterior = _ticket!['estado'] as String;
+      final updateData = <String, dynamic>{'estado': nuevoEstado};
+      if (tecnicoId != null) updateData['tecnico_id'] = tecnicoId;
+
+      await _supabase.from('tickets').update(updateData).eq('id', widget.ticketId);
+
+      await _supabase.from('ticket_historial').insert({
+        'ticket_id': widget.ticketId,
+        'usuario_id': usuario.id,
+        'estado_anterior': estadoAnterior,
+        'estado_nuevo': nuevoEstado,
+        'comentario': comentario,
+      });
+
+      await _enviarNotificacion(nuevoEstado, tecnicoId, usuario, comentario);
+      await _cargarTicket();
+      _mostrarExito('Estado actualizado correctamente');
+    } catch (e) {
+      _mostrarError('Error al cambiar estado: $e');
+    }
+  }
+
+  Future<void> _enviarNotificacion(String nuevoEstado, String? tecnicoId, usuario, String? comentario) async {
+    final numero = _ticket!['numero'];
+    String mensaje = '';
+    String? paraUsuarioId;
+
+    switch (nuevoEstado) {
+      case 'asignado':
+        mensaje = 'Ticket $numero te fue asignado por ${usuario.nombre}';
+        paraUsuarioId = tecnicoId;
+        break;
+      case 'en_proceso':
+        mensaje = 'Ticket $numero está en proceso';
+        paraUsuarioId = _ticket!['creado_por'];
+        break;
+      case 'resuelto':
+        mensaje = 'Ticket $numero fue resuelto por ${usuario.nombre}';
+        paraUsuarioId = _ticket!['creado_por'];
+        final maquina = _ticket!['maquinas'] as Map?;
+        if (maquina != null) {
+          final encargados = await _supabase
+              .from('encargado_sector')
+              .select('usuario_id')
+              .eq('sector_id', maquina['sector_id']);
+          for (final enc in encargados as List) {
+            if (enc['usuario_id'] != usuario.id) {
+              await _supabase.from('notificaciones').insert({
+                'tipo': 'ticket_resuelto',
+                'mensaje': mensaje,
+                'ticket_id': widget.ticketId,
+                'para_usuario_id': enc['usuario_id'],
+                'de_usuario_id': usuario.id,
+              });
+            }
+          }
+        }
+        break;
+      case 'cerrado':
+        mensaje = 'Ticket $numero fue cerrado';
+        paraUsuarioId = _ticket!['creado_por'];
+        break;
+      case 'rechazado':
+        mensaje = 'Ticket $numero fue rechazado${comentario != null ? ': $comentario' : ''}';
+        paraUsuarioId = _ticket!['creado_por'];
+        break;
+      case 'abierto':
+        mensaje = 'Ticket $numero fue reabierto';
+        paraUsuarioId = _ticket!['tecnico_id'];
+        break;
+    }
+
+    if (paraUsuarioId != null && paraUsuarioId != usuario.id) {
+      await _supabase.from('notificaciones').insert({
+        'tipo': 'ticket_$nuevoEstado',
+        'mensaje': mensaje,
+        'ticket_id': widget.ticketId,
+        'para_usuario_id': paraUsuarioId,
+        'de_usuario_id': usuario.id,
+      });
+    }
+  }
+
+  Future<void> _mostrarDialogoAccion(String titulo, String accion, String nuevoEstado,
+      {bool comentarioObligatorio = false, bool seleccionarTecnico = false}) async {
+    final comentarioController = TextEditingController();
+    String? tecnicoSeleccionado = _tecnicos.isNotEmpty ? _tecnicos.first['id'] : null;
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(titulo),
+          content: SizedBox(
+            width: Responsive.isDesktop(context) ? 420 : double.maxFinite,
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              if (seleccionarTecnico && _tecnicos.isNotEmpty) ...[
+                DropdownButtonFormField<String>(
+                  value: tecnicoSeleccionado,
+                  decoration: const InputDecoration(labelText: 'Técnico *', border: OutlineInputBorder()),
+                  items: _tecnicos.map((t) => DropdownMenuItem(value: t['id'] as String, child: Text(t['nombre'] as String))).toList(),
+                  onChanged: (v) => setDialogState(() => tecnicoSeleccionado = v),
+                ),
+                const SizedBox(height: 12),
+              ],
+              if (seleccionarTecnico && _tecnicos.isEmpty)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: Colors.orange[50], borderRadius: BorderRadius.circular(8)),
+                  child: const Text('No hay técnicos disponibles. Primero creá un usuario con rol técnico.', style: TextStyle(color: Colors.orange)),
+                ),
+              TextField(
+                controller: comentarioController,
+                decoration: InputDecoration(
+                  labelText: comentarioObligatorio ? 'Comentario *' : 'Comentario (opcional)',
+                  border: const OutlineInputBorder(),
+                ),
+                maxLines: 3,
+                textCapitalization: TextCapitalization.sentences,
+              ),
+            ]),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+            ElevatedButton(
+              onPressed: () async {
+                if (comentarioObligatorio && comentarioController.text.trim().isEmpty) return;
+                if (seleccionarTecnico && _tecnicos.isEmpty) return;
+                Navigator.pop(context);
+                await _cambiarEstado(
+                  nuevoEstado,
+                  comentario: comentarioController.text.trim().isEmpty ? null : comentarioController.text.trim(),
+                  tecnicoId: seleccionarTecnico ? tecnicoSeleccionado : null,
+                );
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white),
+              child: Text(accion),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _colorEstado(String estado) {
+    switch (estado) {
+      case 'abierto': return Colors.blue;
+      case 'asignado': return Colors.orange;
+      case 'en_proceso': return Colors.purple;
+      case 'resuelto': return Colors.green;
+      case 'cerrado': return Colors.grey;
+      case 'rechazado': return Colors.red;
+      default: return Colors.grey;
+    }
+  }
+
+  String _labelEstado(String estado) {
+    switch (estado) {
+      case 'abierto': return 'Abierto';
+      case 'asignado': return 'Asignado';
+      case 'en_proceso': return 'En proceso';
+      case 'resuelto': return 'Resuelto';
+      case 'cerrado': return 'Cerrado';
+      case 'rechazado': return 'Rechazado';
+      default: return estado;
+    }
+  }
+
+  void _mostrarExito(String m) { if (!mounted) return; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating)); }
+  void _mostrarError(String m) { if (!mounted) return; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating)); }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_cargando) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (_ticket == null) return const Scaffold(body: Center(child: Text('Ticket no encontrado')));
+
+    final usuario = context.read<AuthProvider>().usuario;
+    final estado = _ticket!['estado'] as String;
+    final maquina = _ticket!['maquinas'] as Map<String, dynamic>?;
+    final fecha = DateTime.tryParse(_ticket!['created_at'] ?? '');
+    final padding = Responsive.pagePadding(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_ticket!['numero'] ?? 'Ticket'),
+        backgroundColor: const Color(0xFF1F4E79),
+        foregroundColor: Colors.white,
+      ),
+      body: ListView(
+        padding: padding,
+        children: [
+          // Estado
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: _colorEstado(estado).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _colorEstado(estado).withOpacity(0.3)),
+            ),
+            child: Row(children: [
+              Icon(Icons.circle, color: _colorEstado(estado), size: 12),
+              const SizedBox(width: 8),
+              Text(_labelEstado(estado), style: TextStyle(color: _colorEstado(estado), fontWeight: FontWeight.w600, fontSize: 16)),
+            ]),
+          ),
+          const SizedBox(height: 16),
+
+          // Info
+          Card(
+            elevation: 1,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Información', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const Divider(),
+                _infoRow('Máquina', maquina?['nombre'] ?? '-'),
+                _infoRow('Código', maquina?['codigo'] ?? '-'),
+                _infoRow('Sector', (maquina?['sectores'] as Map?)?['nombre'] ?? '-'),
+                _infoRow('Creado por', _nombreCreadoPor.isNotEmpty ? _nombreCreadoPor : '-'),
+                if (_nombreTecnico.isNotEmpty) _infoRow('Técnico', _nombreTecnico),
+                if (fecha != null) _infoRow('Fecha', '${fecha.day}/${fecha.month}/${fecha.year} ${fecha.hour}:${fecha.minute.toString().padLeft(2, '0')}'),
+                const SizedBox(height: 8),
+                const Text('Descripción', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                const SizedBox(height: 4),
+                Text(_ticket!['descripcion_desperfecto'] ?? '', style: const TextStyle(fontSize: 15)),
+                if (_ticket!['observacion_tecnico'] != null) ...[
+                  const SizedBox(height: 12),
+                  const Text('Observación del técnico', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                  const SizedBox(height: 4),
+                  Text(_ticket!['observacion_tecnico'], style: const TextStyle(fontSize: 15)),
+                ],
+                if (_ticket!['observacion_encargado'] != null) ...[
+                  const SizedBox(height: 12),
+                  const Text('Observación del encargado', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                  const SizedBox(height: 4),
+                  Text(_ticket!['observacion_encargado'], style: const TextStyle(fontSize: 15)),
+                ],
+              ]),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Acciones
+          _buildAcciones(usuario, estado),
+          const SizedBox(height: 16),
+
+          // Historial
+          Card(
+            elevation: 1,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Historial', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const Divider(),
+                if (_historial.isEmpty)
+                  const Text('Sin historial', style: TextStyle(color: Colors.grey))
+                else
+                  ...(_historial.map((h) {
+                    final fechaH = DateTime.tryParse(h['fecha'] ?? '');
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Container(
+                          width: 8, height: 8,
+                          margin: const EdgeInsets.only(top: 6, right: 8),
+                          decoration: const BoxDecoration(color: Color(0xFF1F4E79), shape: BoxShape.circle),
+                        ),
+                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(
+                            '${h['estado_anterior'] != null ? '${_labelEstado(h['estado_anterior'])} → ' : ''}${_labelEstado(h['estado_nuevo'])}',
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                          ),
+                          if (h['comentario'] != null)
+                            Text(h['comentario'], style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                          Text(
+                            '${(h['usuarios'] as Map?)?['nombre'] ?? ''} — ${fechaH != null ? '${fechaH.day}/${fechaH.month}/${fechaH.year}' : ''}',
+                            style: TextStyle(color: Colors.grey[400], fontSize: 11),
+                          ),
+                        ])),
+                      ]),
+                    );
+                  })),
+              ]),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAcciones(usuario, String estado) {
+    if (usuario == null) return const SizedBox.shrink();
+    if (estado == 'cerrado' || estado == 'rechazado') return const SizedBox.shrink();
+
+    final esAdminOEncargado = usuario.esAdmin || usuario.esEncargado;
+    final esTecnico = usuario.esTecnico;
+    final botones = <Widget>[];
+
+    if (esAdminOEncargado) {
+      if (estado == 'abierto') {
+        botones.add(_botonAccion('Asignar técnico', Icons.assignment_ind_outlined, Colors.orange,
+            () => _mostrarDialogoAccion('Asignar técnico', 'Asignar', 'asignado', seleccionarTecnico: true)));
+        botones.add(_botonAccion('Rechazar', Icons.cancel_outlined, Colors.red,
+            () => _mostrarDialogoAccion('Rechazar ticket', 'Rechazar', 'rechazado', comentarioObligatorio: true)));
+      }
+      if (estado == 'resuelto') {
+        botones.add(_botonAccion('Cerrar ticket', Icons.lock_outline, Colors.grey,
+            () => _mostrarDialogoAccion('Cerrar ticket', 'Cerrar', 'cerrado')));
+        botones.add(_botonAccion('Reabrir', Icons.restart_alt, Colors.blue,
+            () => _mostrarDialogoAccion('Reabrir ticket', 'Reabrir', 'abierto', comentarioObligatorio: true)));
+      }
+    }
+
+    if (esTecnico) {
+      if (estado == 'asignado') {
+        botones.add(_botonAccion('Iniciar trabajo', Icons.build_outlined, Colors.purple,
+            () => _mostrarDialogoAccion('Iniciar trabajo', 'Iniciar', 'en_proceso')));
+      }
+      if (estado == 'en_proceso') {
+        botones.add(_botonAccion('Marcar resuelto', Icons.check_circle_outline, Colors.green,
+            () => _mostrarDialogoAccion('Marcar como resuelto', 'Resolver', 'resuelto', comentarioObligatorio: true)));
+      }
+    }
+
+    if (botones.isEmpty) return const SizedBox.shrink();
+
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Acciones', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          const Divider(),
+          Wrap(spacing: 8, runSpacing: 8, children: botones),
+        ]),
+      ),
+    );
+  }
+
+  Widget _botonAccion(String label, IconData icono, Color color, VoidCallback onTap) {
+    return OutlinedButton.icon(
+      onPressed: onTap,
+      icon: Icon(icono, size: 18),
+      label: Text(label),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: color,
+        side: BorderSide(color: color),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      ),
+    );
+  }
+
+  Widget _infoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        SizedBox(width: 100, child: Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 13))),
+        Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w500))),
+      ]),
+    );
+  }
+}
