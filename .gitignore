@@ -44,3 +44,5 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 .env
+android/key.properties
+android/app/indovex.jks

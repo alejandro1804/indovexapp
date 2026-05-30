@@ -1,0 +1,4 @@
+-keep class io.supabase.** { *; }
+-keep class kotlin.** { *; }
+-keep class kotlinx.** { *; }
+-dontwarn io.supabase.**

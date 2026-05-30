@@ -1,4 +1,4 @@
-package com.example.indovexapp
+package com.indovex.app
 
 import io.flutter.embedding.android.FlutterActivity
 
