@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 680">
+    <style>
+        .bg { fill: #1F4E79; }
+        .gear-outer { fill: #2E75B6; }
+        .gear-inner { fill: #1F4E79; }
+        .accent { fill: #00C9A7; }
+        .accent2 { fill: #4FC3F7; }
+        .logo-text { font-family: system-ui, sans-serif; font-weight: 700; fill: #FFFFFF; }
+        .logo-sub { font-family: system-ui, sans-serif; font-weight: 400; fill: #90CAF9; letter-spacing: 3px; }
+    </style>
+    <rect x="100" y="100" width="480" height="480" rx="80" class="bg"/>
+    <g transform="translate(340,300)">
+        <g class="gear-outer">
+            <rect x="-18" y="-165" width="36" height="44" rx="6"/>
+            <rect x="-18" y="121" width="36" height="44" rx="6"/>
+            <rect x="121" y="-18" width="44" height="36" rx="6"/>
+            <rect x="-165" y="-18" width="44" height="36" rx="6"/>
+            <rect x="75" y="-135" width="36" height="44" rx="6" transform="rotate(45)"/>
+            <rect x="75" y="-135" width="36" height="44" rx="6" transform="rotate(90)"/>
+            <rect x="75" y="-135" width="36" height="44" rx="6" transform="rotate(135)"/>
+            <rect x="75" y="-135" width="36" height="44" rx="6" transform="rotate(180)"/>
+            <rect x="75" y="-135" width="36" height="44" rx="6" transform="rotate(225)"/>
+            <rect x="75" y="-135" width="36" height="44" rx="6" transform="rotate(270)"/>
+            <rect x="75" y="-135" width="36" height="44" rx="6" transform="rotate(315)"/>
+            <rect x="75" y="-135" width="36" height="44" rx="6" transform="rotate(0)"/>
+        </g>
+        <circle cx="0" cy="0" r="120" class="gear-outer"/>
+        <circle cx="0" cy="0" r="72" class="gear-inner"/>
+        <rect x="-6" y="-68" width="12" height="136" rx="4" fill="#2E75B6" opacity="0.5"/>
+        <rect x="-68" y="-6" width="136" height="12" rx="4" fill="#2E75B6" opacity="0.5"/>
+        <circle cx="0" cy="0" r="22" class="accent"/>
+        <circle cx="0" cy="0" r="12" class="gear-inner"/>
+    </g>
+    <polygon points="355,188 330,248 348,248 323,312 372,240 350,240 375,188" class="accent2" opacity="0.9"/>
+    <text x="340" y="530" text-anchor="middle" font-size="52" class="logo-text">INDOVEX</text>
+    <text x="340" y="558" text-anchor="middle" font-size="13" class="logo-sub">GESTIÓN INDUSTRIAL</text>
+    <rect x="220" y="568" width="240" height="2" rx="1" class="accent" opacity="0.6"/>
+</svg>
