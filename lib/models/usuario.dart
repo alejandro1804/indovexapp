@@ -6,6 +6,7 @@ class Usuario {
   final String email;
   final String estado;
   final String rolNombre;
+  final bool primerLogin;
 
   Usuario({
     required this.id,
@@ -15,6 +16,7 @@ class Usuario {
     required this.email,
     required this.estado,
     required this.rolNombre,
+    required this.primerLogin,
   });
 
   factory Usuario.fromMap(Map<String, dynamic> map) {
@@ -26,6 +28,7 @@ class Usuario {
       email: map['email'],
       estado: map['estado'],
       rolNombre: map['roles']?['nombre'] ?? '',
+      primerLogin: map['primer_login'] ?? false,
     );
   }
 

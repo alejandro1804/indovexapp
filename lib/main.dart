@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'providers/auth_provider.dart';
 import 'screens/auth/login_screen.dart';
+import 'screens/auth/cambiar_password_screen.dart';
 import 'screens/home/home_screen.dart';
 
 const supabaseUrl = String.fromEnvironment(
@@ -69,9 +70,16 @@ class _AuthGateState extends State<AuthGate> {
     if (session != null) {
       await context.read<AuthProvider>().cargarUsuario();
       if (!mounted) return;
+      final usuario = context.read<AuthProvider>().usuario;
+
+      // Si es el primer login, va obligatoriamente a cambiar contraseña
+      final destino = (usuario != null && usuario.primerLogin)
+          ? const CambiarPasswordScreen()
+          : const HomeScreen();
+
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        MaterialPageRoute(builder: (_) => destino),
       );
     } else {
       Navigator.pushReplacement(

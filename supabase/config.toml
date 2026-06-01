@@ -1,0 +1,22 @@
+
+[functions.crear_usuario]
+enabled = true
+verify_jwt = false
+import_map = "./functions/crear_usuario/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/crear_usuario/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/crear_usuario/*.html" ]
+
+[functions.resetear_password]
+enabled = true
+verify_jwt = false
+import_map = "./functions/resetear_password/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/resetear_password/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/resetear_password/*.html" ]

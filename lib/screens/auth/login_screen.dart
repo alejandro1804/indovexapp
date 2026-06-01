@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../home/home_screen.dart';
+import 'cambiar_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -23,7 +24,8 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
     });
 
-    final ok = await context.read<AuthProvider>().login(
+    final authProvider = context.read<AuthProvider>();
+    final ok = await authProvider.login(
       _emailController.text.trim(),
       _passwordController.text.trim(),
     );
@@ -31,9 +33,16 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     if (ok) {
+      final usuario = authProvider.usuario;
+
+      // Si es el primer login, va obligatoriamente a cambiar contraseña
+      final destino = (usuario != null && usuario.primerLogin)
+          ? const CambiarPasswordScreen()
+          : const HomeScreen();
+
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        MaterialPageRoute(builder: (_) => destino),
       );
     } else {
       setState(() {
