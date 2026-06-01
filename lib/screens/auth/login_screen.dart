@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../home/home_screen.dart';
 import 'cambiar_password_screen.dart';
+import 'registro_empresa_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -46,7 +47,7 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     } else {
       setState(() {
-        _error = 'Email o contraseña incorrectos';
+        _error = authProvider.errorLogin ?? 'Email o contraseña incorrectos';
         _loading = false;
       });
     }
@@ -134,6 +135,21 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: _loading
                             ? const CircularProgressIndicator(color: Colors.white)
                             : const Text('Ingresar', style: TextStyle(fontSize: 16)),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextButton(
+                      onPressed: _loading
+                          ? null
+                          : () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const RegistroEmpresaScreen()),
+                              );
+                            },
+                      child: const Text(
+                        '¿No tenés cuenta? Registrá tu empresa',
+                        style: TextStyle(color: Color(0xFF1F4E79)),
                       ),
                     ),
                   ],

@@ -8,6 +8,7 @@ import '../repuestos/repuestos_screen.dart';
 import '../maquinas/maquinas_screen.dart';
 import '../reportes/reportes_screen.dart';
 import '../configuracion/configuracion_screen.dart';
+import '../admin/empresas_pendientes_screen.dart';
 import '../auth/login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -65,6 +66,15 @@ class _HomeScreenState extends State<HomeScreen> {
         icon: Icons.settings_outlined,
         iconActivo: Icons.settings,
         screen: const ConfiguracionScreen(),
+      ));
+    }
+
+    if (usuario.esSuperAdmin) {
+      items.add(_NavItem(
+        label: 'Empresas',
+        icon: Icons.domain_outlined,
+        iconActivo: Icons.domain,
+        screen: const EmpresasPendientesScreen(),
       ));
     }
 
