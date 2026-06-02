@@ -5,6 +5,7 @@ import 'sectores_screen.dart';
 import 'usuarios_screen.dart';
 import 'proveedores_screen.dart';
 import 'categorias_repuestos_screen.dart';
+import 'roles_screen.dart';
 
 class ConfiguracionScreen extends StatelessWidget {
   const ConfiguracionScreen({super.key});
@@ -40,6 +41,13 @@ class ConfiguracionScreen extends StatelessWidget {
         titulo: 'Usuarios',
         descripcion: 'Gestionar usuarios y roles',
         screen: const UsuariosScreen(),
+        visible: usuario?.esAdmin ?? false,
+      ),
+      _ConfigOpcion(
+        icono: Icons.admin_panel_settings_outlined,
+        titulo: 'Roles y permisos',
+        descripcion: 'Configurar roles y sus permisos',
+        screen: const RolesScreen(),
         visible: usuario?.esAdmin ?? false,
       ),
     ].where((o) => o.visible).toList();

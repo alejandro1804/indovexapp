@@ -184,6 +184,88 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
     );
   }
 
+  Future<void> _asignarSectores(Map<String, dynamic> usuario) async {
+    List<Map<String, dynamic>> sectores = [];
+    Set<String> asignados = {};
+    try {
+      final sectoresData = await _supabase.from('sectores').select('id, nombre').order('nombre');
+      sectores = List<Map<String, dynamic>>.from(sectoresData);
+      final asignadosData = await _supabase
+          .from('encargado_sector')
+          .select('sector_id')
+          .eq('usuario_id', usuario['id']);
+      for (final a in asignadosData) {
+        asignados.add(a['sector_id'] as String);
+      }
+    } catch (e) {
+      _mostrarError('Error al cargar sectores: $e');
+      return;
+    }
+
+    if (sectores.isEmpty) {
+      _mostrarError('No hay sectores creados. Creá sectores primero.');
+      return;
+    }
+
+    final seleccion = Set<String>.from(asignados);
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Sectores de ${usuario['nombre']}'),
+          content: SizedBox(
+            width: Responsive.isDesktop(context) ? 400 : double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: sectores.map((s) {
+                  final id = s['id'] as String;
+                  return CheckboxListTile(
+                    title: Text(s['nombre']),
+                    value: seleccion.contains(id),
+                    activeColor: const Color(0xFF1F4E79),
+                    onChanged: (v) => setDialogState(() {
+                      if (v == true) {
+                        seleccion.add(id);
+                      } else {
+                        seleccion.remove(id);
+                      }
+                    }),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white),
+              child: const Text('Guardar'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmar != true) return;
+
+    try {
+      await _supabase.from('encargado_sector').delete().eq('usuario_id', usuario['id']);
+      if (seleccion.isNotEmpty) {
+        final filas = seleccion.map((sectorId) => {
+          'usuario_id': usuario['id'],
+          'sector_id': sectorId,
+        }).toList();
+        await _supabase.from('encargado_sector').insert(filas);
+      }
+      _mostrarExito('Sectores actualizados');
+    } catch (e) {
+      _mostrarError('Error al guardar sectores: $e');
+    }
+  }
+
   Future<void> _resetearPassword(Map<String, dynamic> usuario) async {
     final confirmar = await showDialog<bool>(
       context: context,
@@ -431,6 +513,11 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                     value: 'cambiar_rol',
                     child: Row(children: [Icon(Icons.manage_accounts_outlined, size: 18), SizedBox(width: 8), Text('Cambiar rol')]),
                   ),
+                  if (rolNombre == 'encargado')
+                    const PopupMenuItem(
+                      value: 'asignar_sectores',
+                      child: Row(children: [Icon(Icons.domain_outlined, size: 18), SizedBox(width: 8), Text('Asignar sectores')]),
+                    ),
                   const PopupMenuItem(
                     value: 'resetear_pass',
                     child: Row(children: [Icon(Icons.lock_reset_outlined, size: 18), SizedBox(width: 8), Text('Resetear contraseña')]),
@@ -448,6 +535,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                 ],
                 onSelected: (value) {
                   if (value == 'cambiar_rol') _cambiarRol(usuario);
+                  if (value == 'asignar_sectores') _asignarSectores(usuario);
                   if (value == 'resetear_pass') _resetearPassword(usuario);
                   if (value == 'toggle_estado') _toggleEstado(usuario);
                 },
