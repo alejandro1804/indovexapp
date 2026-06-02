@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/repuesto.dart';
+import '../../providers/auth_provider.dart';
 import 'ingreso_repuesto_screen.dart';
 import 'salida_repuesto_screen.dart';
 
@@ -59,6 +61,9 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final stockBajo = _repuesto.stockBajo;
+    final usuario = context.read<AuthProvider>().usuario;
+    final puedeIngreso = usuario?.tienePermiso('registrar_ingreso') ?? false;
+    final puedeSalida = usuario?.tienePermiso('registrar_salida') ?? false;
 
     return Scaffold(
       appBar: AppBar(
@@ -119,37 +124,40 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          // Acciones
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _irAIngreso,
-                  icon: const Icon(Icons.add_circle_outline),
-                  label: const Text('Ingreso'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+          // Acciones (solo si tiene algún permiso de movimiento)
+          if (puedeIngreso || puedeSalida)
+            Row(
+              children: [
+                if (puedeIngreso)
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _irAIngreso,
+                      icon: const Icon(Icons.add_circle_outline),
+                      label: const Text('Ingreso'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _irASalida,
-                  icon: const Icon(Icons.remove_circle_outline),
-                  label: const Text('Salida'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red[700],
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                if (puedeIngreso && puedeSalida) const SizedBox(width: 12),
+                if (puedeSalida)
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _irASalida,
+                      icon: const Icon(Icons.remove_circle_outline),
+                      label: const Text('Salida'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red[700],
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
+              ],
+            ),
+          if (puedeIngreso || puedeSalida) const SizedBox(height: 16),
           // Info
           Card(
             elevation: 1,

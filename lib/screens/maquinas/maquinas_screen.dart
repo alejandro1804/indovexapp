@@ -39,6 +39,11 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
     }
   }
 
+  bool get _puedeGestionar {
+    final usuario = context.read<AuthProvider>().usuario;
+    return usuario?.tienePermiso('gestionar_maquinas') ?? false;
+  }
+
   List<Maquina> get _maquinasFiltradas {
     if (_filtroEstado == 'todos') return _maquinas;
     return _maquinas.where((m) => m.estado == _filtroEstado).toList();
@@ -188,6 +193,7 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
     final chipSize = Responsive.chipFontSize(context);
     final avatarRadius = Responsive.avatarRadius(context);
     final cardPadding = Responsive.cardPadding(context);
+    final puedeGestionar = _puedeGestionar;
 
     return Card(
       elevation: 1,
@@ -229,17 +235,18 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
                     ),
                     child: Text(_labelEstado(maquina.estado), style: TextStyle(fontSize: chipSize, color: _colorEstado(maquina.estado), fontWeight: FontWeight.w600)),
                   ),
-                  PopupMenuButton(
-                    icon: Icon(Icons.more_vert, size: avatarRadius),
-                    itemBuilder: (_) => [
-                      const PopupMenuItem(value: 'editar', child: Row(children: [Icon(Icons.edit_outlined, size: 18), SizedBox(width: 8), Text('Editar')])),
-                      const PopupMenuItem(value: 'eliminar', child: Row(children: [Icon(Icons.delete_outline, size: 18, color: Colors.red), SizedBox(width: 8), Text('Eliminar', style: TextStyle(color: Colors.red))])),
-                    ],
-                    onSelected: (value) {
-                      if (value == 'editar') _mostrarFormulario(maquina: maquina);
-                      if (value == 'eliminar') _eliminarMaquina(maquina);
-                    },
-                  ),
+                  if (puedeGestionar)
+                    PopupMenuButton(
+                      icon: Icon(Icons.more_vert, size: avatarRadius),
+                      itemBuilder: (_) => [
+                        const PopupMenuItem(value: 'editar', child: Row(children: [Icon(Icons.edit_outlined, size: 18), SizedBox(width: 8), Text('Editar')])),
+                        const PopupMenuItem(value: 'eliminar', child: Row(children: [Icon(Icons.delete_outline, size: 18, color: Colors.red), SizedBox(width: 8), Text('Eliminar', style: TextStyle(color: Colors.red))])),
+                      ],
+                      onSelected: (value) {
+                        if (value == 'editar') _mostrarFormulario(maquina: maquina);
+                        if (value == 'eliminar') _eliminarMaquina(maquina);
+                      },
+                    ),
                 ],
               ),
             ],
@@ -311,12 +318,14 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
                       ),
               ),
             ]),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _mostrarFormulario(),
-        backgroundColor: const Color(0xFF1F4E79),
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: _puedeGestionar
+          ? FloatingActionButton(
+              onPressed: () => _mostrarFormulario(),
+              backgroundColor: const Color(0xFF1F4E79),
+              foregroundColor: Colors.white,
+              child: const Icon(Icons.add),
+            )
+          : null,
     );
   }
 }

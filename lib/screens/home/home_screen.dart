@@ -33,7 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ));
     }
 
-    if (usuario.puedeVerStock) {
+    if (usuario.tienePermiso('ver_stock')) {
       items.add(_NavItem(
         label: 'Repuestos',
         icon: Icons.inventory_2_outlined,
@@ -42,7 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ));
     }
 
-    if (!usuario.esOperario && !usuario.esShopper) {
+    if (usuario.tienePermiso('ver_maquinas')) {
       items.add(_NavItem(
         label: 'Máquinas',
         icon: Icons.precision_manufacturing_outlined,
@@ -51,7 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ));
     }
 
-    if (usuario.esAdmin || usuario.esEncargado || usuario.esShopper || usuario.esSupervisor) {
+    if (usuario.tienePermiso('ver_reportes')) {
       items.add(_NavItem(
         label: 'Reportes',
         icon: Icons.bar_chart_outlined,

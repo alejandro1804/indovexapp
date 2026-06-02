@@ -232,7 +232,7 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
   @override
   Widget build(BuildContext context) {
     final usuario = context.read<AuthProvider>().usuario;
-    final puedeGestionar = usuario?.puedeGestionarStock ?? false;
+    final puedeGestionar = usuario?.tienePermiso('gestionar_repuestos') ?? false;
     final repuestosFiltrados = _repuestosFiltrados;
     final stockBajoCount = _repuestos.where((r) => r.stockBajo).length;
     final padding = Responsive.pagePadding(context);
