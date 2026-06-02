@@ -146,7 +146,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
   @override
   Widget build(BuildContext context) {
     final usuario = context.read<AuthProvider>().usuario;
-    final puedeCrear = usuario?.esAdmin == true || usuario?.esEncargado == true;
+    final puedeCrear = usuario?.tienePermiso('crear_ticket') ?? false;
     final ticketsFiltrados = _ticketsFiltrados;
     final padding = Responsive.pagePadding(context);
     final titleSize = Responsive.cardTitleSize(context);

@@ -24,7 +24,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<_NavItem> _buildNavItems(Usuario usuario) {
     final items = <_NavItem>[];
 
-    if (!usuario.esShopper) {
+    if (usuario.tienePermiso('ver_tickets')) {
       items.add(_NavItem(
         label: 'Tickets',
         icon: Icons.confirmation_number_outlined,

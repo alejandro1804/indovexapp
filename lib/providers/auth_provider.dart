@@ -26,7 +26,11 @@ class AuthProvider extends ChangeNotifier {
           .select('*, roles(nombre)')
           .eq('id', authUser.id)
           .single();
-      _usuario = Usuario.fromMap(data);
+
+      // Cargar los permisos del rol del usuario vía RPC (robusto, se saltea RLS)
+      final permisos = await _cargarPermisos();
+
+      _usuario = Usuario.fromMap(data, permisos: permisos);
     } catch (e) {
       _usuario = null;
     } finally {
@@ -35,37 +39,44 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-    Future<bool> login(String email, String password) async {
-        _errorLogin = null;
-        try {
-          await _supabase.auth.signInWithPassword(
-            email: email,
-            password: password,
-          );
+  Future<List<String>> _cargarPermisos() async {
+    try {
+      final data = await _supabase.rpc('mis_permisos');
+      return (data as List).map((e) => e.toString()).toList();
+    } catch (_) {
+      return [];
+    }
+  }
 
-          // Consultar el estado de la empresa vía RPC (se saltea RLS)
-          final estadoEmpresa = await _supabase.rpc('estado_mi_empresa');
+  Future<bool> login(String email, String password) async {
+    _errorLogin = null;
+    try {
+      await _supabase.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
 
-          if (estadoEmpresa != 'activa') {
-            await _supabase.auth.signOut();
-            if (estadoEmpresa == 'pendiente') {
-              _errorLogin = 'Tu empresa está pendiente de aprobación. Te avisaremos cuando esté activa.';
-            } else if (estadoEmpresa == 'suspendida') {
-              _errorLogin = 'Tu empresa está suspendida. Contactá al administrador del sistema.';
-            } else {
-              _errorLogin = 'Tu empresa no está activa.';
-            }
-            return false;
-          }
+      final estadoEmpresa = await _supabase.rpc('estado_mi_empresa');
 
-          await cargarUsuario();
-          return true;
-       } catch (e) {
-          _errorLogin = 'Email o contraseña incorrectos';
-          return false;
+      if (estadoEmpresa != 'activa') {
+        await _supabase.auth.signOut();
+        if (estadoEmpresa == 'pendiente') {
+          _errorLogin = 'Tu empresa está pendiente de aprobación. Te avisaremos cuando esté activa.';
+        } else if (estadoEmpresa == 'suspendida') {
+          _errorLogin = 'Tu empresa está suspendida. Contactá al administrador del sistema.';
+        } else {
+          _errorLogin = 'Tu empresa no está activa.';
         }
-
+        return false;
       }
+
+      await cargarUsuario();
+      return true;
+    } catch (e) {
+      _errorLogin = 'Email o contraseña incorrectos';
+      return false;
+    }
+  }
 
   Future<void> logout() async {
     await _supabase.auth.signOut();

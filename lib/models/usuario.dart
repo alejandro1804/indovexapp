@@ -8,6 +8,7 @@ class Usuario {
   final String rolNombre;
   final bool primerLogin;
   final bool esSuperAdmin;
+  final List<String> permisos;
 
   Usuario({
     required this.id,
@@ -19,9 +20,10 @@ class Usuario {
     required this.rolNombre,
     required this.primerLogin,
     required this.esSuperAdmin,
+    this.permisos = const [],
   });
 
-  factory Usuario.fromMap(Map<String, dynamic> map) {
+  factory Usuario.fromMap(Map<String, dynamic> map, {List<String> permisos = const []}) {
     return Usuario(
       id: map['id'],
       empresaId: map['empresa_id'],
@@ -32,7 +34,15 @@ class Usuario {
       rolNombre: map['roles']?['nombre'] ?? '',
       primerLogin: map['primer_login'] ?? false,
       esSuperAdmin: map['es_super_admin'] ?? false,
+      permisos: permisos,
     );
+  }
+
+  /// Verifica si el usuario tiene un permiso específico.
+  /// El super admin siempre tiene todos los permisos.
+  bool tienePermiso(String codigo) {
+    if (esSuperAdmin) return true;
+    return permisos.contains(codigo);
   }
 
   bool get esAdmin => rolNombre == 'admin';
