@@ -11,20 +11,17 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Esta funcion es PUBLICA: no requiere estar logueado (es auto-registro)
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    // 1. Leer los datos del formulario
     const body = await req.json()
     const {
       empresa_nombre, rut, direccion, telefono, email_contacto,
       admin_nombre, admin_email, admin_password,
     } = body
 
-    // 2. Validar datos obligatorios
     if (!empresa_nombre || !admin_nombre || !admin_email || !admin_password) {
       return new Response(JSON.stringify({ error: 'Faltan datos obligatorios' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -37,7 +34,7 @@ Deno.serve(async (req) => {
       })
     }
 
-    // 3. Crear el usuario admin en Auth
+    // 1. Crear el usuario admin en Auth
     const { data: nuevoAuth, error: errAuth } = await supabaseAdmin.auth.admin.createUser({
       email: admin_email,
       password: admin_password,
@@ -52,7 +49,7 @@ Deno.serve(async (req) => {
 
     const nuevoUserId = nuevoAuth.user.id
 
-    // 4. Crear la empresa en estado pendiente
+    // 2. Crear la empresa en estado pendiente con trial de 30 dias
     const { data: nuevaEmpresa, error: errEmpresa } = await supabaseAdmin
       .from('empresas')
       .insert({
@@ -62,11 +59,12 @@ Deno.serve(async (req) => {
         telefono: telefono ?? null,
         email_contacto: email_contacto ?? null,
         estado: 'pendiente',
+        plan: 'trial',
+        trial_vence: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
       })
       .select('id')
       .single()
 
-    // Si falla crear la empresa, borrar el usuario de Auth
     if (errEmpresa || !nuevaEmpresa) {
       await supabaseAdmin.auth.admin.deleteUser(nuevoUserId)
       return new Response(JSON.stringify({ error: 'Error al crear la empresa: ' + (errEmpresa?.message ?? '') }), {
@@ -74,7 +72,7 @@ Deno.serve(async (req) => {
       })
     }
 
-    // 5. Crear el usuario en la tabla usuarios, SIN rol (rol_id null hasta aprobar)
+    // 3. Crear el usuario en la tabla usuarios
     const { error: errUsuario } = await supabaseAdmin
       .from('usuarios')
       .insert({
@@ -87,7 +85,6 @@ Deno.serve(async (req) => {
         primer_login: false,
       })
 
-    // Si falla, deshacer todo: borrar empresa y usuario de Auth
     if (errUsuario) {
       await supabaseAdmin.from('empresas').delete().eq('id', nuevaEmpresa.id)
       await supabaseAdmin.auth.admin.deleteUser(nuevoUserId)
@@ -96,7 +93,6 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Exito
     return new Response(JSON.stringify({ success: true, empresa_id: nuevaEmpresa.id }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })

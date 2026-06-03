@@ -45,15 +45,13 @@ class Usuario {
     return permisos.contains(codigo);
   }
 
+  // Getters de rol: se usan para lógica de filtrado por identidad
+  // (ej: el técnico ve solo sus tickets, el encargado los de su sector).
+  // NO usar para permisos de acción — para eso está tienePermiso().
   bool get esAdmin => rolNombre == 'admin';
   bool get esEncargado => rolNombre == 'encargado';
   bool get esTecnico => rolNombre == 'tecnico';
   bool get esOperario => rolNombre == 'operario';
   bool get esShopper => rolNombre == 'shopper';
   bool get esSupervisor => rolNombre == 'supervisor';
-
-  bool get puedeVerStock => esAdmin || esEncargado || esTecnico || esShopper || esSupervisor;
-  bool get puedeGestionarStock => esAdmin || esEncargado || esShopper;
-  bool get puedeAsignarTickets => esAdmin || esEncargado;
-  bool get puedeGestionarUsuarios => esAdmin;
 }

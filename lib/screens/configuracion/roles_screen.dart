@@ -14,6 +14,9 @@ class _RolesScreenState extends State<RolesScreen> {
   List<Map<String, dynamic>> _roles = [];
   bool _cargando = true;
 
+  // Roles del sistema: no se pueden renombrar ni eliminar (solo editar permisos)
+  static const _rolesProtegidos = ['admin', 'encargado', 'tecnico'];
+
   @override
   void initState() {
     super.initState();
@@ -23,7 +26,6 @@ class _RolesScreenState extends State<RolesScreen> {
   Future<void> _cargar() async {
     setState(() => _cargando = true);
     try {
-      // Roles con conteo de permisos y de usuarios
       final roles = await _supabase.from('roles').select('id, nombre').order('nombre');
       final lista = <Map<String, dynamic>>[];
       for (final r in roles) {
@@ -160,24 +162,24 @@ class _RolesScreenState extends State<RolesScreen> {
                 separatorBuilder: (_, __) => const SizedBox(height: 8),
                 itemBuilder: (context, index) {
                   final rol = _roles[index];
-                  final esAdmin = rol['nombre'] == 'admin';
+                  final esProtegido = _rolesProtegidos.contains(rol['nombre']);
                   return Card(
                     elevation: 1,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     child: ListTile(
                       leading: CircleAvatar(
                         backgroundColor: const Color(0xFF1F4E79).withOpacity(0.1),
-                        child: Icon(esAdmin ? Icons.shield_outlined : Icons.badge_outlined, color: const Color(0xFF1F4E79)),
+                        child: Icon(esProtegido ? Icons.shield_outlined : Icons.badge_outlined, color: const Color(0xFF1F4E79)),
                       ),
                       title: Row(
                         children: [
                           Text(rol['nombre'], style: const TextStyle(fontWeight: FontWeight.w600)),
-                          if (esAdmin) ...[
+                          if (esProtegido) ...[
                             const SizedBox(width: 6),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(8)),
-                              child: const Text('protegido', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                              child: const Text('sistema', style: TextStyle(fontSize: 10, color: Colors.grey)),
                             ),
                           ],
                         ],
@@ -186,8 +188,8 @@ class _RolesScreenState extends State<RolesScreen> {
                       trailing: PopupMenuButton<String>(
                         itemBuilder: (_) => [
                           const PopupMenuItem(value: 'permisos', child: Row(children: [Icon(Icons.tune, size: 18), SizedBox(width: 8), Text('Permisos')])),
-                          if (!esAdmin) const PopupMenuItem(value: 'renombrar', child: Row(children: [Icon(Icons.edit_outlined, size: 18), SizedBox(width: 8), Text('Renombrar')])),
-                          if (!esAdmin) const PopupMenuItem(value: 'eliminar', child: Row(children: [Icon(Icons.delete_outline, size: 18, color: Colors.red), SizedBox(width: 8), Text('Eliminar', style: TextStyle(color: Colors.red))])),
+                          if (!esProtegido) const PopupMenuItem(value: 'renombrar', child: Row(children: [Icon(Icons.edit_outlined, size: 18), SizedBox(width: 8), Text('Renombrar')])),
+                          if (!esProtegido) const PopupMenuItem(value: 'eliminar', child: Row(children: [Icon(Icons.delete_outline, size: 18, color: Colors.red), SizedBox(width: 8), Text('Eliminar', style: TextStyle(color: Colors.red))])),
                         ],
                         onSelected: (v) {
                           if (v == 'permisos') {
