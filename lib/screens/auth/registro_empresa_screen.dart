@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class RegistroEmpresaScreen extends StatefulWidget {
   const RegistroEmpresaScreen({super.key});
@@ -22,6 +24,18 @@ class _RegistroEmpresaScreenState extends State<RegistroEmpresaScreen> {
 
   bool _verPassword = false;
   bool _enviando = false;
+  bool _aceptoTerminos = false; // ← NUEVO
+
+  // URLs de documentos legales
+  static const _urlTerminos = 'https://indovexapp.com/terminos.html';
+  static const _urlPrivacidad = 'https://indovexapp.com/privacidad.html';
+
+  Future<void> _abrirUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
 
   Future<void> _registrar() async {
     // Validacion basica
@@ -34,6 +48,12 @@ class _RegistroEmpresaScreenState extends State<RegistroEmpresaScreen> {
     }
     if (_adminPassword.text.trim().length < 6) {
       _mostrarError('La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+
+    // Validacion de términos ← NUEVO
+    if (!_aceptoTerminos) {
+      _mostrarError('Debés aceptar los Términos y Condiciones para continuar');
       return;
     }
 
@@ -80,19 +100,74 @@ class _RegistroEmpresaScreenState extends State<RegistroEmpresaScreen> {
         actions: [
           ElevatedButton(
             onPressed: () => Navigator.pop(context),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1F4E79),
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Entendido'),
           ),
         ],
       ),
     );
-    if (mounted) Navigator.pop(context); // volver al login
+    if (mounted) Navigator.pop(context);
   }
 
   void _mostrarError(String m) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(m), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+      SnackBar(
+        content: Text(m),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  // Widget del checkbox con links ← NUEVO
+  Widget _checkboxTerminos() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Checkbox(
+          value: _aceptoTerminos,
+          activeColor: const Color(0xFF1F4E79),
+          onChanged: _enviando
+              ? null
+              : (val) => setState(() => _aceptoTerminos = val ?? false),
+        ),
+        Expanded(
+          child: RichText(
+            text: TextSpan(
+              style: const TextStyle(fontSize: 13, color: Colors.black87),
+              children: [
+                const TextSpan(text: 'Acepto los '),
+                TextSpan(
+                  text: 'Términos y Condiciones',
+                  style: const TextStyle(
+                    color: Color(0xFF1F4E79),
+                    decoration: TextDecoration.underline,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  recognizer: TapGestureRecognizer()
+                    ..onTap = () => _abrirUrl(_urlTerminos),
+                ),
+                const TextSpan(text: ' y la '),
+                TextSpan(
+                  text: 'Política de Privacidad',
+                  style: const TextStyle(
+                    color: Color(0xFF1F4E79),
+                    decoration: TextDecoration.underline,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  recognizer: TapGestureRecognizer()
+                    ..onTap = () => _abrirUrl(_urlPrivacidad),
+                ),
+                const TextSpan(text: ' de Indovex.'),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -112,26 +187,90 @@ class _RegistroEmpresaScreenState extends State<RegistroEmpresaScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('Datos de la empresa', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1F4E79))),
+                const Text(
+                  'Datos de la empresa',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1F4E79),
+                  ),
+                ),
                 const SizedBox(height: 12),
-                TextField(controller: _empresaNombre, decoration: const InputDecoration(labelText: 'Nombre de la empresa *', border: OutlineInputBorder())),
+                TextField(
+                  controller: _empresaNombre,
+                  decoration: const InputDecoration(
+                    labelText: 'Nombre de la empresa *',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
                 const SizedBox(height: 12),
-                TextField(controller: _rut, decoration: const InputDecoration(labelText: 'RUT', border: OutlineInputBorder()), keyboardType: TextInputType.number),
+                TextField(
+                  controller: _rut,
+                  decoration: const InputDecoration(
+                    labelText: 'RUT',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
                 const SizedBox(height: 12),
-                TextField(controller: _direccion, decoration: const InputDecoration(labelText: 'Dirección', border: OutlineInputBorder())),
+                TextField(
+                  controller: _direccion,
+                  decoration: const InputDecoration(
+                    labelText: 'Dirección',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
                 const SizedBox(height: 12),
-                TextField(controller: _telefono, decoration: const InputDecoration(labelText: 'Teléfono', border: OutlineInputBorder()), keyboardType: TextInputType.phone),
+                TextField(
+                  controller: _telefono,
+                  decoration: const InputDecoration(
+                    labelText: 'Teléfono',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.phone,
+                ),
                 const SizedBox(height: 12),
-                TextField(controller: _emailContacto, decoration: const InputDecoration(labelText: 'Email de contacto', border: OutlineInputBorder()), keyboardType: TextInputType.emailAddress),
+                TextField(
+                  controller: _emailContacto,
+                  decoration: const InputDecoration(
+                    labelText: 'Email de contacto',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                ),
 
                 const SizedBox(height: 24),
-                const Text('Datos del administrador', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1F4E79))),
+                const Text(
+                  'Datos del administrador',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1F4E79),
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text('Esta será la cuenta principal de la empresa.', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                Text(
+                  'Esta será la cuenta principal de la empresa.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
                 const SizedBox(height: 12),
-                TextField(controller: _adminNombre, decoration: const InputDecoration(labelText: 'Nombre del administrador *', border: OutlineInputBorder()), textCapitalization: TextCapitalization.words),
+                TextField(
+                  controller: _adminNombre,
+                  decoration: const InputDecoration(
+                    labelText: 'Nombre del administrador *',
+                    border: OutlineInputBorder(),
+                  ),
+                  textCapitalization: TextCapitalization.words,
+                ),
                 const SizedBox(height: 12),
-                TextField(controller: _adminEmail, decoration: const InputDecoration(labelText: 'Email *', border: OutlineInputBorder()), keyboardType: TextInputType.emailAddress),
+                TextField(
+                  controller: _adminEmail,
+                  decoration: const InputDecoration(
+                    labelText: 'Email *',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _adminPassword,
@@ -140,21 +279,46 @@ class _RegistroEmpresaScreenState extends State<RegistroEmpresaScreen> {
                     labelText: 'Contraseña *',
                     border: const OutlineInputBorder(),
                     suffixIcon: IconButton(
-                      icon: Icon(_verPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: Colors.grey),
-                      onPressed: () => setState(() => _verPassword = !_verPassword),
+                      icon: Icon(
+                        _verPassword
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        color: Colors.grey,
+                      ),
+                      onPressed: () =>
+                          setState(() => _verPassword = !_verPassword),
                     ),
                   ),
                 ),
 
                 const SizedBox(height: 24),
+
+                // Checkbox términos ← NUEVO
+                _checkboxTerminos(),
+
+                const SizedBox(height: 16),
+
                 SizedBox(
                   height: 48,
                   child: ElevatedButton(
                     onPressed: _enviando ? null : _registrar,
-                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1F4E79),
+                      foregroundColor: Colors.white,
+                    ),
                     child: _enviando
-                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                        : const Text('Registrar empresa', style: TextStyle(fontSize: 16)),
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text(
+                            'Registrar empresa',
+                            style: TextStyle(fontSize: 16),
+                          ),
                   ),
                 ),
               ],
