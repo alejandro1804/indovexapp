@@ -11,6 +11,7 @@ import '../configuracion/configuracion_screen.dart';
 import '../admin/empresas_pendientes_screen.dart';
 import '../auth/login_screen.dart';
 import '../planes/planes_screen.dart';
+import '../admin/empresas_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -75,7 +76,8 @@ class _HomeScreenState extends State<HomeScreen> {
         label: 'Empresas',
         icon: Icons.domain_outlined,
         iconActivo: Icons.domain,
-        screen: const EmpresasPendientesScreen(),
+       // screen: const EmpresasPendientesScreen(),
+       screen: const EmpresasScreen(),
       ));
     }
 
