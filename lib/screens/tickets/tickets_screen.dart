@@ -102,6 +102,21 @@ class _TicketsScreenState extends State<TicketsScreen> {
     return _tickets.where((t) => t['estado'] == _filtroEstado).toList();
   }
 
+  // Formato auditoría: convierte UTC a hora local y muestra la zona.
+  // Ej: 2026-06-04 20:00:20 (UTC-3)
+  String _formatoAuditoria(DateTime? fechaUtc) {
+    if (fechaUtc == null) return '';
+    final local = fechaUtc.toLocal();
+    final f = '${local.year}-${_dos(local.month)}-${_dos(local.day)}';
+    final h = '${_dos(local.hour)}:${_dos(local.minute)}:${_dos(local.second)}';
+    final offset = local.timeZoneOffset;
+    final signo = offset.isNegative ? '-' : '+';
+    final horasOffset = offset.inHours.abs();
+    return '$f $h (UTC$signo$horasOffset)';
+  }
+
+  String _dos(int n) => n.toString().padLeft(2, '0');
+
   Color _colorEstado(String estado) {
     switch (estado) {
       case 'abierto': return Colors.blue;
@@ -222,7 +237,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
                             final maquina = ticket['maquinas'] as Map<String, dynamic>?;
                             final nombreTecnico = ticket['nombre_tecnico'] as String?;
                             final fecha = DateTime.tryParse(ticket['created_at'] ?? '');
-                            final fechaStr = fecha != null ? '${fecha.day}/${fecha.month}/${fecha.year}' : '';
+                            final fechaStr = _formatoAuditoria(fecha);
 
                             return Card(
                               elevation: 1,
@@ -267,7 +282,11 @@ class _TicketsScreenState extends State<TicketsScreen> {
                                           ],
                                           Icon(Icons.calendar_today_outlined, size: subtitleSize, color: Colors.grey[400]),
                                           const SizedBox(width: 3),
-                                          Text(fechaStr, style: TextStyle(fontSize: subtitleSize, color: Colors.grey[400])),
+                                          Expanded(
+                                            child: Text(fechaStr,
+                                                style: TextStyle(fontSize: subtitleSize, color: Colors.grey[400]),
+                                                overflow: TextOverflow.ellipsis),
+                                          ),
                                         ]),
                                       ]),
                                     ),

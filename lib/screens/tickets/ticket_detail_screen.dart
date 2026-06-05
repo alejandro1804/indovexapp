@@ -258,6 +258,22 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     }
   }
 
+  // Formato auditoría: convierte UTC a hora local de Uruguay y muestra la zona.
+  // Ej: 2026-06-04 20:00:20 (UTC-3)
+  String _formatoAuditoria(DateTime? fechaUtc) {
+    if (fechaUtc == null) return '-';
+    final local = fechaUtc.toLocal();
+    final f = '${local.year}-${_dos(local.month)}-${_dos(local.day)}';
+    final h = '${_dos(local.hour)}:${_dos(local.minute)}:${_dos(local.second)}';
+    // Offset de la zona local respecto a UTC (en Uruguay es -3)
+    final offset = local.timeZoneOffset;
+    final signo = offset.isNegative ? '-' : '+';
+    final horasOffset = offset.inHours.abs();
+    return '$f $h (UTC$signo$horasOffset)';
+  }
+
+  String _dos(int n) => n.toString().padLeft(2, '0');
+
   void _mostrarExito(String m) { if (!mounted) return; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating)); }
   void _mostrarError(String m) { if (!mounted) return; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating)); }
 
@@ -311,7 +327,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                 _infoRow('Sector', (maquina?['sectores'] as Map?)?['nombre'] ?? '-'),
                 _infoRow('Creado por', _nombreCreadoPor.isNotEmpty ? _nombreCreadoPor : '-'),
                 if (_nombreTecnico.isNotEmpty) _infoRow('Técnico', _nombreTecnico),
-                if (fecha != null) _infoRow('Fecha', '${fecha.day}/${fecha.month}/${fecha.year} ${fecha.hour}:${fecha.minute.toString().padLeft(2, '0')}'),
+                if (fecha != null) _infoRow('Fecha', _formatoAuditoria(fecha)),
                 const SizedBox(height: 8),
                 const Text('Descripción', style: TextStyle(color: Colors.grey, fontSize: 13)),
                 const SizedBox(height: 4),
@@ -367,7 +383,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                           if (h['comentario'] != null)
                             Text(h['comentario'], style: TextStyle(color: Colors.grey[600], fontSize: 12)),
                           Text(
-                            '${(h['usuarios'] as Map?)?['nombre'] ?? ''} — ${fechaH != null ? '${fechaH.day}/${fechaH.month}/${fechaH.year}' : ''}',
+                            '${(h['usuarios'] as Map?)?['nombre'] ?? ''} — ${_formatoAuditoria(fechaH)}',
                             style: TextStyle(color: Colors.grey[400], fontSize: 11),
                           ),
                         ])),
