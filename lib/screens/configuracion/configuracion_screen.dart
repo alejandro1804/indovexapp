@@ -72,8 +72,8 @@ class ConfiguracionScreen extends StatelessWidget {
                 backgroundColor: const Color(0xFF1F4E79).withOpacity(0.1),
                 child: Icon(opcion.icono, color: const Color(0xFF1F4E79)),
               ),
-              title: Text(opcion.titulo, style: const TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: Text(opcion.descripcion),
+              title: Text(opcion.titulo, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+              subtitle: Text(opcion.descripcion, style: const TextStyle(fontSize: 12)),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => Navigator.push(
                 context,

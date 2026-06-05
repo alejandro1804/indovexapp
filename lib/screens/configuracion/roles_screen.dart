@@ -173,18 +173,18 @@ class _RolesScreenState extends State<RolesScreen> {
                       ),
                       title: Row(
                         children: [
-                          Text(rol['nombre'], style: const TextStyle(fontWeight: FontWeight.w600)),
+                          Text(rol['nombre'], style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                           if (esProtegido) ...[
                             const SizedBox(width: 6),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(8)),
-                              child: const Text('sistema', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                              child: const Text('sistema', style: TextStyle(fontSize: 8, color: Colors.grey)),
                             ),
                           ],
                         ],
                       ),
-                      subtitle: Text('${rol['permisos']} permisos · ${rol['usuarios']} usuarios'),
+                      subtitle: Text('${rol['permisos']} permisos · ${rol['usuarios']} usuarios', style: const TextStyle(fontSize: 12)),
                       trailing: PopupMenuButton<String>(
                         itemBuilder: (_) => [
                           const PopupMenuItem(value: 'permisos', child: Row(children: [Icon(Icons.tune, size: 18), SizedBox(width: 8), Text('Permisos')])),

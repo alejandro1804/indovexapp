@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/responsive.dart';
+import '../../widgets/adjuntos_section.dart';
 
 class TicketDetailScreen extends StatefulWidget {
   final String ticketId;
@@ -376,6 +377,14 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
               ]),
             ),
           ),
+          const SizedBox(height: 16),
+
+          // Adjuntos
+          AdjuntosSection(
+            entidadTipo: 'ticket',
+            entidadId: widget.ticketId,
+          ),
+          const SizedBox(height: 24),
         ],
       ),
     );

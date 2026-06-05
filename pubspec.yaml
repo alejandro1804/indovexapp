@@ -19,6 +19,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   flutter_native_splash: ^2.4.8
   url_launcher: ^6.3.2
+  file_picker: ^8.1.2
+  mime: ^1.0.5
 
 dev_dependencies:
   flutter_test:

@@ -99,7 +99,7 @@ class _PermisosRolScreenState extends State<PermisosRolScreen> {
                       children: [
                         Icon(Icons.info_outline, size: 18, color: Colors.amber[800]),
                         const SizedBox(width: 8),
-                        Expanded(child: Text('El rol admin siempre conserva "Gestionar roles" y "Gestionar usuarios".', style: TextStyle(fontSize: 12, color: Colors.amber[900]))),
+                        Expanded(child: Text('El rol admin siempre conserva "Gestionar roles" y "Gestionar usuarios".', style: TextStyle(fontSize: 10, color: Colors.amber[900]))),
                       ],
                     ),
                   ),
@@ -112,7 +112,7 @@ class _PermisosRolScreenState extends State<PermisosRolScreen> {
                         children: [
                           Padding(
                             padding: const EdgeInsets.only(top: 12, bottom: 4, left: 4),
-                            child: Text(entry.key.toUpperCase(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey[600])),
+                            child: Text(entry.key.toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey[600])),
                           ),
                           Card(
                             elevation: 0,
@@ -122,7 +122,7 @@ class _PermisosRolScreenState extends State<PermisosRolScreen> {
                                 final id = p['id'] as String;
                                 final marcado = _seleccionados.contains(id);
                                 return SwitchListTile(
-                                  title: Text(p['nombre'], style: const TextStyle(fontSize: 14)),
+                                  title: Text(p['nombre'], style: const TextStyle(fontSize: 12)),
                                   value: marcado,
                                   activeColor: const Color(0xFF1F4E79),
                                   onChanged: (v) {
@@ -153,7 +153,7 @@ class _PermisosRolScreenState extends State<PermisosRolScreen> {
                       style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white),
                       child: _guardando
                           ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : const Text('Guardar permisos', style: TextStyle(fontSize: 16)),
+                          : const Text('Guardar permisos', style: TextStyle(fontSize: 14)),
                     ),
                   ),
                 ),

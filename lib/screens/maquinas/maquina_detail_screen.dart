@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/maquina.dart';
+import '../../widgets/adjuntos_section.dart';
 
 class MaquinaDetailScreen extends StatelessWidget {
   final Maquina maquina;
@@ -59,7 +60,8 @@ class MaquinaDetailScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          // Info
+
+          // Información
           Card(
             elevation: 1,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -68,7 +70,10 @@ class MaquinaDetailScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Información', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const Text(
+                    'Información',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
                   const Divider(),
                   _infoRow('Código', maquina.codigo),
                   if (maquina.descripcion != null && maquina.descripcion!.isNotEmpty)
@@ -78,6 +83,7 @@ class MaquinaDetailScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
+
           // Acciones rápidas
           Row(
             children: [
@@ -108,6 +114,15 @@ class MaquinaDetailScreen extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 16),
+
+          // Adjuntos
+          AdjuntosSection(
+            entidadTipo: 'maquina',
+            entidadId: maquina.id,
+          ),
+
+          const SizedBox(height: 24),
         ],
       ),
     );
