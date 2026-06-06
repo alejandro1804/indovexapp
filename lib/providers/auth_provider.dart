@@ -12,30 +12,37 @@ class AuthProvider extends ChangeNotifier {
   DateTime? _trialVence;
   String _plan = 'trial';
 
+  // Modo admin (solo super admin puede togglear)
+  bool _modoAdmin = false;
+
   Usuario? get usuario => _usuario;
   bool get cargando => _cargando;
   bool get estaAutenticado => _usuario != null;
   String? get errorLogin => _errorLogin;
   String get plan => _plan;
+  bool get modoAdmin => _modoAdmin;
   get supabase => _supabase;
 
-  // Dias restantes del trial (negativo = vencido)
   int get diasRestantesTrial {
     if (_trialVence == null) return 999;
     return _trialVence!.difference(DateTime.now()).inDays;
   }
 
-  // True si el trial vencio y no tiene plan pago
   bool get trialVencido {
     if (_plan != 'trial') return false;
     return diasRestantesTrial < 0;
   }
 
-  // True si quedan 5 dias o menos (para mostrar banner)
   bool get mostrarBannerTrial {
     if (_plan != 'trial') return false;
     final dias = diasRestantesTrial;
     return dias >= 0 && dias <= 5;
+  }
+
+  void toggleModoAdmin() {
+    if (_usuario?.esSuperAdmin != true) return;
+    _modoAdmin = !_modoAdmin;
+    notifyListeners();
   }
 
   Future<void> cargarUsuario() async {
@@ -55,7 +62,6 @@ class AuthProvider extends ChangeNotifier {
       final permisos = await _cargarPermisos();
       _usuario = Usuario.fromMap(data, permisos: permisos);
 
-      // Cargar datos del trial de la empresa
       await _cargarDatosEmpresa(_usuario!.empresaId);
 
     } catch (e) {
@@ -66,7 +72,7 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-Future<void> _cargarDatosEmpresa(String empresaId) async {
+  Future<void> _cargarDatosEmpresa(String empresaId) async {
     try {
       final data = await _supabase
           .from('empresas')
@@ -74,18 +80,10 @@ Future<void> _cargarDatosEmpresa(String empresaId) async {
           .eq('id', empresaId)
           .single();
 
-      //print('>>> EMPRESA DATA: $data');
-      //print('>>> PLAN: ${data['plan']}');
-      //print('>>> TRIAL_VENCE: ${data['trial_vence']}');
-
       _plan = data['plan'] ?? 'trial';
       if (data['trial_vence'] != null) {
         _trialVence = DateTime.parse(data['trial_vence']);
       }
-
-     // print('>>> DIAS RESTANTES: $diasRestantesTrial');
-     // print('>>> MOSTRAR BANNER: $mostrarBannerTrial');
-
     } catch (e) {
       print('>>> ERROR cargarDatosEmpresa: $e');
       _plan = 'trial';
@@ -137,6 +135,7 @@ Future<void> _cargarDatosEmpresa(String empresaId) async {
     _usuario = null;
     _plan = 'trial';
     _trialVence = null;
+    _modoAdmin = false;
     notifyListeners();
   }
 }

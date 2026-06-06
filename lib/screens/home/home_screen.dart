@@ -8,7 +8,6 @@ import '../repuestos/repuestos_screen.dart';
 import '../maquinas/maquinas_screen.dart';
 import '../reportes/reportes_screen.dart';
 import '../configuracion/configuracion_screen.dart';
-import '../admin/empresas_pendientes_screen.dart';
 import '../auth/login_screen.dart';
 import '../planes/planes_screen.dart';
 import '../admin/empresas_screen.dart';
@@ -23,7 +22,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
-  List<_NavItem> _buildNavItems(Usuario usuario) {
+  // Items cuando está en modo CLIENTE (normal)
+  List<_NavItem> _buildNavItemsCliente(Usuario usuario) {
     final items = <_NavItem>[];
 
     if (usuario.tienePermiso('ver_tickets')) {
@@ -71,17 +71,19 @@ class _HomeScreenState extends State<HomeScreen> {
       ));
     }
 
-    if (usuario.esSuperAdmin) {
-      items.add(_NavItem(
+    return items;
+  }
+
+  // Items cuando está en modo ADMIN (super admin)
+  List<_NavItem> _buildNavItemsAdmin() {
+    return [
+      _NavItem(
         label: 'Empresas',
         icon: Icons.domain_outlined,
         iconActivo: Icons.domain,
-       // screen: const EmpresasPendientesScreen(),
-       screen: const EmpresasScreen(),
-      ));
-    }
-
-    return items;
+        screen: const EmpresasScreen(),
+      ),
+    ];
   }
 
   Future<void> _logout(BuildContext context) async {
@@ -122,6 +124,31 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // Banner que se muestra en modo admin para recordar que estás en ese modo
+  Widget _buildBannerModoAdmin(BuildContext context) {
+    return GestureDetector(
+      onTap: () => context.read<AuthProvider>().toggleModoAdmin(),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        color: const Color(0xFF1F4E79),
+        child: Row(
+          children: [
+            const Icon(Icons.admin_panel_settings, color: Colors.white70, size: 16),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                'Modo administrador de plataforma — Tocá para volver a modo cliente',
+                style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+            ),
+            const Icon(Icons.swap_horiz, color: Colors.white70, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
@@ -131,12 +158,14 @@ class _HomeScreenState extends State<HomeScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    // Si el trial vencio y no es super admin, mostrar pantalla bloqueante
     if (authProvider.trialVencido && !usuario.esSuperAdmin) {
       return PlanesScreen(bloqueante: true);
     }
 
-    final navItems = _buildNavItems(usuario);
+    final modoAdmin = authProvider.modoAdmin && usuario.esSuperAdmin;
+    final navItems = modoAdmin
+        ? _buildNavItemsAdmin()
+        : _buildNavItemsCliente(usuario);
 
     if (navItems.isEmpty) {
       return Scaffold(
@@ -173,34 +202,63 @@ class _HomeScreenState extends State<HomeScreen> {
     final isDesktop = Responsive.isTabletOrDesktop(context);
 
     return Scaffold(
-      appBar: isDesktop ? null : AppBar(
-        backgroundColor: const Color(0xFF1F4E79),
-        foregroundColor: Colors.white,
-        title: const Text('Indovex', style: TextStyle(fontWeight: FontWeight.bold)),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(usuario.nombre, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                  Text(usuario.rolNombre.toUpperCase(), style: const TextStyle(fontSize: 10, color: Colors.white70)),
-                ],
-              ),
+      appBar: isDesktop
+          ? null
+          : AppBar(
+              backgroundColor: const Color(0xFF1F4E79),
+              foregroundColor: Colors.white,
+              title: const Text('Indovex', style: TextStyle(fontWeight: FontWeight.bold)),
+              actions: [
+                // Botón switcher solo visible para super admin
+                if (usuario.esSuperAdmin)
+                  Tooltip(
+                    message: modoAdmin ? 'Cambiar a modo cliente' : 'Cambiar a modo admin',
+                    child: IconButton(
+                      icon: Icon(
+                        modoAdmin
+                            ? Icons.person_outline
+                            : Icons.admin_panel_settings_outlined,
+                        color: modoAdmin ? Colors.amber[300] : Colors.white70,
+                      ),
+                      onPressed: () {
+                        context.read<AuthProvider>().toggleModoAdmin();
+                        setState(() => _selectedIndex = 0);
+                      },
+                    ),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(usuario.nombre,
+                            style: const TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.bold)),
+                        Text(
+                          modoAdmin ? 'SUPER ADMIN' : usuario.rolNombre.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: modoAdmin ? Colors.amber[300] : Colors.white70,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.logout),
+                  onPressed: () => _logout(context),
+                ),
+              ],
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => _logout(context),
-          ),
-        ],
-      ),
       body: Column(
         children: [
-          // Banner trial si corresponde
-          if (authProvider.mostrarBannerTrial && !usuario.esSuperAdmin)
+          // Banner modo admin
+          if (modoAdmin) _buildBannerModoAdmin(context),
+          // Banner trial (solo en modo cliente)
+          if (!modoAdmin && authProvider.mostrarBannerTrial && !usuario.esSuperAdmin)
             _buildBannerTrial(authProvider.diasRestantesTrial),
           // Contenido principal
           Expanded(
@@ -241,34 +299,87 @@ class _HomeScreenState extends State<HomeScreen> {
                                         backgroundColor: Colors.white24,
                                         child: Text(
                                           usuario.nombre[0].toUpperCase(),
-                                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                          style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold),
                                         ),
                                       ),
                                       const SizedBox(width: 10),
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Text(
                                               usuario.nombre,
-                                              style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                                              style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w600),
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                             Text(
-                                              usuario.rolNombre.toUpperCase(),
-                                              style: const TextStyle(color: Colors.white54, fontSize: 10),
+                                              modoAdmin
+                                                  ? 'SUPER ADMIN'
+                                                  : usuario.rolNombre.toUpperCase(),
+                                              style: TextStyle(
+                                                color: modoAdmin
+                                                    ? Colors.amber[300]
+                                                    : Colors.white54,
+                                                fontSize: 10,
+                                              ),
                                             ),
                                           ],
                                         ),
                                       ),
                                     ],
                                   ),
+                                  // Switcher en sidebar desktop
+                                  if (usuario.esSuperAdmin) ...[
+                                    const SizedBox(height: 12),
+                                    GestureDetector(
+                                      onTap: () {
+                                        context.read<AuthProvider>().toggleModoAdmin();
+                                        setState(() => _selectedIndex = 0);
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white12,
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              modoAdmin
+                                                  ? Icons.person_outline
+                                                  : Icons.admin_panel_settings_outlined,
+                                              color: Colors.white70,
+                                              size: 14,
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              modoAdmin
+                                                  ? 'Modo cliente'
+                                                  : 'Modo admin',
+                                              style: const TextStyle(
+                                                  color: Colors.white70,
+                                                  fontSize: 12),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),
                             Expanded(
                               child: ListView.builder(
-                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 12),
                                 itemCount: navItems.length,
                                 itemBuilder: (context, index) {
                                   final item = navItems[index];
@@ -276,25 +387,38 @@ class _HomeScreenState extends State<HomeScreen> {
                                   return Container(
                                     margin: const EdgeInsets.only(bottom: 4),
                                     decoration: BoxDecoration(
-                                      color: seleccionado ? Colors.white.withOpacity(0.15) : Colors.transparent,
+                                      color: seleccionado
+                                          ? Colors.white.withOpacity(0.15)
+                                          : Colors.transparent,
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: ListTile(
                                       leading: Icon(
-                                        seleccionado ? item.iconActivo : item.icon,
-                                        color: seleccionado ? Colors.white : Colors.white60,
+                                        seleccionado
+                                            ? item.iconActivo
+                                            : item.icon,
+                                        color: seleccionado
+                                            ? Colors.white
+                                            : Colors.white60,
                                         size: 22,
                                       ),
                                       title: Text(
                                         item.label,
                                         style: TextStyle(
-                                          color: seleccionado ? Colors.white : Colors.white60,
-                                          fontWeight: seleccionado ? FontWeight.w600 : FontWeight.normal,
+                                          color: seleccionado
+                                              ? Colors.white
+                                              : Colors.white60,
+                                          fontWeight: seleccionado
+                                              ? FontWeight.w600
+                                              : FontWeight.normal,
                                           fontSize: 14,
                                         ),
                                       ),
-                                      onTap: () => setState(() => _selectedIndex = index),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      onTap: () =>
+                                          setState(() => _selectedIndex = index),
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(8)),
                                     ),
                                   );
                                 },
@@ -303,10 +427,14 @@ class _HomeScreenState extends State<HomeScreen> {
                             Padding(
                               padding: const EdgeInsets.all(12),
                               child: ListTile(
-                                leading: const Icon(Icons.logout, color: Colors.white54, size: 22),
-                                title: const Text('Cerrar sesión', style: TextStyle(color: Colors.white54, fontSize: 14)),
+                                leading: const Icon(Icons.logout,
+                                    color: Colors.white54, size: 22),
+                                title: const Text('Cerrar sesión',
+                                    style: TextStyle(
+                                        color: Colors.white54, fontSize: 14)),
                                 onTap: () => _logout(context),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8)),
                               ),
                             ),
                           ],
@@ -331,11 +459,13 @@ class _HomeScreenState extends State<HomeScreen> {
               selectedItemColor: const Color(0xFF1F4E79),
               unselectedItemColor: Colors.grey,
               type: BottomNavigationBarType.fixed,
-              items: navItems.map((item) => BottomNavigationBarItem(
-                icon: Icon(item.icon),
-                activeIcon: Icon(item.iconActivo),
-                label: item.label,
-              )).toList(),
+              items: navItems
+                  .map((item) => BottomNavigationBarItem(
+                        icon: Icon(item.icon),
+                        activeIcon: Icon(item.iconActivo),
+                        label: item.label,
+                      ))
+                  .toList(),
             ),
     );
   }
