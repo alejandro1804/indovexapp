@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/auth_provider.dart';
+import 'empresa_detalle_admin_screen.dart';
 
 class EmpresasScreen extends StatefulWidget {
   const EmpresasScreen({super.key});
@@ -19,7 +20,6 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
   final Map<String, Map<String, dynamic>> _storage = {};
   final Set<String> _cargandoStorage = {};
 
-  // Empresa del super admin — no se puede suspender
   String _miEmpresaId = '';
 
   @override
@@ -327,7 +327,6 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            // Badge "Mi empresa" para identificar la propia
             if (esMiEmpresa)
               Container(
                 margin: const EdgeInsets.only(left: 6),
@@ -338,7 +337,8 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
                   border: Border.all(color: const Color(0xFF1F4E79).withOpacity(0.3)),
                 ),
                 child: const Text('Mi empresa',
-                    style: TextStyle(fontSize: 9, color: Color(0xFF1F4E79), fontWeight: FontWeight.w600)),
+                    style: TextStyle(
+                        fontSize: 9, color: Color(0xFF1F4E79), fontWeight: FontWeight.w600)),
               ),
           ],
         ),
@@ -363,45 +363,65 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
           _dato('Registrada', _fechaCorta(e['created_at'])),
 
           const SizedBox(height: 10),
-
           _seccionStorage(empresaId, e),
-
           const SizedBox(height: 10),
 
+          // ── Ver empresa (siempre visible si está activa o suspendida) ──
+          if (estado == 'activa' || estado == 'suspendida') ...[
+            _botonAccion(
+              'Ver empresa',
+              Icons.open_in_new,
+              const Color(0xFF1F4E79),
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => EmpresaDetalleAdminScreen(
+                    empresaId: empresaId,
+                    empresaNombre: e['empresa_nombre'] ?? '',
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+          ],
+
+          // ── Aprobar ──
           if (estado == 'pendiente')
             _botonAccion('Aprobar empresa', Icons.check_circle_outline, Colors.green,
                 () => _aprobarEmpresa(e)),
 
-          // Suspender solo si NO es mi empresa
-          if (estado == 'activa' && !esMiEmpresa)
+          // ── Suspender (no disponible para mi empresa) ──
+          if (estado == 'activa' && !esMiEmpresa) ...[
+            const SizedBox(height: 6),
             _botonAccion('Suspender', Icons.block, Colors.red,
                 () => _suspenderEmpresa(e), outlined: true),
+          ],
 
-          // Si es mi empresa activa, mostrar aviso en lugar del botón
-          if (estado == 'activa' && esMiEmpresa)
+          if (estado == 'activa' && esMiEmpresa) ...[
+            const SizedBox(height: 6),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
                 color: Colors.grey[100],
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline, size: 14, color: Colors.grey[500]),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'Esta es tu empresa — no puede suspenderse',
-                      style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-                    ),
-                  ),
-                ],
-              ),
+              child: Row(children: [
+                Icon(Icons.info_outline, size: 13, color: Colors.grey[500]),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text('Esta es tu empresa — no puede suspenderse',
+                      style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                ),
+              ]),
             ),
+          ],
 
-          if (estado == 'suspendida')
-            _botonAccion('Reactivar', Icons.restart_alt, const Color(0xFF1F4E79),
+          // ── Reactivar ──
+          if (estado == 'suspendida') ...[
+            const SizedBox(height: 6),
+            _botonAccion('Reactivar', Icons.restart_alt, Colors.green,
                 () => _reactivarEmpresa(e)),
+          ],
         ],
       ),
     );
@@ -415,29 +435,23 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            const Icon(Icons.storage, size: 13, color: Colors.grey),
-            const SizedBox(width: 4),
-            const Text('Almacenamiento',
-                style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600)),
-          ],
-        ),
+        Row(children: [
+          const Icon(Icons.storage, size: 13, color: Colors.grey),
+          const SizedBox(width: 4),
+          const Text('Almacenamiento',
+              style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600)),
+        ]),
         const SizedBox(height: 2),
         GestureDetector(
           onTap: () => _editarLimiteStorage(empresa),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.edit, size: 11, color: Color(0xFF1F4E79)),
-              const SizedBox(width: 3),
-              Text('Límite: $limiteActual MB — tocá para editar',
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF1F4E79))),
-            ],
-          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.edit, size: 11, color: Color(0xFF1F4E79)),
+            const SizedBox(width: 3),
+            Text('Límite: $limiteActual MB — tocá para editar',
+                style: const TextStyle(fontSize: 11, color: Color(0xFF1F4E79))),
+          ]),
         ),
         const SizedBox(height: 8),
-
         if (cargando)
           const LinearProgressIndicator()
         else if (datos == null)
@@ -466,30 +480,24 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
       color = Colors.teal;
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(
-            value: progreso,
-            backgroundColor: Colors.grey[200],
-            valueColor: AlwaysStoppedAnimation<Color>(color),
-            minHeight: 7,
-          ),
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: LinearProgressIndicator(
+          value: progreso,
+          backgroundColor: Colors.grey[200],
+          valueColor: AlwaysStoppedAnimation<Color>(color),
+          minHeight: 7,
         ),
-        const SizedBox(height: 4),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('${usado.toStringAsFixed(1)} MB usados',
-                style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
-            Text('${porcentaje.toStringAsFixed(1)}% / $limite MB',
-                style: const TextStyle(fontSize: 10, color: Colors.grey)),
-          ],
-        ),
-      ],
-    );
+      ),
+      const SizedBox(height: 4),
+      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Text('${usado.toStringAsFixed(1)} MB usados',
+            style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
+        Text('${porcentaje.toStringAsFixed(1)}% / $limite MB',
+            style: const TextStyle(fontSize: 10, color: Colors.grey)),
+      ]),
+    ]);
   }
 
   Widget _desgloseStorage(Map<String, dynamic> datos) {
@@ -510,14 +518,11 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
               color: Colors.grey[100],
               borderRadius: BorderRadius.circular(6),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(item.$1, style: const TextStyle(fontSize: 9, color: Colors.grey)),
-                Text('${mb.toStringAsFixed(1)} MB',
-                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600)),
-              ],
-            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(item.$1, style: const TextStyle(fontSize: 9, color: Colors.grey)),
+              Text('${mb.toStringAsFixed(1)} MB',
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600)),
+            ]),
           ),
         );
       }).toList(),
@@ -592,15 +597,12 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: color.withOpacity(0.4)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icono, size: 12, color: color),
-          const SizedBox(width: 4),
-          Text(texto,
-              style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
-        ],
-      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icono, size: 12, color: color),
+        const SizedBox(width: 4),
+        Text(texto,
+            style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
+      ]),
     );
   }
 
@@ -614,17 +616,13 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
   Widget _dato(String label, dynamic valor) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 3),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('$label: ', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-          Expanded(
-            child: Text('$valor',
-                style: const TextStyle(fontSize: 12),
-                overflow: TextOverflow.ellipsis),
-          ),
-        ],
-      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('$label: ', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+        Expanded(
+          child: Text('$valor',
+              style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+        ),
+      ]),
     );
   }
 }
