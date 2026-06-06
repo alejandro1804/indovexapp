@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../providers/auth_provider.dart';
 
 class EmpresasScreen extends StatefulWidget {
   const EmpresasScreen({super.key});
@@ -12,12 +14,19 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
   final _supabase = Supabase.instance.client;
   List<Map<String, dynamic>> _empresas = [];
   bool _cargando = true;
-
   String _filtro = 'todas';
+
+  final Map<String, Map<String, dynamic>> _storage = {};
+  final Set<String> _cargandoStorage = {};
+
+  // Empresa del super admin — no se puede suspender
+  String _miEmpresaId = '';
 
   @override
   void initState() {
     super.initState();
+    final usuario = context.read<AuthProvider>().usuario;
+    _miEmpresaId = usuario?.empresaId ?? '';
     _cargar();
   }
 
@@ -27,11 +36,28 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
       final data = await _supabase.rpc('listar_todas_empresas');
       setState(() {
         _empresas = List<Map<String, dynamic>>.from(data);
+        _storage.clear();
       });
     } catch (e) {
       _mostrarError('Error al cargar empresas: $e');
     } finally {
       if (mounted) setState(() => _cargando = false);
+    }
+  }
+
+  Future<void> _cargarStorage(String empresaId) async {
+    if (_storage.containsKey(empresaId) || _cargandoStorage.contains(empresaId)) return;
+    setState(() => _cargandoStorage.add(empresaId));
+    try {
+      final data = await _supabase.rpc('uso_storage_empresa', params: {'p_empresa_id': empresaId});
+      if (mounted) {
+        setState(() {
+          _storage[empresaId] = Map<String, dynamic>.from(data);
+          _cargandoStorage.remove(empresaId);
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _cargandoStorage.remove(empresaId));
     }
   }
 
@@ -71,10 +97,7 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
           'Se crearán los roles base y el usuario admin quedará habilitado.',
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
             onPressed: () => Navigator.pop(ctx, true),
@@ -83,9 +106,7 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
         ],
       ),
     );
-
     if (confirmar != true) return;
-
     try {
       await _supabase.rpc('aprobar_empresa', params: {'p_empresa_id': empresa['empresa_id']});
       _mostrarExito('Empresa aprobada correctamente');
@@ -102,10 +123,7 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
         title: const Text('Suspender empresa'),
         content: Text('¿Suspender "${empresa['empresa_nombre']}"? El acceso quedará bloqueado.'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
@@ -114,14 +132,9 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
         ],
       ),
     );
-
     if (confirmar != true) return;
-
     try {
-      await _supabase
-          .from('empresas')
-          .update({'estado': 'suspendida'})
-          .eq('id', empresa['empresa_id']);
+      await _supabase.from('empresas').update({'estado': 'suspendida'}).eq('id', empresa['empresa_id']);
       _mostrarExito('Empresa suspendida');
       await _cargar();
     } catch (e) {
@@ -136,10 +149,7 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
         title: const Text('Reactivar empresa'),
         content: Text('¿Reactivar "${empresa['empresa_nombre']}"?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F4E79)),
             onPressed: () => Navigator.pop(ctx, true),
@@ -148,18 +158,70 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
         ],
       ),
     );
-
     if (confirmar != true) return;
-
     try {
-      await _supabase
-          .from('empresas')
-          .update({'estado': 'activa'})
-          .eq('id', empresa['empresa_id']);
+      await _supabase.from('empresas').update({'estado': 'activa'}).eq('id', empresa['empresa_id']);
       _mostrarExito('Empresa reactivada');
       await _cargar();
     } catch (e) {
       _mostrarError('Error al reactivar: $e');
+    }
+  }
+
+  Future<void> _editarLimiteStorage(Map<String, dynamic> empresa) async {
+    final limite = empresa['storage_mb_limit'] ?? 500;
+    final controller = TextEditingController(text: limite.toString());
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Límite de almacenamiento'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Empresa: ${empresa['empresa_nombre']}',
+                style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Límite en MB',
+                suffixText: 'MB',
+                border: OutlineInputBorder(),
+                helperText: 'Ej: 500 MB · 2048 = 2 GB',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F4E79)),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Guardar', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar != true) return;
+    final nuevoLimite = int.tryParse(controller.text.trim());
+    if (nuevoLimite == null || nuevoLimite <= 0) {
+      _mostrarError('Ingresá un número válido mayor a 0');
+      return;
+    }
+    try {
+      await _supabase
+          .from('empresas')
+          .update({'storage_mb_limit': nuevoLimite})
+          .eq('id', empresa['empresa_id']);
+      _mostrarExito('Límite actualizado a $nuevoLimite MB');
+      _storage.remove(empresa['empresa_id'].toString());
+      await _cargar();
+    } catch (e) {
+      _mostrarError('Error al actualizar límite: $e');
     }
   }
 
@@ -193,9 +255,9 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
                       : RefreshIndicator(
                           onRefresh: _cargar,
                           child: ListView.separated(
-                            padding: const EdgeInsets.all(16),
+                            padding: const EdgeInsets.all(12),
                             itemCount: _empresasFiltradas.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 12),
+                            separatorBuilder: (_, __) => const SizedBox(height: 10),
                             itemBuilder: (context, index) =>
                                 _cardEmpresa(_empresasFiltradas[index]),
                           ),
@@ -215,7 +277,7 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
     };
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
@@ -224,13 +286,13 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
             return Padding(
               padding: const EdgeInsets.only(right: 8),
               child: ChoiceChip(
-                label: Text(f.value),
+                label: Text(f.value, style: const TextStyle(fontSize: 12)),
                 selected: activo,
                 onSelected: (_) => setState(() => _filtro = f.key),
                 selectedColor: const Color(0xFF1F4E79),
                 labelStyle: TextStyle(
                   color: activo ? Colors.white : Colors.black87,
-                  fontSize: 13,
+                  fontSize: 12,
                 ),
               ),
             );
@@ -242,96 +304,250 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
 
   Widget _cardEmpresa(Map<String, dynamic> e) {
     final estado = (e['estado'] ?? '').toString();
+    final empresaId = e['empresa_id'].toString();
+    final esMiEmpresa = empresaId == _miEmpresaId;
 
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        onExpansionChanged: (expanded) {
+          if (expanded) _cargarStorage(empresaId);
+        },
+        title: Row(
           children: [
-            Row(
-              children: [
-                const Icon(Icons.business, color: Color(0xFF1F4E79)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    e['empresa_nombre'] ?? 'Sin nombre',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
+            const Icon(Icons.business, color: Color(0xFF1F4E79), size: 18),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                e['empresa_nombre'] ?? 'Sin nombre',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _chipEstado(e['estado']),
-                _chipPago(e),
-              ],
-            ),
-            const Divider(height: 20),
-            if (e['rut'] != null && e['rut'].toString().isNotEmpty)
-              _dato('RUT', e['rut']),
-            if (e['email_contacto'] != null && e['email_contacto'].toString().isNotEmpty)
-              _dato('Email', e['email_contacto']),
-            _dato('Registrada', _fechaCorta(e['created_at'])),
-
-            // ── Botones de acción según estado ──────────────
-            if (estado == 'pendiente') ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.check_circle_outline, size: 18),
-                  label: const Text('Aprobar empresa'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  onPressed: () => _aprobarEmpresa(e),
+            // Badge "Mi empresa" para identificar la propia
+            if (esMiEmpresa)
+              Container(
+                margin: const EdgeInsets.only(left: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1F4E79).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFF1F4E79).withOpacity(0.3)),
                 ),
+                child: const Text('Mi empresa',
+                    style: TextStyle(fontSize: 9, color: Color(0xFF1F4E79), fontWeight: FontWeight.w600)),
               ),
-            ],
-
-            if (estado == 'activa') ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  icon: const Icon(Icons.block, size: 18, color: Colors.red),
-                  label: const Text('Suspender', style: TextStyle(color: Colors.red)),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.red),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  onPressed: () => _suspenderEmpresa(e),
-                ),
-              ),
-            ],
-
-            if (estado == 'suspendida') ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.restart_alt, size: 18),
-                  label: const Text('Reactivar'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1F4E79),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  onPressed: () => _reactivarEmpresa(e),
-                ),
-              ),
-            ],
           ],
         ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4, bottom: 2),
+          child: Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              _chipEstado(e['estado']),
+              _chipPago(e),
+            ],
+          ),
+        ),
+        children: [
+          const Divider(height: 12),
+
+          if (e['rut'] != null && e['rut'].toString().isNotEmpty)
+            _dato('RUT', e['rut']),
+          if (e['email_contacto'] != null && e['email_contacto'].toString().isNotEmpty)
+            _dato('Email', e['email_contacto']),
+          _dato('Registrada', _fechaCorta(e['created_at'])),
+
+          const SizedBox(height: 10),
+
+          _seccionStorage(empresaId, e),
+
+          const SizedBox(height: 10),
+
+          if (estado == 'pendiente')
+            _botonAccion('Aprobar empresa', Icons.check_circle_outline, Colors.green,
+                () => _aprobarEmpresa(e)),
+
+          // Suspender solo si NO es mi empresa
+          if (estado == 'activa' && !esMiEmpresa)
+            _botonAccion('Suspender', Icons.block, Colors.red,
+                () => _suspenderEmpresa(e), outlined: true),
+
+          // Si es mi empresa activa, mostrar aviso en lugar del botón
+          if (estado == 'activa' && esMiEmpresa)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, size: 14, color: Colors.grey[500]),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Esta es tu empresa — no puede suspenderse',
+                      style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          if (estado == 'suspendida')
+            _botonAccion('Reactivar', Icons.restart_alt, const Color(0xFF1F4E79),
+                () => _reactivarEmpresa(e)),
+        ],
       ),
+    );
+  }
+
+  Widget _seccionStorage(String empresaId, Map<String, dynamic> empresa) {
+    final cargando = _cargandoStorage.contains(empresaId);
+    final datos = _storage[empresaId];
+    final limiteActual = empresa['storage_mb_limit'] ?? 500;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.storage, size: 13, color: Colors.grey),
+            const SizedBox(width: 4),
+            const Text('Almacenamiento',
+                style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600)),
+          ],
+        ),
+        const SizedBox(height: 2),
+        GestureDetector(
+          onTap: () => _editarLimiteStorage(empresa),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.edit, size: 11, color: Color(0xFF1F4E79)),
+              const SizedBox(width: 3),
+              Text('Límite: $limiteActual MB — tocá para editar',
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF1F4E79))),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        if (cargando)
+          const LinearProgressIndicator()
+        else if (datos == null)
+          Text('Expandí para cargar', style: TextStyle(fontSize: 11, color: Colors.grey[400]))
+        else ...[
+          _barraStorage(datos),
+          const SizedBox(height: 6),
+          _desgloseStorage(datos),
+        ],
+      ],
+    );
+  }
+
+  Widget _barraStorage(Map<String, dynamic> datos) {
+    final usado = (datos['usado_mb'] as num).toDouble();
+    final limite = (datos['limite_mb'] as num).toDouble();
+    final porcentaje = (datos['porcentaje'] as num? ?? 0).toDouble();
+    final progreso = (porcentaje / 100).clamp(0.0, 1.0);
+
+    Color color;
+    if (porcentaje >= 90) {
+      color = Colors.red;
+    } else if (porcentaje >= 70) {
+      color = Colors.orange;
+    } else {
+      color = Colors.teal;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: progreso,
+            backgroundColor: Colors.grey[200],
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+            minHeight: 7,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('${usado.toStringAsFixed(1)} MB usados',
+                style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
+            Text('${porcentaje.toStringAsFixed(1)}% / $limite MB',
+                style: const TextStyle(fontSize: 10, color: Colors.grey)),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _desgloseStorage(Map<String, dynamic> datos) {
+    final desglose = datos['desglose'] as Map<String, dynamic>;
+    final items = [
+      ('Máquinas', desglose['maquina']),
+      ('Repuestos', desglose['repuesto']),
+      ('Tickets', desglose['ticket']),
+    ];
+    return Row(
+      children: items.map((item) {
+        final mb = (item.$2 as num? ?? 0).toDouble();
+        return Expanded(
+          child: Container(
+            margin: const EdgeInsets.only(right: 4),
+            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(item.$1, style: const TextStyle(fontSize: 9, color: Colors.grey)),
+                Text('${mb.toStringAsFixed(1)} MB',
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _botonAccion(String label, IconData icono, Color color, VoidCallback onTap,
+      {bool outlined = false}) {
+    return SizedBox(
+      width: double.infinity,
+      child: outlined
+          ? OutlinedButton.icon(
+              icon: Icon(icono, size: 16, color: color),
+              label: Text(label, style: TextStyle(fontSize: 13, color: color)),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: color),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: onTap,
+            )
+          : ElevatedButton.icon(
+              icon: Icon(icono, size: 16),
+              label: Text(label, style: const TextStyle(fontSize: 13)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: color,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: onTap,
+            ),
     );
   }
 
@@ -361,22 +577,16 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
 
   Widget _chipPago(Map<String, dynamic> e) {
     final tieneSuscripcion = e['tiene_suscripcion'] == true;
-    if (tieneSuscripcion) {
-      return _chip('Pago activo', Colors.blue, Icons.paid);
-    }
+    if (tieneSuscripcion) return _chip('Pago activo', Colors.blue, Icons.paid);
     final dias = _diasTrial(e['trial_vence']);
-    if (dias == null) {
-      return _chip('Sin plan', Colors.grey, Icons.help_outline);
-    }
-    if (dias < 0) {
-      return _chip('Trial vencido', Colors.red, Icons.timer_off);
-    }
+    if (dias == null) return _chip('Sin plan', Colors.grey, Icons.help_outline);
+    if (dias < 0) return _chip('Trial vencido', Colors.red, Icons.timer_off);
     return _chip('Trial · $dias días', Colors.teal, Icons.schedule);
   }
 
   Widget _chip(String texto, Color color, IconData icono) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(20),
@@ -385,10 +595,10 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icono, size: 14, color: color),
-          const SizedBox(width: 5),
+          Icon(icono, size: 12, color: color),
+          const SizedBox(width: 4),
           Text(texto,
-              style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600)),
+              style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
         ],
       ),
     );
@@ -398,21 +608,21 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
     if (fecha == null) return '—';
     final d = DateTime.tryParse(fecha.toString());
     if (d == null) return '—';
-    return '${d.day.toString().padLeft(2, '0')}/'
-        '${d.month.toString().padLeft(2, '0')}/${d.year}';
+    return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
   }
 
   Widget _dato(String label, dynamic valor) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 2),
+      padding: const EdgeInsets.only(bottom: 3),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-              width: 100,
-              child: Text('$label:',
-                  style: TextStyle(fontSize: 13, color: Colors.grey[600]))),
-          Expanded(child: Text('$valor', style: const TextStyle(fontSize: 13))),
+          Text('$label: ', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+          Expanded(
+            child: Text('$valor',
+                style: const TextStyle(fontSize: 12),
+                overflow: TextOverflow.ellipsis),
+          ),
         ],
       ),
     );
