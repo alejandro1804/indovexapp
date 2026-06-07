@@ -20,16 +20,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Cliente Supabase con service role (lee tablas sin RLS)
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // 1. Buscar el plan en la tabla por ciclo (mensual/anual) y que esté activo
+    // 1. Buscar el plan en la tabla
     const { data: planData, error: planError } = await supabase
       .from("planes")
-      .select("mp_plan_id, nombre, precio")
+      .select("mp_plan_id, nombre")
       .eq("ciclo", plan)
       .eq("activo", true)
       .maybeSingle();
@@ -48,60 +47,17 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 2. Buscar el email de contacto de la empresa
-    const { data: empresaData, error: empresaError } = await supabase
-      .from("empresas")
-      .select("email_contacto, nombre")
-      .eq("id", empresa_id)
-      .maybeSingle();
-
-    if (empresaError || !empresaData) {
-      return new Response(
-        JSON.stringify({ error: "Empresa no encontrada" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    if (!empresaData.email_contacto) {
-      return new Response(
-        JSON.stringify({ error: "La empresa no tiene email de contacto configurado" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // 3. Crear la suscripción (preapproval) vinculada al plan existente
-    const mpResponse = await fetch(
-      "https://api.mercadopago.com/preapproval",
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${Deno.env.get("MP_ACCESS_TOKEN")}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          preapproval_plan_id: planData.mp_plan_id,
-          payer_email: empresaData.email_contacto,
-          external_reference: empresa_id,
-          back_url: "https://indovex.com/pago-exitoso",
-          reason: `Indovex ${planData.nombre}`,
-        }),
-      }
-    );
-
-    const mpData = await mpResponse.json();
-
-    if (!mpResponse.ok) {
-      return new Response(
-        JSON.stringify({ error: "Error en MercadoPago", detalle: mpData }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    // 2. Construir el link del checkout del plan, pasando el empresa_id
+    //    como external_reference vía query param. MercadoPago lo conserva
+    //    en la suscripción resultante, lo que permite identificar la empresa
+    //    en el webhook de confirmación.
+    const link =
+      `https://www.mercadopago.com.uy/subscriptions/checkout` +
+      `?preapproval_plan_id=${planData.mp_plan_id}` +
+      `&external_reference=${encodeURIComponent(empresa_id)}`;
 
     return new Response(
-      JSON.stringify({
-        link: mpData.init_point,
-        preapproval_id: mpData.id,
-      }),
+      JSON.stringify({ link }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
