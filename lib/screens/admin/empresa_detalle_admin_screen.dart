@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class EmpresaDetalleAdminScreen extends StatefulWidget {
+class EmpresaDetalleAdminScreen extends StatelessWidget {
   final String empresaId;
   final String empresaNombre;
 
@@ -12,60 +12,45 @@ class EmpresaDetalleAdminScreen extends StatefulWidget {
   });
 
   @override
-  State<EmpresaDetalleAdminScreen> createState() => _EmpresaDetalleAdminScreenState();
-}
-
-class _EmpresaDetalleAdminScreenState extends State<EmpresaDetalleAdminScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 4, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF1F4E79),
-        foregroundColor: Colors.white,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    // DefaultTabController provee el controller a TabBar y TabBarView
+    // automáticamente, evitando el error "No TabController for TabBar".
+    return DefaultTabController(
+      length: 4,
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF1F4E79),
+          foregroundColor: Colors.white,
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(empresaNombre,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+              const Text('Vista de soporte — solo lectura',
+                  style: TextStyle(fontSize: 10, color: Colors.white60)),
+            ],
+          ),
+          bottom: const TabBar(
+            isScrollable: true,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white54,
+            indicatorColor: Colors.white,
+            tabs: [
+              Tab(icon: Icon(Icons.confirmation_number_outlined, size: 20), text: 'Tickets'),
+              Tab(icon: Icon(Icons.precision_manufacturing_outlined, size: 20), text: 'Máquinas'),
+              Tab(icon: Icon(Icons.inventory_2_outlined, size: 20), text: 'Repuestos'),
+              Tab(icon: Icon(Icons.people_outline, size: 20), text: 'Usuarios'),
+            ],
+          ),
+        ),
+        body: TabBarView(
           children: [
-            Text(widget.empresaNombre,
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-            const Text('Vista de soporte — solo lectura',
-                style: TextStyle(fontSize: 10, color: Colors.white60)),
+            _TabTickets(empresaId: empresaId),
+            _TabMaquinas(empresaId: empresaId),
+            _TabRepuestos(empresaId: empresaId),
+            _TabUsuarios(empresaId: empresaId),
           ],
         ),
-        bottom: const TabBar(
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white54,
-          indicatorColor: Colors.white,
-          tabs: [
-            Tab(icon: Icon(Icons.confirmation_number_outlined, size: 20), text: 'Tickets'),
-            Tab(icon: Icon(Icons.precision_manufacturing_outlined, size: 20), text: 'Máquinas'),
-            Tab(icon: Icon(Icons.inventory_2_outlined, size: 20), text: 'Repuestos'),
-            Tab(icon: Icon(Icons.people_outline, size: 20), text: 'Usuarios'),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _TabTickets(empresaId: widget.empresaId),
-          _TabMaquinas(empresaId: widget.empresaId),
-          _TabRepuestos(empresaId: widget.empresaId),
-          _TabUsuarios(empresaId: widget.empresaId),
-        ],
       ),
     );
   }
@@ -98,10 +83,11 @@ class _TabTicketsState extends State<_TabTickets> with AutomaticKeepAliveClientM
   }
 
   Future<void> _cargar() async {
-    setState(() => _cargando = true);
+    if (mounted) setState(() => _cargando = true);
     try {
       final result = await _supabase
           .rpc('admin_tickets_empresa', params: {'p_empresa_id': widget.empresaId});
+      if (!mounted) return;
       setState(() => _tickets = List<Map<String, dynamic>>.from(result));
     } catch (e) {
       _mostrarError('Error al cargar tickets: $e');
@@ -291,13 +277,13 @@ class _TabMaquinasState extends State<_TabMaquinas> with AutomaticKeepAliveClien
   }
 
   Future<void> _cargar() async {
-    setState(() => _cargando = true);
+    if (mounted) setState(() => _cargando = true);
     try {
       final maq = await _supabase
           .rpc('admin_maquinas_empresa', params: {'p_empresa_id': widget.empresaId});
       final sec = await _supabase
           .rpc('admin_sectores_empresa', params: {'p_empresa_id': widget.empresaId});
-
+      if (!mounted) return;
       setState(() {
         _maquinas = List<Map<String, dynamic>>.from(maq);
         _sectores = {
@@ -475,13 +461,13 @@ class _TabRepuestosState extends State<_TabRepuestos> with AutomaticKeepAliveCli
   }
 
   Future<void> _cargar() async {
-    setState(() => _cargando = true);
+    if (mounted) setState(() => _cargando = true);
     try {
       final rep = await _supabase
           .rpc('admin_repuestos_empresa', params: {'p_empresa_id': widget.empresaId});
       final cat = await _supabase
           .rpc('admin_categorias_empresa', params: {'p_empresa_id': widget.empresaId});
-
+      if (!mounted) return;
       setState(() {
         _repuestos = List<Map<String, dynamic>>.from(rep);
         _categorias = {
@@ -662,10 +648,11 @@ class _TabUsuariosState extends State<_TabUsuarios> with AutomaticKeepAliveClien
   }
 
   Future<void> _cargar() async {
-    setState(() => _cargando = true);
+    if (mounted) setState(() => _cargando = true);
     try {
       final data = await _supabase
           .rpc('admin_usuarios_empresa', params: {'p_empresa_id': widget.empresaId});
+      if (!mounted) return;
       setState(() => _usuarios = List<Map<String, dynamic>>.from(data));
     } catch (e) {
       _mostrarError('Error: $e');
@@ -770,12 +757,12 @@ Widget _bannerSoloLectura() {
   return Container(
     width: double.infinity,
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-    color: Colors.amber[50],
+    color: const Color(0xFFFFF8E1),
     child: Row(children: [
-      Icon(Icons.visibility_outlined, size: 13, color: Colors.amber[800]),
+      const Icon(Icons.visibility_outlined, size: 13, color: Color(0xFF8D6E00)),
       const SizedBox(width: 6),
-      Text('Solo lectura — modo soporte',
-          style: TextStyle(fontSize: 11, color: Colors.amber[800], fontWeight: FontWeight.w500)),
+      const Text('Solo lectura — modo soporte',
+          style: TextStyle(fontSize: 11, color: Color(0xFF8D6E00), fontWeight: FontWeight.w500)),
     ]),
   );
 }

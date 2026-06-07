@@ -11,6 +11,7 @@ import '../configuracion/configuracion_screen.dart';
 import '../auth/login_screen.dart';
 import '../planes/planes_screen.dart';
 import '../admin/empresas_screen.dart';
+import '../admin/gestion_planes_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -82,6 +83,12 @@ class _HomeScreenState extends State<HomeScreen> {
         icon: Icons.domain_outlined,
         iconActivo: Icons.domain,
         screen: const EmpresasScreen(),
+      ),
+      _NavItem(
+        label: 'Planes',
+        icon: Icons.sell_outlined,
+        iconActivo: Icons.sell,
+        screen: const GestionPlanesScreen(),
       ),
     ];
   }
