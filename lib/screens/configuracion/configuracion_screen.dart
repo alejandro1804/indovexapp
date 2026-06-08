@@ -6,6 +6,7 @@ import 'usuarios_screen.dart';
 import 'proveedores_screen.dart';
 import 'categorias_repuestos_screen.dart';
 import 'roles_screen.dart';
+import 'tipos_intervalo_screen.dart';
 
 class ConfiguracionScreen extends StatelessWidget {
   const ConfiguracionScreen({super.key});
@@ -35,6 +36,13 @@ class ConfiguracionScreen extends StatelessWidget {
         descripcion: 'Gestionar proveedores de repuestos',
         screen: const ProveedoresScreen(),
         visible: true,
+      ),
+      _ConfigOpcion(
+        icono: Icons.event_repeat_outlined,
+        titulo: 'Tipos de intervalo',
+        descripcion: 'Configurar unidades para planes de mantenimiento',
+        screen: const TiposIntervaloScreen(),
+        visible: usuario?.esAdmin ?? false,
       ),
       _ConfigOpcion(
         icono: Icons.people_outline,

@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'providers/auth_provider.dart';
 import 'providers/plan_mantenimiento_provider.dart';
 import 'providers/lectura_maquina_provider.dart';
+import 'providers/tipo_intervalo_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/cambiar_password_screen.dart';
 import 'screens/home/home_screen.dart';
@@ -32,6 +33,7 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => PlanMantenimientoProvider()),
         ChangeNotifierProvider(create: (_) => LecturaMaquinaProvider()),
+        ChangeNotifierProvider(create: (_) => TipoIntervaloProvider()),
       ],
       child: const MyApp(),
     ),
