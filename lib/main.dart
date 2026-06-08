@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'providers/auth_provider.dart';
+import 'providers/plan_mantenimiento_provider.dart';
+import 'providers/lectura_maquina_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/cambiar_password_screen.dart';
 import 'screens/home/home_screen.dart';
@@ -25,8 +27,12 @@ Future<void> main() async {
   );
 
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => AuthProvider(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => PlanMantenimientoProvider()),
+        ChangeNotifierProvider(create: (_) => LecturaMaquinaProvider()),
+      ],
       child: const MyApp(),
     ),
   );
@@ -72,7 +78,6 @@ class _AuthGateState extends State<AuthGate> {
       if (!mounted) return;
       final usuario = context.read<AuthProvider>().usuario;
 
-      // Si es el primer login, va obligatoriamente a cambiar contraseña
       final destino = (usuario != null && usuario.primerLogin)
           ? const CambiarPasswordScreen()
           : const HomeScreen();

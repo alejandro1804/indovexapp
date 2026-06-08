@@ -1,0 +1,84 @@
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../models/plan_mantenimiento.dart';
+
+class PlanMantenimientoService {
+  final _client = Supabase.instance.client;
+
+  Future<List<PlanMantenimiento>> obtenerPlanes({String? maquinaId}) async {
+    var query = _client
+        .from('planes_mantenimiento')
+        .select()
+        .eq('activo', true);
+
+    if (maquinaId != null) {
+      query = query.eq('maquina_id', maquinaId);
+    }
+
+    final response = await query.order('created_at', ascending: false);
+    return response.map((e) => PlanMantenimiento.fromMap(e)).toList();
+  }
+
+  Future<PlanMantenimiento> crearPlan({
+    required String maquinaId,
+    required String descripcionTarea,
+    required String tipoIntervalo,
+    required double intervaloValor,
+  }) async {
+    final response = await _client
+        .from('planes_mantenimiento')
+        .insert({
+          'maquina_id': maquinaId,
+          'descripcion_tarea': descripcionTarea,
+          'tipo_intervalo': tipoIntervalo,
+          'intervalo_valor': intervaloValor,
+        })
+        .select()
+        .single();
+
+    return PlanMantenimiento.fromMap(response);
+  }
+
+  Future<PlanMantenimiento> actualizarPlan({
+    required String id,
+    String? descripcionTarea,
+    String? tipoIntervalo,
+    double? intervaloValor,
+    bool? activo,
+  }) async {
+    final data = <String, dynamic>{};
+    if (descripcionTarea != null) data['descripcion_tarea'] = descripcionTarea;
+    if (tipoIntervalo != null) data['tipo_intervalo'] = tipoIntervalo;
+    if (intervaloValor != null) data['intervalo_valor'] = intervaloValor;
+    if (activo != null) data['activo'] = activo;
+
+    final response = await _client
+        .from('planes_mantenimiento')
+        .update(data)
+        .eq('id', id)
+        .select()
+        .single();
+
+    return PlanMantenimiento.fromMap(response);
+  }
+
+  Future<void> eliminarPlan(String id) async {
+    await _client
+        .from('planes_mantenimiento')
+        .update({'activo': false})
+        .eq('id', id);
+  }
+
+  Future<void> registrarEjecucion({
+    required String planId,
+    required double valorEjecutado,
+    required double proximoValor,
+  }) async {
+    await _client
+        .from('planes_mantenimiento')
+        .update({
+          'ultimo_valor_ejecutado': valorEjecutado,
+          'proximo_valor': proximoValor,
+        })
+        .eq('id', planId);
+  }
+}

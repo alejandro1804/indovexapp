@@ -28,14 +28,12 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
   Future<void> _cargarTicket() async {
     setState(() => _cargando = true);
     try {
-      // Ticket con máquina
       final ticket = await _supabase
           .from('tickets')
           .select('*, maquinas(nombre, codigo, sector_id, sectores(nombre))')
           .eq('id', widget.ticketId)
           .single();
 
-      // Nombres de usuarios por separado
       final idsABuscar = <String>[];
       if (ticket['creado_por'] != null) idsABuscar.add(ticket['creado_por']);
       if (ticket['tecnico_id'] != null) idsABuscar.add(ticket['tecnico_id']);
@@ -54,14 +52,12 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
         }
       }
 
-      // Historial
       final historialRaw = await _supabase
           .from('ticket_historial')
           .select('*, usuarios(nombre)')
           .eq('ticket_id', widget.ticketId)
           .order('fecha', ascending: false);
 
-      // Técnicos disponibles
       final tecnicosRaw = await _supabase
           .from('usuarios')
           .select('id, nombre, roles(nombre)')
@@ -258,14 +254,29 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     }
   }
 
-  // Formato auditoría: convierte UTC a hora local de Uruguay y muestra la zona.
-  // Ej: 2026-06-04 20:00:20 (UTC-3)
+  Color _colorTipo(String tipo) {
+    switch (tipo) {
+      case 'preventivo': return Colors.green;
+      case 'correctivo': return Colors.red;
+      default: return Colors.grey;
+    }
+  }
+
+  Color _colorPrioridad(String p) {
+    switch (p) {
+      case 'baja': return Colors.green;
+      case 'media': return Colors.orange;
+      case 'alta': return Colors.deepOrange;
+      case 'critica': return Colors.red;
+      default: return Colors.grey;
+    }
+  }
+
   String _formatoAuditoria(DateTime? fechaUtc) {
     if (fechaUtc == null) return '-';
     final local = fechaUtc.toLocal();
     final f = '${local.year}-${_dos(local.month)}-${_dos(local.day)}';
     final h = '${_dos(local.hour)}:${_dos(local.minute)}:${_dos(local.second)}';
-    // Offset de la zona local respecto a UTC (en Uruguay es -3)
     final offset = local.timeZoneOffset;
     final signo = offset.isNegative ? '-' : '+';
     final horasOffset = offset.inHours.abs();
@@ -284,6 +295,8 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
 
     final usuario = context.read<AuthProvider>().usuario;
     final estado = _ticket!['estado'] as String;
+    final tipo = _ticket!['tipo'] as String? ?? 'correctivo';
+    final prioridad = _ticket!['prioridad'] as String? ?? 'media';
     final maquina = _ticket!['maquinas'] as Map<String, dynamic>?;
     final fecha = DateTime.tryParse(_ticket!['created_at'] ?? '');
     final padding = Responsive.pagePadding(context);
@@ -311,6 +324,44 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
               Text(_labelEstado(estado), style: TextStyle(color: _colorEstado(estado), fontWeight: FontWeight.w600, fontSize: 16)),
             ]),
           ),
+          const SizedBox(height: 8),
+
+          // Badges tipo y prioridad
+          Row(children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: _colorTipo(tipo).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: _colorTipo(tipo).withOpacity(0.4)),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(
+                  tipo == 'preventivo' ? Icons.event_available_outlined : Icons.build_outlined,
+                  size: 13,
+                  color: _colorTipo(tipo),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  tipo == 'preventivo' ? 'Preventivo' : 'Correctivo',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _colorTipo(tipo)),
+                ),
+              ]),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: _colorPrioridad(prioridad).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: _colorPrioridad(prioridad).withOpacity(0.4)),
+              ),
+              child: Text(
+                prioridad[0].toUpperCase() + prioridad.substring(1),
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _colorPrioridad(prioridad)),
+              ),
+            ),
+          ]),
           const SizedBox(height: 16),
 
           // Info

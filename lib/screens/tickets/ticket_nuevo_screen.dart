@@ -16,6 +16,8 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
   final _descripcionController = TextEditingController();
   List<Map<String, dynamic>> _maquinas = [];
   String? _maquinaSeleccionada;
+  String _tipo = 'correctivo';
+  String _prioridad = 'media';
   bool _cargando = false;
   bool _cargandoMaquinas = true;
 
@@ -30,7 +32,6 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
       List<Map<String, dynamic>> maquinas;
 
       if (usuario.esEncargado) {
-        // Solo máquinas de sus sectores
         final sectoresData = await _supabase
             .from('encargado_sector')
             .select('sector_id')
@@ -90,17 +91,17 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
 
       final numero = await _generarNumero();
 
-      // Crear ticket
       final ticketData = await _supabase.from('tickets').insert({
         'empresa_id': usuario.empresaId,
         'maquina_id': _maquinaSeleccionada,
         'creado_por': usuario.id,
         'numero': numero,
         'estado': 'abierto',
+        'tipo': _tipo,
+        'prioridad': _prioridad,
         'descripcion_desperfecto': _descripcionController.text.trim(),
       }).select().single();
 
-      // Registrar en historial
       await _supabase.from('ticket_historial').insert({
         'ticket_id': ticketData['id'],
         'usuario_id': usuario.id,
@@ -109,7 +110,6 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
         'comentario': 'Ticket creado',
       });
 
-      // Notificar a encargados del sector
       final maquina = await _supabase
           .from('maquinas')
           .select('sector_id')
@@ -133,7 +133,6 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
         }
       }
 
-      // También notificar admins
       final admins = await _supabase
           .from('usuarios')
           .select('id, roles(nombre)')
@@ -170,6 +169,16 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating));
   }
 
+  Color _colorPrioridad(String p) {
+    switch (p) {
+      case 'baja': return Colors.green;
+      case 'media': return Colors.orange;
+      case 'alta': return Colors.deepOrange;
+      case 'critica': return Colors.red;
+      default: return Colors.grey;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final padding = Responsive.pagePadding(context);
@@ -204,6 +213,74 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
                       ]),
                     ),
                     const SizedBox(height: 16),
+
+                    // Tipo
+                    const Text('Tipo de ticket', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87)),
+                    const SizedBox(height: 8),
+                    Row(children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => _tipo = 'correctivo'),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              color: _tipo == 'correctivo' ? Colors.red[50] : Colors.grey[100],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: _tipo == 'correctivo' ? Colors.red : Colors.grey[300]!),
+                            ),
+                            child: Column(children: [
+                              Icon(Icons.build_outlined, color: _tipo == 'correctivo' ? Colors.red : Colors.grey, size: 22),
+                              const SizedBox(height: 4),
+                              Text('Correctivo', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _tipo == 'correctivo' ? Colors.red : Colors.grey)),
+                            ]),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => _tipo = 'preventivo'),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              color: _tipo == 'preventivo' ? Colors.green[50] : Colors.grey[100],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: _tipo == 'preventivo' ? Colors.green : Colors.grey[300]!),
+                            ),
+                            child: Column(children: [
+                              Icon(Icons.event_available_outlined, color: _tipo == 'preventivo' ? Colors.green : Colors.grey, size: 22),
+                              const SizedBox(height: 4),
+                              Text('Preventivo', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _tipo == 'preventivo' ? Colors.green : Colors.grey)),
+                            ]),
+                          ),
+                        ),
+                      ),
+                    ]),
+                    const SizedBox(height: 16),
+
+                    // Prioridad
+                    const Text('Prioridad', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: ['baja', 'media', 'alta', 'critica'].map((p) {
+                        final seleccionada = _prioridad == p;
+                        final color = _colorPrioridad(p);
+                        return ChoiceChip(
+                          label: Text(p[0].toUpperCase() + p.substring(1)),
+                          selected: seleccionada,
+                          selectedColor: color.withOpacity(0.2),
+                          labelStyle: TextStyle(
+                            color: seleccionada ? color : Colors.grey[600],
+                            fontWeight: seleccionada ? FontWeight.bold : FontWeight.normal,
+                          ),
+                          side: BorderSide(color: seleccionada ? color : Colors.grey[300]!),
+                          onSelected: (_) => setState(() => _prioridad = p),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+
                     // Máquina
                     DropdownButtonFormField<String>(
                       value: _maquinaSeleccionada,
@@ -222,6 +299,7 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
                       onChanged: (v) => setState(() => _maquinaSeleccionada = v),
                     ),
                     const SizedBox(height: 16),
+
                     // Descripción
                     TextField(
                       controller: _descripcionController,
@@ -235,6 +313,7 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
                       textCapitalization: TextCapitalization.sentences,
                     ),
                     const SizedBox(height: 24),
+
                     SizedBox(
                       width: double.infinity,
                       height: 48,

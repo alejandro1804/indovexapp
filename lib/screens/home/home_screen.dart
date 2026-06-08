@@ -10,6 +10,7 @@ import '../reportes/reportes_screen.dart';
 import '../configuracion/configuracion_screen.dart';
 import '../auth/login_screen.dart';
 import '../planes/planes_screen.dart';
+import '../planes_mantenimiento/planes_mantenimiento_screen.dart';
 import '../admin/empresas_screen.dart';
 import '../admin/gestion_planes_screen.dart';
 
@@ -23,7 +24,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
-  // Items cuando está en modo CLIENTE (normal)
   List<_NavItem> _buildNavItemsCliente(Usuario usuario) {
     final items = <_NavItem>[];
 
@@ -54,6 +54,15 @@ class _HomeScreenState extends State<HomeScreen> {
       ));
     }
 
+    if (usuario.tienePermiso('ver_planes_mantenimiento')) {
+      items.add(_NavItem(
+        label: 'Planes',
+        icon: Icons.event_repeat_outlined,
+        iconActivo: Icons.event_repeat,
+        screen: const PlanesMantenimientoScreen(),
+      ));
+    }
+
     if (usuario.tienePermiso('ver_reportes')) {
       items.add(_NavItem(
         label: 'Reportes',
@@ -75,7 +84,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return items;
   }
 
-  // Items cuando está en modo ADMIN (super admin)
   List<_NavItem> _buildNavItemsAdmin() {
     return [
       _NavItem(
@@ -131,7 +139,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Banner que se muestra en modo admin para recordar que estás en ese modo
   Widget _buildBannerModoAdmin(BuildContext context) {
     return GestureDetector(
       onTap: () => context.read<AuthProvider>().toggleModoAdmin(),
@@ -216,7 +223,6 @@ class _HomeScreenState extends State<HomeScreen> {
               foregroundColor: Colors.white,
               title: const Text('Indovex', style: TextStyle(fontWeight: FontWeight.bold)),
               actions: [
-                // Botón switcher solo visible para super admin
                 if (usuario.esSuperAdmin)
                   Tooltip(
                     message: modoAdmin ? 'Cambiar a modo cliente' : 'Cambiar a modo admin',
@@ -262,12 +268,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
       body: Column(
         children: [
-          // Banner modo admin
           if (modoAdmin) _buildBannerModoAdmin(context),
-          // Banner trial (solo en modo cliente)
           if (!modoAdmin && authProvider.mostrarBannerTrial && !usuario.esSuperAdmin)
             _buildBannerTrial(authProvider.diasRestantesTrial),
-          // Contenido principal
           Expanded(
             child: isDesktop
                 ? Row(
@@ -314,8 +317,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       const SizedBox(width: 10),
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
+                                          crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
                                             Text(
                                               usuario.nombre,
@@ -341,7 +343,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                     ],
                                   ),
-                                  // Switcher en sidebar desktop
                                   if (usuario.esSuperAdmin) ...[
                                     const SizedBox(height: 12),
                                     GestureDetector(
@@ -385,8 +386,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             Expanded(
                               child: ListView.builder(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 12),
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
                                 itemCount: navItems.length,
                                 itemBuilder: (context, index) {
                                   final item = navItems[index];
@@ -401,31 +401,23 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                                     child: ListTile(
                                       leading: Icon(
-                                        seleccionado
-                                            ? item.iconActivo
-                                            : item.icon,
-                                        color: seleccionado
-                                            ? Colors.white
-                                            : Colors.white60,
+                                        seleccionado ? item.iconActivo : item.icon,
+                                        color: seleccionado ? Colors.white : Colors.white60,
                                         size: 22,
                                       ),
                                       title: Text(
                                         item.label,
                                         style: TextStyle(
-                                          color: seleccionado
-                                              ? Colors.white
-                                              : Colors.white60,
+                                          color: seleccionado ? Colors.white : Colors.white60,
                                           fontWeight: seleccionado
                                               ? FontWeight.w600
                                               : FontWeight.normal,
                                           fontSize: 14,
                                         ),
                                       ),
-                                      onTap: () =>
-                                          setState(() => _selectedIndex = index),
+                                      onTap: () => setState(() => _selectedIndex = index),
                                       shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(8)),
+                                          borderRadius: BorderRadius.circular(8)),
                                     ),
                                   );
                                 },
@@ -434,11 +426,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             Padding(
                               padding: const EdgeInsets.all(12),
                               child: ListTile(
-                                leading: const Icon(Icons.logout,
-                                    color: Colors.white54, size: 22),
+                                leading: const Icon(Icons.logout, color: Colors.white54, size: 22),
                                 title: const Text('Cerrar sesión',
-                                    style: TextStyle(
-                                        color: Colors.white54, fontSize: 14)),
+                                    style: TextStyle(color: Colors.white54, fontSize: 14)),
                                 onTap: () => _logout(context),
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(8)),
