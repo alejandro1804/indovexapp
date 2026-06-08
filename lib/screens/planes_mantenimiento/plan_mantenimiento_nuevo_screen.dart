@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/plan_mantenimiento_provider.dart';
+import '../../providers/tipo_intervalo_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/responsive.dart';
 
@@ -19,7 +20,7 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
 
   List<Map<String, dynamic>> _maquinas = [];
   String? _maquinaSeleccionada;
-  String _tipoIntervalo = 'dias';
+  String? _tipoIntervaloSeleccionado;
   bool _cargando = false;
   bool _cargandoMaquinas = true;
 
@@ -27,6 +28,14 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
   void initState() {
     super.initState();
     _cargarMaquinas();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<TipoIntervaloProvider>().cargarTipos().then((_) {
+        final tipos = context.read<TipoIntervaloProvider>().tipos;
+        if (tipos.isNotEmpty && _tipoIntervaloSeleccionado == null) {
+          setState(() => _tipoIntervaloSeleccionado = tipos.first.codigo);
+        }
+      });
+    });
   }
 
   Future<void> _cargarMaquinas() async {
@@ -47,13 +56,9 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
   }
 
   String get _unidadLabel {
-    switch (_tipoIntervalo) {
-      case 'dias': return 'días';
-      case 'horas': return 'horas';
-      case 'ciclos': return 'ciclos';
-      case 'm3': return 'm³';
-      default: return '';
-    }
+    final tipos = context.read<TipoIntervaloProvider>().tipos;
+    final tipo = tipos.where((t) => t.codigo == _tipoIntervaloSeleccionado).firstOrNull;
+    return tipo?.nombre ?? '';
   }
 
   Future<void> _guardar() async {
@@ -63,6 +68,10 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
     }
     if (_descripcionController.text.trim().isEmpty) {
       _mostrarError('Ingresá la descripción de la tarea');
+      return;
+    }
+    if (_tipoIntervaloSeleccionado == null) {
+      _mostrarError('Seleccioná un tipo de intervalo');
       return;
     }
     final valor = double.tryParse(_intervaloController.text.trim());
@@ -76,7 +85,7 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
       final ok = await context.read<PlanMantenimientoProvider>().crearPlan(
         maquinaId: _maquinaSeleccionada!,
         descripcionTarea: _descripcionController.text.trim(),
-        tipoIntervalo: _tipoIntervalo,
+        tipoIntervalo: _tipoIntervaloSeleccionado!,
         intervaloValor: valor,
       );
 
@@ -104,6 +113,8 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
   @override
   Widget build(BuildContext context) {
     final padding = Responsive.pagePadding(context);
+    final tiposProvider = context.watch<TipoIntervaloProvider>();
+    final tipos = tiposProvider.tipos;
 
     return Scaffold(
       appBar: AppBar(
@@ -154,32 +165,31 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
                     ),
                     const SizedBox(height: 16),
 
-                    // Tipo intervalo
+                    // Tipo intervalo desde DB
                     const Text('Tipo de intervalo', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87)),
                     const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        {'valor': 'dias', 'label': 'Días', 'icono': Icons.calendar_today_outlined},
-                        {'valor': 'horas', 'label': 'Horas', 'icono': Icons.timer_outlined},
-                        {'valor': 'ciclos', 'label': 'Ciclos', 'icono': Icons.loop_outlined},
-                        {'valor': 'm3', 'label': 'M³', 'icono': Icons.water_outlined},
-                      ].map((t) {
-                        final seleccionado = _tipoIntervalo == t['valor'];
-                        return ChoiceChip(
-                          avatar: Icon(t['icono'] as IconData, size: 16, color: seleccionado ? const Color(0xFF1F4E79) : Colors.grey),
-                          label: Text(t['label'] as String),
-                          selected: seleccionado,
-                          selectedColor: const Color(0xFF1F4E79).withOpacity(0.15),
-                          labelStyle: TextStyle(
-                            color: seleccionado ? const Color(0xFF1F4E79) : Colors.grey[600],
-                            fontWeight: seleccionado ? FontWeight.bold : FontWeight.normal,
+                    tiposProvider.cargando
+                        ? const Center(child: CircularProgressIndicator())
+                        : Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: tipos.map((t) {
+                              final seleccionado = _tipoIntervaloSeleccionado == t.codigo;
+                              return ChoiceChip(
+                                label: Text(t.nombre),
+                                selected: seleccionado,
+                                selectedColor: const Color(0xFF1F4E79).withOpacity(0.15),
+                                labelStyle: TextStyle(
+                                  color: seleccionado ? const Color(0xFF1F4E79) : Colors.grey[600],
+                                  fontWeight: seleccionado ? FontWeight.bold : FontWeight.normal,
+                                ),
+                                side: BorderSide(
+                                  color: seleccionado ? const Color(0xFF1F4E79) : Colors.grey[300]!,
+                                ),
+                                onSelected: (_) => setState(() => _tipoIntervaloSeleccionado = t.codigo),
+                              );
+                            }).toList(),
                           ),
-                          side: BorderSide(color: seleccionado ? const Color(0xFF1F4E79) : Colors.grey[300]!),
-                          onSelected: (_) => setState(() => _tipoIntervalo = t['valor'] as String),
-                        );
-                      }).toList(),
-                    ),
                     const SizedBox(height: 16),
 
                     // Valor intervalo
