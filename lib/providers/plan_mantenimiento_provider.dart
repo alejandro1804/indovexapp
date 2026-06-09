@@ -34,6 +34,7 @@ class PlanMantenimientoProvider extends ChangeNotifier {
     required String descripcionTarea,
     required String tipoIntervalo,
     required double intervaloValor,
+    String? procedimiento,
   }) async {
     try {
       final nuevo = await _service.crearPlan(
@@ -41,6 +42,7 @@ class PlanMantenimientoProvider extends ChangeNotifier {
         descripcionTarea: descripcionTarea,
         tipoIntervalo: tipoIntervalo,
         intervaloValor: intervaloValor,
+        procedimiento: procedimiento,
       );
       _planes.insert(0, nuevo);
       notifyListeners();
@@ -59,6 +61,7 @@ class PlanMantenimientoProvider extends ChangeNotifier {
     String? tipoIntervalo,
     double? intervaloValor,
     bool? activo,
+    String? procedimiento,
   }) async {
     try {
       final actualizado = await _service.actualizarPlan(
@@ -67,6 +70,7 @@ class PlanMantenimientoProvider extends ChangeNotifier {
         tipoIntervalo: tipoIntervalo,
         intervaloValor: intervaloValor,
         activo: activo,
+        procedimiento: procedimiento,
       );
       final index = _planes.indexWhere((p) => p.id == id);
       if (index != -1) {

@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/plan_mantenimiento_provider.dart';
 import '../../providers/tipo_intervalo_provider.dart';
-import '../../providers/auth_provider.dart';
 import '../../core/responsive.dart';
 
 class PlanMantenimientoNuevoScreen extends StatefulWidget {
@@ -17,6 +16,7 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
   final _supabase = Supabase.instance.client;
   final _descripcionController = TextEditingController();
   final _intervaloController = TextEditingController();
+  final _procedimientoController = TextEditingController();
 
   List<Map<String, dynamic>> _maquinas = [];
   String? _maquinaSeleccionada;
@@ -36,6 +36,14 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
         }
       });
     });
+  }
+
+  @override
+  void dispose() {
+    _descripcionController.dispose();
+    _intervaloController.dispose();
+    _procedimientoController.dispose();
+    super.dispose();
   }
 
   Future<void> _cargarMaquinas() async {
@@ -87,12 +95,19 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
         descripcionTarea: _descripcionController.text.trim(),
         tipoIntervalo: _tipoIntervaloSeleccionado!,
         intervaloValor: valor,
+        procedimiento: _procedimientoController.text.trim().isEmpty
+            ? null
+            : _procedimientoController.text.trim(),
       );
 
       if (!mounted) return;
       if (ok) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Plan creado correctamente'), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating),
+          const SnackBar(
+            content: Text('Plan creado correctamente'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
         Navigator.pop(context);
       } else {
@@ -125,11 +140,13 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
       body: _cargandoMaquinas
           ? const Center(child: CircularProgressIndicator())
           : _maquinas.isEmpty
-              ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Icon(Icons.precision_manufacturing_outlined, size: 80, color: Colors.grey[400]),
-                  const SizedBox(height: 16),
-                  Text('No hay máquinas disponibles', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
-                ]))
+              ? Center(
+                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(Icons.precision_manufacturing_outlined, size: 80, color: Colors.grey[400]),
+                    const SizedBox(height: 16),
+                    Text('No hay máquinas disponibles', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+                  ]),
+                )
               : ListView(
                   padding: padding,
                   children: [
@@ -204,6 +221,21 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
                       ),
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     ),
+                    const SizedBox(height: 16),
+
+                    // Procedimiento
+                    TextField(
+                      controller: _procedimientoController,
+                      decoration: const InputDecoration(
+                        labelText: 'Procedimiento / Guía de ejecución',
+                        border: OutlineInputBorder(),
+                        alignLabelWithHint: true,
+                        hintText: 'Describí los pasos a seguir, herramientas necesarias, advertencias de seguridad...',
+                        prefixIcon: Icon(Icons.checklist_outlined),
+                      ),
+                      maxLines: 8,
+                      textCapitalization: TextCapitalization.sentences,
+                    ),
                     const SizedBox(height: 24),
 
                     SizedBox(
@@ -215,7 +247,10 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
                             ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                             : const Icon(Icons.save_outlined),
                         label: const Text('Guardar plan', style: TextStyle(fontSize: 16)),
-                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1F4E79),
+                          foregroundColor: Colors.white,
+                        ),
                       ),
                     ),
                   ],

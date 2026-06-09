@@ -10,6 +10,7 @@ class PlanMantenimiento {
   final bool activo;
   final String? nombreMaquina;
   final String? codigoMaquina;
+  final String? procedimiento;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -25,6 +26,7 @@ class PlanMantenimiento {
     required this.activo,
     this.nombreMaquina,
     this.codigoMaquina,
+    this.procedimiento,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -46,6 +48,7 @@ class PlanMantenimiento {
       activo: map['activo'] ?? true,
       nombreMaquina: (map['maquinas'] as Map?)?['nombre'] as String?,
       codigoMaquina: (map['maquinas'] as Map?)?['codigo'] as String?,
+      procedimiento: map['procedimiento'] as String?,
       createdAt: DateTime.parse(map['created_at']),
       updatedAt: DateTime.parse(map['updated_at']),
     );

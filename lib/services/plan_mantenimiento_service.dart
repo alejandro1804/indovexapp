@@ -32,6 +32,7 @@ class PlanMantenimientoService {
     required String descripcionTarea,
     required String tipoIntervalo,
     required double intervaloValor,
+    String? procedimiento,
   }) async {
     final empresaId = await _getEmpresaId();
     final response = await _client
@@ -42,6 +43,8 @@ class PlanMantenimientoService {
           'descripcion_tarea': descripcionTarea,
           'tipo_intervalo': tipoIntervalo,
           'intervalo_valor': intervaloValor,
+          if (procedimiento != null && procedimiento.isNotEmpty)
+            'procedimiento': procedimiento,
         })
         .select('*, maquinas(nombre, codigo)')
         .single();
@@ -55,12 +58,14 @@ class PlanMantenimientoService {
     String? tipoIntervalo,
     double? intervaloValor,
     bool? activo,
+    String? procedimiento,
   }) async {
     final data = <String, dynamic>{};
     if (descripcionTarea != null) data['descripcion_tarea'] = descripcionTarea;
     if (tipoIntervalo != null) data['tipo_intervalo'] = tipoIntervalo;
     if (intervaloValor != null) data['intervalo_valor'] = intervaloValor;
     if (activo != null) data['activo'] = activo;
+    if (procedimiento != null) data['procedimiento'] = procedimiento.isEmpty ? null : procedimiento;
 
     final response = await _client
         .from('planes_mantenimiento')

@@ -5,6 +5,7 @@ import '../../providers/auth_provider.dart';
 import '../../models/plan_mantenimiento.dart';
 import '../../core/responsive.dart';
 import 'plan_mantenimiento_nuevo_screen.dart';
+import 'plan_mantenimiento_detail_screen.dart';
 
 class PlanesMantenimientoScreen extends StatefulWidget {
   const PlanesMantenimientoScreen({super.key});
@@ -92,37 +93,45 @@ class _PlanesMantenimientoScreenState extends State<PlanesMantenimientoScreen> {
                   itemCount: provider.planes.length,
                   itemBuilder: (context, index) {
                     final plan = provider.planes[index];
-                    return _PlanCard(
-                      plan: plan,
-                      colorIntervalo: _colorIntervalo(plan.tipoIntervalo),
-                      iconoIntervalo: _iconoIntervalo(plan.tipoIntervalo),
-                      esAdminOEncargado: esAdminOEncargado,
-                      onDesactivar: () async {
-                        final confirmar = await showDialog<bool>(
-                          context: context,
-                          builder: (_) => AlertDialog(
-                            title: const Text('Desactivar plan'),
-                            content: const Text('¿Seguro que querés desactivar este plan?'),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, false),
-                                child: const Text('Cancelar'),
-                              ),
-                              ElevatedButton(
-                                onPressed: () => Navigator.pop(context, true),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.red,
-                                  foregroundColor: Colors.white,
+                    return GestureDetector(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PlanMantenimientoDetailScreen(plan: plan),
+                        ),
+                      ),
+                      child: _PlanCard(
+                        plan: plan,
+                        colorIntervalo: _colorIntervalo(plan.tipoIntervalo),
+                        iconoIntervalo: _iconoIntervalo(plan.tipoIntervalo),
+                        esAdminOEncargado: esAdminOEncargado,
+                        onDesactivar: () async {
+                          final confirmar = await showDialog<bool>(
+                            context: context,
+                            builder: (_) => AlertDialog(
+                              title: const Text('Desactivar plan'),
+                              content: const Text('¿Seguro que querés desactivar este plan?'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context, false),
+                                  child: const Text('Cancelar'),
                                 ),
-                                child: const Text('Desactivar'),
-                              ),
-                            ],
-                          ),
-                        );
-                        if (confirmar == true && context.mounted) {
-                          await context.read<PlanMantenimientoProvider>().desactivarPlan(plan.id);
-                        }
-                      },
+                                ElevatedButton(
+                                  onPressed: () => Navigator.pop(context, true),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  child: const Text('Desactivar'),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirmar == true && context.mounted) {
+                            await context.read<PlanMantenimientoProvider>().desactivarPlan(plan.id);
+                          }
+                        },
+                      ),
                     );
                   },
                 ),
