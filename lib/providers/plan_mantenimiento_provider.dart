@@ -21,6 +21,7 @@ class PlanMantenimientoProvider extends ChangeNotifier {
     try {
       _planes = await _service.obtenerPlanes(maquinaId: maquinaId);
     } catch (e) {
+      print('ERROR cargarPlanes: $e');
       _error = e.toString();
     } finally {
       _cargando = false;
@@ -45,6 +46,7 @@ class PlanMantenimientoProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
+      print('ERROR crearPlan: $e');
       _error = e.toString();
       notifyListeners();
       return false;
@@ -73,6 +75,7 @@ class PlanMantenimientoProvider extends ChangeNotifier {
       }
       return true;
     } catch (e) {
+      print('ERROR actualizarPlan: $e');
       _error = e.toString();
       notifyListeners();
       return false;

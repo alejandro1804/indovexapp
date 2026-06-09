@@ -4,6 +4,15 @@ import '../models/tipo_intervalo.dart';
 class TipoIntervaloService {
   final _client = Supabase.instance.client;
 
+  Future<String> _getEmpresaId() async {
+    final response = await _client
+        .from('usuarios')
+        .select('empresa_id')
+        .eq('id', _client.auth.currentUser!.id)
+        .single();
+    return response['empresa_id'] as String;
+  }
+
   Future<List<TipoIntervalo>> obtenerTipos() async {
     final response = await _client
         .from('tipos_intervalo')
@@ -18,9 +27,11 @@ class TipoIntervaloService {
     required String nombre,
     required String codigo,
   }) async {
+    final empresaId = await _getEmpresaId();
     final response = await _client
         .from('tipos_intervalo')
         .insert({
+          'empresa_id': empresaId,
           'nombre': nombre,
           'codigo': codigo,
         })

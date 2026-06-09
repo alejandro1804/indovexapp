@@ -3,11 +3,13 @@ class PlanMantenimiento {
   final String empresaId;
   final String maquinaId;
   final String descripcionTarea;
-  final String tipoIntervalo; // 'dias' | 'horas' | 'ciclos' | 'm3'
+  final String tipoIntervalo;
   final double intervaloValor;
   final double? ultimoValorEjecutado;
   final double? proximoValor;
   final bool activo;
+  final String? nombreMaquina;
+  final String? codigoMaquina;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -21,6 +23,8 @@ class PlanMantenimiento {
     this.ultimoValorEjecutado,
     this.proximoValor,
     required this.activo,
+    this.nombreMaquina,
+    this.codigoMaquina,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -40,12 +44,13 @@ class PlanMantenimiento {
           ? (map['proximo_valor'] as num).toDouble()
           : null,
       activo: map['activo'] ?? true,
+      nombreMaquina: (map['maquinas'] as Map?)?['nombre'] as String?,
+      codigoMaquina: (map['maquinas'] as Map?)?['codigo'] as String?,
       createdAt: DateTime.parse(map['created_at']),
       updatedAt: DateTime.parse(map['updated_at']),
     );
   }
 
-  // Útil para mostrar la unidad en UI
   String get unidadIntervalo {
     switch (tipoIntervalo) {
       case 'dias': return 'días';

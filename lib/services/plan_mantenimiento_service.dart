@@ -4,10 +4,19 @@ import '../models/plan_mantenimiento.dart';
 class PlanMantenimientoService {
   final _client = Supabase.instance.client;
 
+  Future<String> _getEmpresaId() async {
+    final response = await _client
+        .from('usuarios')
+        .select('empresa_id')
+        .eq('id', _client.auth.currentUser!.id)
+        .single();
+    return response['empresa_id'] as String;
+  }
+
   Future<List<PlanMantenimiento>> obtenerPlanes({String? maquinaId}) async {
     var query = _client
         .from('planes_mantenimiento')
-        .select()
+        .select('*, maquinas(nombre, codigo)')
         .eq('activo', true);
 
     if (maquinaId != null) {
@@ -24,15 +33,17 @@ class PlanMantenimientoService {
     required String tipoIntervalo,
     required double intervaloValor,
   }) async {
+    final empresaId = await _getEmpresaId();
     final response = await _client
         .from('planes_mantenimiento')
         .insert({
+          'empresa_id': empresaId,
           'maquina_id': maquinaId,
           'descripcion_tarea': descripcionTarea,
           'tipo_intervalo': tipoIntervalo,
           'intervalo_valor': intervaloValor,
         })
-        .select()
+        .select('*, maquinas(nombre, codigo)')
         .single();
 
     return PlanMantenimiento.fromMap(response);
@@ -55,7 +66,7 @@ class PlanMantenimientoService {
         .from('planes_mantenimiento')
         .update(data)
         .eq('id', id)
-        .select()
+        .select('*, maquinas(nombre, codigo)')
         .single();
 
     return PlanMantenimiento.fromMap(response);
