@@ -90,6 +90,9 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
       final estadoAnterior = _ticket!['estado'] as String;
       final updateData = <String, dynamic>{'estado': nuevoEstado};
       if (tecnicoId != null) updateData['tecnico_id'] = tecnicoId;
+      if (nuevoEstado == 'cerrado') {
+        updateData['fecha_cierre'] = DateTime.now().toUtc().toIso8601String();
+      }
 
       await _supabase.from('tickets').update(updateData).eq('id', widget.ticketId);
 
@@ -300,6 +303,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     final prioridad = _ticket!['prioridad'] as String? ?? 'media';
     final maquina = _ticket!['maquinas'] as Map<String, dynamic>?;
     final fecha = DateTime.tryParse(_ticket!['created_at'] ?? '');
+    final fechaCierre = _ticket!['fecha_cierre'] != null ? DateTime.tryParse(_ticket!['fecha_cierre']) : null;
     final padding = Responsive.pagePadding(context);
 
     return Scaffold(
@@ -380,6 +384,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                 _infoRow('Creado por', _nombreCreadoPor.isNotEmpty ? _nombreCreadoPor : '-'),
                 if (_nombreTecnico.isNotEmpty) _infoRow('Técnico', _nombreTecnico),
                 if (fecha != null) _infoRow('Fecha', _formatoAuditoria(fecha)),
+                if (fechaCierre != null) _infoRow('Cierre', _formatoAuditoria(fechaCierre)),
                 const SizedBox(height: 8),
                 const Text('Descripción', style: TextStyle(color: Colors.grey, fontSize: 13)),
                 const SizedBox(height: 4),

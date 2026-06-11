@@ -18,6 +18,8 @@ class _TicketsScreenState extends State<TicketsScreen> {
   List<Map<String, dynamic>> _tickets = [];
   bool _cargando = true;
   String _filtroEstado = 'todos';
+  String _filtroTipo = 'todos';
+  String _filtroPrioridad = 'todos';
 
   @override
   void initState() { super.initState(); _cargarTickets(); }
@@ -65,7 +67,6 @@ class _TicketsScreenState extends State<TicketsScreen> {
         tickets = List<Map<String, dynamic>>.from(result);
       }
 
-      // Enriquecer con nombres de usuarios por separado
       final usuariosIds = <String>{};
       for (final t in tickets) {
         if (t['creado_por'] != null) usuariosIds.add(t['creado_por']);
@@ -83,7 +84,6 @@ class _TicketsScreenState extends State<TicketsScreen> {
         }
       }
 
-      // Agregar nombres a cada ticket
       for (final t in tickets) {
         t['nombre_creado_por'] = nombresUsuarios[t['creado_por']] ?? '';
         t['nombre_tecnico'] = nombresUsuarios[t['tecnico_id']] ?? '';
@@ -98,12 +98,14 @@ class _TicketsScreenState extends State<TicketsScreen> {
   }
 
   List<Map<String, dynamic>> get _ticketsFiltrados {
-    if (_filtroEstado == 'todos') return _tickets;
-    return _tickets.where((t) => t['estado'] == _filtroEstado).toList();
+    return _tickets.where((t) {
+      final coincideEstado = _filtroEstado == 'todos' || t['estado'] == _filtroEstado;
+      final coincideTipo = _filtroTipo == 'todos' || (t['tipo'] ?? 'correctivo') == _filtroTipo;
+      final coincidePrioridad = _filtroPrioridad == 'todos' || (t['prioridad'] ?? 'media') == _filtroPrioridad;
+      return coincideEstado && coincideTipo && coincidePrioridad;
+    }).toList();
   }
 
-  // Formato auditoría: convierte UTC a hora local y muestra la zona.
-  // Ej: 2026-06-04 20:00:20 (UTC-3)
   String _formatoAuditoria(DateTime? fechaUtc) {
     if (fechaUtc == null) return '';
     final local = fechaUtc.toLocal();
@@ -153,6 +155,16 @@ class _TicketsScreenState extends State<TicketsScreen> {
     }
   }
 
+  Color _colorPrioridad(String p) {
+    switch (p) {
+      case 'baja': return Colors.green;
+      case 'media': return Colors.orange;
+      case 'alta': return Colors.deepOrange;
+      case 'critica': return Colors.red;
+      default: return Colors.grey;
+    }
+  }
+
   void _mostrarError(String m) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating));
@@ -186,6 +198,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
       body: _cargando
           ? const Center(child: CircularProgressIndicator())
           : Column(children: [
+              // Chips de estado
               Container(
                 color: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -206,6 +219,29 @@ class _TicketsScreenState extends State<TicketsScreen> {
                   ]),
                 ),
               ),
+              // Filtros secundarios: tipo y prioridad
+              Container(
+                color: Colors.white,
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(children: [
+                    _buildFiltroSimple('Tipo', _filtroTipo, {
+                      'todos': 'Todos',
+                      'correctivo': 'Correctivo',
+                      'preventivo': 'Preventivo',
+                    }, (v) => setState(() => _filtroTipo = v)),
+                    const SizedBox(width: 8),
+                    _buildFiltroSimple('Prioridad', _filtroPrioridad, {
+                      'todos': 'Todas',
+                      'baja': 'Baja',
+                      'media': 'Media',
+                      'alta': 'Alta',
+                      'critica': 'Crítica',
+                    }, (v) => setState(() => _filtroPrioridad = v)),
+                  ]),
+                ),
+              ),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -218,7 +254,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
                     ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                         Icon(Icons.confirmation_number_outlined, size: 80, color: Colors.grey[400]),
                         const SizedBox(height: 16),
-                        Text(_tickets.isEmpty ? 'No hay tickets' : 'No hay tickets con ese estado',
+                        Text(_tickets.isEmpty ? 'No hay tickets' : 'No hay tickets con esos filtros',
                             style: TextStyle(fontSize: 16, color: Colors.grey[600])),
                         if (_tickets.isEmpty && puedeCrear) ...[
                           const SizedBox(height: 8),
@@ -234,6 +270,8 @@ class _TicketsScreenState extends State<TicketsScreen> {
                           itemBuilder: (context, index) {
                             final ticket = ticketsFiltrados[index];
                             final estado = ticket['estado'] as String;
+                            final tipo = ticket['tipo'] as String? ?? 'correctivo';
+                            final prioridad = ticket['prioridad'] as String? ?? 'media';
                             final maquina = ticket['maquinas'] as Map<String, dynamic>?;
                             final nombreTecnico = ticket['nombre_tecnico'] as String?;
                             final fecha = DateTime.tryParse(ticket['created_at'] ?? '');
@@ -264,7 +302,14 @@ class _TicketsScreenState extends State<TicketsScreen> {
                                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                                         Row(children: [
                                           Text(ticket['numero'] ?? '', style: TextStyle(fontWeight: FontWeight.bold, fontSize: subtitleSize, color: Colors.grey[600])),
-                                          const SizedBox(width: 8),
+                                          const SizedBox(width: 6),
+                                          // Indicador de tipo
+                                          Icon(
+                                            tipo == 'preventivo' ? Icons.event_available_outlined : Icons.build_outlined,
+                                            size: subtitleSize + 1,
+                                            color: tipo == 'preventivo' ? Colors.green : Colors.red,
+                                          ),
+                                          const SizedBox(width: 6),
                                           Expanded(child: Text(maquina?['nombre'] ?? 'Sin máquina',
                                               style: TextStyle(fontWeight: FontWeight.w600, fontSize: titleSize), overflow: TextOverflow.ellipsis)),
                                         ]),
@@ -274,10 +319,23 @@ class _TicketsScreenState extends State<TicketsScreen> {
                                             maxLines: 2, overflow: TextOverflow.ellipsis),
                                         const SizedBox(height: 4),
                                         Row(children: [
+                                          // Badge de prioridad
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                            decoration: BoxDecoration(
+                                              color: _colorPrioridad(prioridad).withOpacity(0.12),
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              prioridad[0].toUpperCase() + prioridad.substring(1),
+                                              style: TextStyle(fontSize: chipSize, color: _colorPrioridad(prioridad), fontWeight: FontWeight.w600),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
                                           if (nombreTecnico != null && nombreTecnico.isNotEmpty) ...[
                                             Icon(Icons.engineering_outlined, size: subtitleSize, color: Colors.grey[500]),
                                             const SizedBox(width: 3),
-                                            Text(nombreTecnico, style: TextStyle(fontSize: subtitleSize, color: Colors.grey[500])),
+                                            Flexible(child: Text(nombreTecnico, style: TextStyle(fontSize: subtitleSize, color: Colors.grey[500]), overflow: TextOverflow.ellipsis)),
                                             const SizedBox(width: 8),
                                           ],
                                           Icon(Icons.calendar_today_outlined, size: subtitleSize, color: Colors.grey[400]),
@@ -341,6 +399,36 @@ class _TicketsScreenState extends State<TicketsScreen> {
             decoration: BoxDecoration(color: seleccionado ? color : Colors.grey[400], borderRadius: BorderRadius.circular(10)),
             child: Text('$count', style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
           ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildFiltroSimple(String titulo, String valorActual, Map<String, String> opciones, ValueChanged<String> onSelect) {
+    final activo = valorActual != 'todos';
+    return PopupMenuButton<String>(
+      onSelected: onSelect,
+      itemBuilder: (context) => opciones.entries
+          .map((e) => PopupMenuItem(value: e.key, child: Text(e.value)))
+          .toList(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: activo ? const Color(0xFF1F4E79).withOpacity(0.1) : Colors.grey[100],
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: activo ? const Color(0xFF1F4E79) : Colors.grey[300]!),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Text(
+            activo ? opciones[valorActual]! : titulo,
+            style: TextStyle(
+              fontSize: 12,
+              color: activo ? const Color(0xFF1F4E79) : Colors.grey[600],
+              fontWeight: activo ? FontWeight.w600 : FontWeight.normal,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Icon(Icons.arrow_drop_down, size: 18, color: activo ? const Color(0xFF1F4E79) : Colors.grey[600]),
         ]),
       ),
     );
