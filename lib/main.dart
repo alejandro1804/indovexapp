@@ -6,6 +6,7 @@ import 'providers/plan_mantenimiento_provider.dart';
 import 'providers/lectura_maquina_provider.dart';
 import 'providers/tipo_intervalo_provider.dart';
 import 'providers/repuesto_maquina_provider.dart';
+import 'providers/audit_log_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/cambiar_password_screen.dart';
 import 'screens/home/home_screen.dart';
@@ -36,6 +37,7 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => LecturaMaquinaProvider()),
         ChangeNotifierProvider(create: (_) => TipoIntervaloProvider()),
         ChangeNotifierProvider(create: (_) => RepuestoMaquinaProvider()),
+        ChangeNotifierProvider(create: (_) => AuditLogProvider()),
       ],
       child: const MyApp(),
     ),

@@ -7,6 +7,7 @@ import 'proveedores_screen.dart';
 import 'categorias_repuestos_screen.dart';
 import 'roles_screen.dart';
 import 'tipos_intervalo_screen.dart';
+import 'auditoria_screen.dart';
 
 class ConfiguracionScreen extends StatelessWidget {
   const ConfiguracionScreen({super.key});
@@ -56,6 +57,13 @@ class ConfiguracionScreen extends StatelessWidget {
         titulo: 'Roles y permisos',
         descripcion: 'Configurar roles y sus permisos',
         screen: const RolesScreen(),
+        visible: usuario?.esAdmin ?? false,
+      ),
+      _ConfigOpcion(
+        icono: Icons.history_outlined,
+        titulo: 'Auditoría',
+        descripcion: 'Historial de cambios para trazabilidad ALCOA+',
+        screen: const AuditoriaScreen(),
         visible: usuario?.esAdmin ?? false,
       ),
     ].where((o) => o.visible).toList();
