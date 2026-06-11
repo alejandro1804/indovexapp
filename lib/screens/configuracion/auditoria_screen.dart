@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/audit_log_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../models/audit_log.dart';
+import '../../services/auditoria_pdf_service.dart';
 import 'auditoria_detalle_screen.dart';
 
 class AuditoriaScreen extends StatefulWidget {
@@ -12,7 +15,9 @@ class AuditoriaScreen extends StatefulWidget {
 }
 
 class _AuditoriaScreenState extends State<AuditoriaScreen> {
+  final _supabase = Supabase.instance.client;
   List<String> _tablasDisponibles = [];
+  String _nombreEmpresa = 'Empresa';
 
   @override
   void initState() {
@@ -21,8 +26,24 @@ class _AuditoriaScreenState extends State<AuditoriaScreen> {
       final provider = context.read<AuditLogProvider>();
       await provider.cargarLogs();
       final tablas = await provider.obtenerTablasDisponibles();
+      await _cargarNombreEmpresa();
       if (mounted) setState(() => _tablasDisponibles = tablas);
     });
+  }
+
+  Future<void> _cargarNombreEmpresa() async {
+    try {
+      final empresaId = context.read<AuthProvider>().usuario?.empresaId;
+      if (empresaId == null) return;
+      final data = await _supabase
+          .from('empresas')
+          .select('nombre')
+          .eq('id', empresaId)
+          .single();
+      if (mounted) _nombreEmpresa = data['nombre'] ?? 'Empresa';
+    } catch (e) {
+      // mantiene el valor por defecto
+    }
   }
 
   Color _colorOperacion(String op) {
@@ -69,6 +90,25 @@ class _AuditoriaScreenState extends State<AuditoriaScreen> {
     }
   }
 
+  Future<void> _exportarPdf() async {
+    final provider = context.read<AuditLogProvider>();
+    try {
+      await AuditoriaPdfService.generarYCompartir(
+        logs: provider.logs,
+        nombreEmpresa: _nombreEmpresa,
+        filtroTabla: provider.filtroTabla,
+        filtroOperacion: provider.filtroOperacion,
+        desde: provider.desde,
+        hasta: provider.hasta,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al generar PDF: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<AuditLogProvider>();
@@ -98,6 +138,11 @@ class _AuditoriaScreenState extends State<AuditoriaScreen> {
         backgroundColor: const Color(0xFF1F4E79),
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            tooltip: 'Exportar PDF',
+            onPressed: provider.logs.isEmpty ? null : _exportarPdf,
+          ),
           if (hayFiltros)
             IconButton(
               icon: const Icon(Icons.filter_alt_off_outlined),

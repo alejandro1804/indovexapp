@@ -21,6 +21,8 @@ dependencies:
   url_launcher: ^6.3.2
   file_picker: ^8.1.2
   mime: ^1.0.5
+  pdf: ^3.11.1
+  printing: ^5.13.4
 
 dev_dependencies:
   flutter_test:
