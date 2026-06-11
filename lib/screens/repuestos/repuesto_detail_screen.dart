@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/repuesto.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/adjuntos_section.dart';
+import '../../widgets/repuestos_maquina_section.dart';
 import 'ingreso_repuesto_screen.dart';
 import 'salida_repuesto_screen.dart';
 
@@ -179,6 +180,12 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
                 ],
               ),
             ),
+          ),
+          const SizedBox(height: 16),
+          // Máquinas que usan este repuesto
+          RepuestosMaquinaSection(
+            modo: 'desde_repuesto',
+            entidadId: _repuesto.id,
           ),
           const SizedBox(height: 16),
           // Adjuntos

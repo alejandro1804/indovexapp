@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/maquina.dart';
 import '../../widgets/adjuntos_section.dart';
+import '../../widgets/repuestos_maquina_section.dart';
 
 class MaquinaDetailScreen extends StatelessWidget {
   final Maquina maquina;
@@ -84,35 +85,10 @@ class MaquinaDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          // Acciones rápidas
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.confirmation_number_outlined),
-                  label: const Text('Ver Tickets'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF1F4E79),
-                    side: const BorderSide(color: Color(0xFF1F4E79)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.inventory_2_outlined),
-                  label: const Text('Repuestos'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF1F4E79),
-                    side: const BorderSide(color: Color(0xFF1F4E79)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                ),
-              ),
-            ],
+          // Repuestos asociados a la máquina
+          RepuestosMaquinaSection(
+            modo: 'desde_maquina',
+            entidadId: maquina.id,
           ),
           const SizedBox(height: 16),
 
