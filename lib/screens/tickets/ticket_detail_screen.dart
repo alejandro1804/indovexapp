@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/responsive.dart';
 import '../../widgets/adjuntos_section.dart';
+import '../../widgets/repuestos_ticket_section.dart';
 
 class TicketDetailScreen extends StatefulWidget {
   final String ticketId;
@@ -402,6 +403,15 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
 
           // Acciones
           _buildAcciones(usuario, estado),
+          const SizedBox(height: 16),
+
+          // Repuestos utilizados
+          if (_ticket!['maquina_id'] != null)
+            RepuestosTicketSection(
+              ticketId: widget.ticketId,
+              maquinaId: _ticket!['maquina_id'],
+              editable: estado != 'cerrado' && estado != 'rechazado',
+            ),
           const SizedBox(height: 16),
 
           // Historial
