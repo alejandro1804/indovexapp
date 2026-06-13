@@ -17,12 +17,12 @@ String normalizarTexto(String texto) {
 ///   _mostrarError(mensajeAmigableDb(e, entidad: 'sector'));
 /// }
 /// ```
-String mensajeAmigableDb(Object error, {required String entidad}) {
+String mensajeAmigableDb(Object error, {required String entidad, String campos = 'nombre'}) {
   if (error is PostgrestException) {
     // 23505 = unique_violation
     if (error.code == '23505') {
-      return 'Ya existe un $entidad con ese nombre en tu empresa. '
-          'Probá con otro nombre (ej. "$entidad A", "$entidad 2").';
+      return 'Ya existe un $entidad con ese $campos en tu empresa. '
+          'Probá con otro valor.';
     }
     // 23503 = foreign_key_violation
     if (error.code == '23503') {

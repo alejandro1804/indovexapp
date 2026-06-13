@@ -156,7 +156,7 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
       await _supabase.from('maquinas').insert({'empresa_id': usuario.empresaId, 'sector_id': sectorId, 'nombre': nombre, 'codigo': codigo, 'estado': estado, 'descripcion': descripcion.isEmpty ? null : descripcion});
       await _cargarDatos();
       _mostrarExito('Máquina creada correctamente');
-    } catch (e) { _mostrarError(mensajeAmigableDb(e, entidad: 'máquina')); }
+    } catch (e) { _mostrarError(mensajeAmigableDb(e, entidad: 'máquina', campos: 'nombre o código')); }
   }
 
   Future<void> _editarMaquina({required String id, required String nombre, required String codigo, required String sectorId, required String estado, required String descripcion}) async {
@@ -164,7 +164,7 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
       await _supabase.from('maquinas').update({'sector_id': sectorId, 'nombre': nombre, 'codigo': codigo, 'estado': estado, 'descripcion': descripcion.isEmpty ? null : descripcion}).eq('id', id);
       await _cargarDatos();
       _mostrarExito('Máquina actualizada correctamente');
-    } catch (e) { _mostrarError(mensajeAmigableDb(e, entidad: 'máquina')); }
+    } catch (e) { _mostrarError(mensajeAmigableDb(e, entidad: 'máquina', campos: 'nombre o código')); }
   }
 
   Future<void> _eliminarMaquina(Maquina maquina) async {

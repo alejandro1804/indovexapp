@@ -149,7 +149,7 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
       await _supabase.from('repuestos').insert({'empresa_id': usuario.empresaId, 'categoria_id': categoriaId, 'codigo': codigo, 'descripcion': descripcion, 'stock_actual': stockActual, 'stock_minimo': stockMinimo, 'ubicacion': ubicacion.isEmpty ? null : ubicacion, 'unidad_medida': unidadMedida, 'notas': notas.isEmpty ? null : notas, 'activo': true});
       await _cargarDatos();
       _mostrarExito('Repuesto creado correctamente');
-    } catch (e) { _mostrarError(mensajeAmigableDb(e, entidad: 'repuesto')); }
+    } catch (e) { _mostrarError(mensajeAmigableDb(e, entidad: 'repuesto', campos: 'descripción o código')); }
   }
 
   Future<void> _editarRepuesto({required String id, required String codigo, required String descripcion, String? categoriaId, required String unidadMedida, required int stockMinimo, required String ubicacion, required String notas}) async {
@@ -157,7 +157,7 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
       await _supabase.from('repuestos').update({'categoria_id': categoriaId, 'codigo': codigo, 'descripcion': descripcion, 'stock_minimo': stockMinimo, 'ubicacion': ubicacion.isEmpty ? null : ubicacion, 'unidad_medida': unidadMedida, 'notas': notas.isEmpty ? null : notas}).eq('id', id);
       await _cargarDatos();
       _mostrarExito('Repuesto actualizado correctamente');
-    } catch (e) { _mostrarError(mensajeAmigableDb(e, entidad: 'repuesto')); }
+    } catch (e) { _mostrarError(mensajeAmigableDb(e, entidad: 'repuesto', campos: 'descripción o código')); }
   }
 
   void _mostrarExito(String m) { if (!mounted) return; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating)); }
