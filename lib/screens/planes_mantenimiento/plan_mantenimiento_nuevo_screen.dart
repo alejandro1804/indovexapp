@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../models/plan_mantenimiento.dart';
 import '../../providers/plan_mantenimiento_provider.dart';
 import '../../providers/tipo_intervalo_provider.dart';
 import '../../core/responsive.dart';
 
 class PlanMantenimientoNuevoScreen extends StatefulWidget {
-  const PlanMantenimientoNuevoScreen({super.key});
+  final PlanMantenimiento? plan;
+
+  const PlanMantenimientoNuevoScreen({super.key, this.plan});
 
   @override
   State<PlanMantenimientoNuevoScreen> createState() => _PlanMantenimientoNuevoScreenState();
@@ -14,9 +17,16 @@ class PlanMantenimientoNuevoScreen extends StatefulWidget {
 
 class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScreen> {
   final _supabase = Supabase.instance.client;
-  final _descripcionController = TextEditingController();
-  final _intervaloController = TextEditingController();
-  final _procedimientoController = TextEditingController();
+  late final _descripcionController = TextEditingController(text: widget.plan?.descripcionTarea ?? '');
+  late final _intervaloController = TextEditingController(
+    text: widget.plan != null
+        ? widget.plan!.intervaloValor.toStringAsFixed(
+            widget.plan!.intervaloValor.truncateToDouble() == widget.plan!.intervaloValor ? 0 : 1)
+        : '',
+  );
+  late final _procedimientoController = TextEditingController(text: widget.plan?.procedimiento ?? '');
+
+  bool get _esEdicion => widget.plan != null;
 
   List<Map<String, dynamic>> _maquinas = [];
   String? _maquinaSeleccionada;
@@ -27,6 +37,8 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
   @override
   void initState() {
     super.initState();
+    _maquinaSeleccionada = widget.plan?.maquinaId;
+    _tipoIntervaloSeleccionado = widget.plan?.tipoIntervalo;
     _cargarMaquinas();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<TipoIntervaloProvider>().cargarTipos().then((_) {
@@ -54,7 +66,9 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
           .order('nombre');
       setState(() {
         _maquinas = List<Map<String, dynamic>>.from(data);
-        if (_maquinas.isNotEmpty) _maquinaSeleccionada = _maquinas.first['id'];
+        if (_maquinaSeleccionada == null && _maquinas.isNotEmpty) {
+          _maquinaSeleccionada = _maquinas.first['id'];
+        }
       });
     } catch (e) {
       _mostrarError('Error al cargar máquinas: $e');
@@ -90,28 +104,39 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
 
     setState(() => _cargando = true);
     try {
-      final ok = await context.read<PlanMantenimientoProvider>().crearPlan(
-        maquinaId: _maquinaSeleccionada!,
-        descripcionTarea: _descripcionController.text.trim(),
-        tipoIntervalo: _tipoIntervaloSeleccionado!,
-        intervaloValor: valor,
-        procedimiento: _procedimientoController.text.trim().isEmpty
-            ? null
-            : _procedimientoController.text.trim(),
-      );
+      final provider = context.read<PlanMantenimientoProvider>();
+      final ok = _esEdicion
+          ? await provider.actualizarPlan(
+              id: widget.plan!.id,
+              descripcionTarea: _descripcionController.text.trim(),
+              tipoIntervalo: _tipoIntervaloSeleccionado!,
+              intervaloValor: valor,
+              procedimiento: _procedimientoController.text.trim().isEmpty
+                  ? null
+                  : _procedimientoController.text.trim(),
+            )
+          : await provider.crearPlan(
+              maquinaId: _maquinaSeleccionada!,
+              descripcionTarea: _descripcionController.text.trim(),
+              tipoIntervalo: _tipoIntervaloSeleccionado!,
+              intervaloValor: valor,
+              procedimiento: _procedimientoController.text.trim().isEmpty
+                  ? null
+                  : _procedimientoController.text.trim(),
+            );
 
       if (!mounted) return;
       if (ok) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Plan creado correctamente'),
+          SnackBar(
+            content: Text(_esEdicion ? 'Plan actualizado correctamente' : 'Plan creado correctamente'),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
           ),
         );
-        Navigator.pop(context);
+        Navigator.pop(context, true);
       } else {
-        _mostrarError('Error al crear el plan');
+        _mostrarError(_esEdicion ? 'Error al actualizar el plan' : 'Error al crear el plan');
       }
     } finally {
       setState(() => _cargando = false);
@@ -133,7 +158,7 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Nuevo Plan de Mantenimiento'),
+        title: Text(_esEdicion ? 'Editar Plan de Mantenimiento' : 'Nuevo Plan de Mantenimiento'),
         backgroundColor: const Color(0xFF1F4E79),
         foregroundColor: Colors.white,
       ),
@@ -150,13 +175,14 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
               : ListView(
                   padding: padding,
                   children: [
-                    // Máquina
+                    // Máquina (no editable en modo edición)
                     DropdownButtonFormField<String>(
                       value: _maquinaSeleccionada,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Máquina *',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.precision_manufacturing_outlined),
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.precision_manufacturing_outlined),
+                        helperText: _esEdicion ? 'La máquina no puede modificarse' : null,
                       ),
                       items: _maquinas.map((m) {
                         final sector = (m['sectores'] as Map?)?['nombre'] ?? '';
@@ -165,7 +191,7 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
                           child: Text('${m['nombre']} (${m['codigo']}) — $sector', overflow: TextOverflow.ellipsis),
                         );
                       }).toList(),
-                      onChanged: (v) => setState(() => _maquinaSeleccionada = v),
+                      onChanged: _esEdicion ? null : (v) => setState(() => _maquinaSeleccionada = v),
                     ),
                     const SizedBox(height: 16),
 
@@ -246,7 +272,7 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
                         icon: _cargando
                             ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                             : const Icon(Icons.save_outlined),
-                        label: const Text('Guardar plan', style: TextStyle(fontSize: 16)),
+                        label: Text(_esEdicion ? 'Guardar cambios' : 'Guardar plan', style: const TextStyle(fontSize: 16)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF1F4E79),
                           foregroundColor: Colors.white,

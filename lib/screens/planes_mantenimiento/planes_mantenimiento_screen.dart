@@ -43,6 +43,16 @@ class _PlanesMantenimientoScreenState extends State<PlanesMantenimientoScreen> {
     }
   }
 
+  Future<void> _editarPlan(PlanMantenimiento plan) async {
+    final actualizado = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => PlanMantenimientoNuevoScreen(plan: plan)),
+    );
+    if (actualizado == true && context.mounted) {
+      context.read<PlanMantenimientoProvider>().cargarPlanes();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<PlanMantenimientoProvider>();
@@ -105,6 +115,7 @@ class _PlanesMantenimientoScreenState extends State<PlanesMantenimientoScreen> {
                         colorIntervalo: _colorIntervalo(plan.tipoIntervalo),
                         iconoIntervalo: _iconoIntervalo(plan.tipoIntervalo),
                         esAdminOEncargado: esAdminOEncargado,
+                        onEditar: () => _editarPlan(plan),
                         onDesactivar: () async {
                           final confirmar = await showDialog<bool>(
                             context: context,
@@ -144,6 +155,7 @@ class _PlanCard extends StatelessWidget {
   final Color colorIntervalo;
   final IconData iconoIntervalo;
   final bool esAdminOEncargado;
+  final VoidCallback onEditar;
   final VoidCallback onDesactivar;
 
   const _PlanCard({
@@ -151,6 +163,7 @@ class _PlanCard extends StatelessWidget {
     required this.colorIntervalo,
     required this.iconoIntervalo,
     required this.esAdminOEncargado,
+    required this.onEditar,
     required this.onDesactivar,
   });
 
@@ -216,6 +229,14 @@ class _PlanCard extends StatelessWidget {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                              ListTile(
+                                leading: const Icon(Icons.edit_outlined, color: Color(0xFF1F4E79)),
+                                title: const Text('Editar plan'),
+                                onTap: () {
+                                  Navigator.pop(context);
+                                  onEditar();
+                                },
+                              ),
                               ListTile(
                                 leading: const Icon(Icons.block, color: Colors.red),
                                 title: const Text('Desactivar plan'),

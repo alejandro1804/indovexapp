@@ -4,11 +4,25 @@ import '../../models/plan_mantenimiento.dart';
 import '../../providers/plan_mantenimiento_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/responsive.dart';
+import 'plan_mantenimiento_nuevo_screen.dart';
 
-class PlanMantenimientoDetailScreen extends StatelessWidget {
+class PlanMantenimientoDetailScreen extends StatefulWidget {
   final PlanMantenimiento plan;
 
   const PlanMantenimientoDetailScreen({super.key, required this.plan});
+
+  @override
+  State<PlanMantenimientoDetailScreen> createState() => _PlanMantenimientoDetailScreenState();
+}
+
+class _PlanMantenimientoDetailScreenState extends State<PlanMantenimientoDetailScreen> {
+  late PlanMantenimiento _plan;
+
+  @override
+  void initState() {
+    super.initState();
+    _plan = widget.plan;
+  }
 
   Color _colorIntervalo(String tipo) {
     switch (tipo) {
@@ -30,12 +44,25 @@ class PlanMantenimientoDetailScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _editar() async {
+    final actualizado = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => PlanMantenimientoNuevoScreen(plan: _plan)),
+    );
+    if (actualizado == true && mounted) {
+      final provider = context.read<PlanMantenimientoProvider>();
+      final nuevo = provider.planes.where((p) => p.id == _plan.id).firstOrNull;
+      if (nuevo != null) setState(() => _plan = nuevo);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final padding = Responsive.pagePadding(context);
     final usuario = context.read<AuthProvider>().usuario;
     final esAdminOEncargado = usuario?.esAdmin == true || usuario?.esEncargado == true;
-    final color = _colorIntervalo(plan.tipoIntervalo);
+    final color = _colorIntervalo(_plan.tipoIntervalo);
+    final plan = _plan;
 
     return Scaffold(
       appBar: AppBar(
@@ -45,7 +72,14 @@ class PlanMantenimientoDetailScreen extends StatelessWidget {
         actions: [
           if (esAdminOEncargado)
             IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: 'Editar plan',
+              onPressed: _editar,
+            ),
+          if (esAdminOEncargado)
+            IconButton(
               icon: const Icon(Icons.delete_outline),
+              tooltip: 'Desactivar plan',
               onPressed: () async {
                 final confirmar = await showDialog<bool>(
                   context: context,

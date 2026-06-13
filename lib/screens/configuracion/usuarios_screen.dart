@@ -170,6 +170,46 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
     }
   }
 
+  Future<void> _editarNombre(Map<String, dynamic> usuario) async {
+    final nombreController = TextEditingController(text: usuario['nombre']);
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Editar nombre'),
+        content: SizedBox(
+          width: Responsive.isDesktop(context) ? 400 : double.maxFinite,
+          child: TextField(
+            controller: nombreController,
+            decoration: const InputDecoration(labelText: 'Nombre *', border: OutlineInputBorder()),
+            textCapitalization: TextCapitalization.words,
+            maxLength: 100,
+            autofocus: true,
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          ElevatedButton(
+            onPressed: () async {
+              final nombre = normalizarTexto(nombreController.text);
+              if (nombre.isEmpty) return;
+              Navigator.pop(context);
+              try {
+                await _supabase.from('usuarios').update({'nombre': nombre}).eq('id', usuario['id']);
+                await _cargarDatos();
+                _mostrarExito('Nombre actualizado correctamente');
+              } catch (e) {
+                _mostrarError(mensajeAmigableDb(e, entidad: 'usuario'));
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _cambiarRol(Map<String, dynamic> usuario) async {
     String rolSeleccionado = usuario['rol_id'] as String;
     await showDialog(
@@ -529,41 +569,47 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
           ],
         ),
         isThreeLine: true,
-        trailing: esYo
-            ? null
-            : PopupMenuButton(
-                itemBuilder: (_) => [
-                  const PopupMenuItem(
-                    value: 'cambiar_rol',
-                    child: Row(children: [Icon(Icons.manage_accounts_outlined, size: 18), SizedBox(width: 8), Text('Cambiar rol')]),
-                  ),
-                  if (rolNombre == 'encargado')
-                    const PopupMenuItem(
-                      value: 'asignar_sectores',
-                      child: Row(children: [Icon(Icons.domain_outlined, size: 18), SizedBox(width: 8), Text('Asignar sectores')]),
-                    ),
-                  const PopupMenuItem(
-                    value: 'resetear_pass',
-                    child: Row(children: [Icon(Icons.lock_reset_outlined, size: 18), SizedBox(width: 8), Text('Resetear contraseña')]),
-                  ),
-                  PopupMenuItem(
-                    value: 'toggle_estado',
-                    child: Row(
-                      children: [
-                        Icon(activo ? Icons.person_off_outlined : Icons.person_outlined, size: 18, color: activo ? Colors.orange : Colors.green),
-                        const SizedBox(width: 8),
-                        Text(activo ? 'Desactivar' : 'Activar', style: TextStyle(color: activo ? Colors.orange : Colors.green)),
-                      ],
-                    ),
-                  ),
-                ],
-                onSelected: (value) {
-                  if (value == 'cambiar_rol') _cambiarRol(usuario);
-                  if (value == 'asignar_sectores') _asignarSectores(usuario);
-                  if (value == 'resetear_pass') _resetearPassword(usuario);
-                  if (value == 'toggle_estado') _toggleEstado(usuario);
-                },
+        trailing: PopupMenuButton(
+          itemBuilder: (_) => [
+            const PopupMenuItem(
+              value: 'editar_nombre',
+              child: Row(children: [Icon(Icons.edit_outlined, size: 18), SizedBox(width: 8), Text('Editar nombre')]),
+            ),
+            if (!esYo)
+              const PopupMenuItem(
+                value: 'cambiar_rol',
+                child: Row(children: [Icon(Icons.manage_accounts_outlined, size: 18), SizedBox(width: 8), Text('Cambiar rol')]),
               ),
+            if (!esYo && rolNombre == 'encargado')
+              const PopupMenuItem(
+                value: 'asignar_sectores',
+                child: Row(children: [Icon(Icons.domain_outlined, size: 18), SizedBox(width: 8), Text('Asignar sectores')]),
+              ),
+            if (!esYo)
+              const PopupMenuItem(
+                value: 'resetear_pass',
+                child: Row(children: [Icon(Icons.lock_reset_outlined, size: 18), SizedBox(width: 8), Text('Resetear contraseña')]),
+              ),
+            if (!esYo)
+              PopupMenuItem(
+                value: 'toggle_estado',
+                child: Row(
+                  children: [
+                    Icon(activo ? Icons.person_off_outlined : Icons.person_outlined, size: 18, color: activo ? Colors.orange : Colors.green),
+                    const SizedBox(width: 8),
+                    Text(activo ? 'Desactivar' : 'Activar', style: TextStyle(color: activo ? Colors.orange : Colors.green)),
+                  ],
+                ),
+              ),
+          ],
+          onSelected: (value) {
+            if (value == 'editar_nombre') _editarNombre(usuario);
+            if (value == 'cambiar_rol') _cambiarRol(usuario);
+            if (value == 'asignar_sectores') _asignarSectores(usuario);
+            if (value == 'resetear_pass') _resetearPassword(usuario);
+            if (value == 'toggle_estado') _toggleEstado(usuario);
+          },
+        ),
       ),
     );
   }
