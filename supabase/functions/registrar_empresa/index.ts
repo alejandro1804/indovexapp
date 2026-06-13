@@ -8,15 +8,14 @@ const corsHeaders = {
 // --- Validación de RUT uruguayo (módulo 11, mismo algoritmo que rut_uy_valido en DB) ---
 function rutUyValido(rut: string): boolean {
   if (!/^[0-9]{12}$/.test(rut)) return false
-  const pesos = [4, 3, 2, 9, 8, 7, 6, 5]
+  const pesos = [4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
   let suma = 0
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 11; i++) {
     suma += parseInt(rut[i]) * pesos[i]
   }
   const resto = suma % 11
   const verificador = (11 - resto) % 11
-  if (verificador === 10) return false
-  return parseInt(rut[8]) === verificador
+  return parseInt(rut[11]) === verificador
 }
 
 function emailValido(email: string): boolean {

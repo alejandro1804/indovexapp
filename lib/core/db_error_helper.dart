@@ -65,20 +65,20 @@ bool esEmailValido(String email) {
   return regex.hasMatch(email);
 }
 
-/// Valida un RUT uruguayo (12 dígitos con dígito verificador
-/// módulo 11, posición 9). Coincide con la función rut_uy_valido
-/// aplicada como CHECK constraint en la base de datos.
+/// Valida un RUT uruguayo (12 dígitos). El dígito verificador es el
+/// último (posición 12), calculado sobre los primeros 11 dígitos con
+/// la serie de pesos [4,3,2,9,8,7,6,5,4,3,2] (módulo 11).
+/// Coincide con la función rut_uy_valido aplicada como CHECK en la DB.
 bool esRutUyValido(String rut) {
   if (!RegExp(r'^[0-9]{12}$').hasMatch(rut)) return false;
 
-  const pesos = [4, 3, 2, 9, 8, 7, 6, 5];
+  const pesos = [4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
   int suma = 0;
-  for (int i = 0; i < 8; i++) {
+  for (int i = 0; i < 11; i++) {
     suma += int.parse(rut[i]) * pesos[i];
   }
   final resto = suma % 11;
   final verificador = (11 - resto) % 11;
-  if (verificador == 10) return false;
 
-  return int.parse(rut[8]) == verificador;
+  return int.parse(rut[11]) == verificador;
 }
