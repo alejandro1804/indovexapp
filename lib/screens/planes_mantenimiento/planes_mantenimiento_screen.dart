@@ -25,21 +25,21 @@ class _PlanesMantenimientoScreenState extends State<PlanesMantenimientoScreen> {
 
   Color _colorIntervalo(String tipo) {
     switch (tipo) {
-      case 'dias': return Colors.blue;
-      case 'horas': return Colors.orange;
-      case 'ciclos': return Colors.purple;
-      case 'm3': return Colors.teal;
-      default: return Colors.indigo;
+      case 'dias':   return const Color(0xFF1976D2);
+      case 'horas':  return const Color(0xFFE65100);
+      case 'ciclos': return const Color(0xFF6A1B9A);
+      case 'm3':     return const Color(0xFF00695C);
+      default:       return const Color(0xFF37474F);
     }
   }
 
   IconData _iconoIntervalo(String tipo) {
     switch (tipo) {
-      case 'dias': return Icons.calendar_today_outlined;
-      case 'horas': return Icons.timer_outlined;
+      case 'dias':   return Icons.calendar_today_outlined;
+      case 'horas':  return Icons.timer_outlined;
       case 'ciclos': return Icons.loop_outlined;
-      case 'm3': return Icons.water_outlined;
-      default: return Icons.event_repeat_outlined;
+      case 'm3':     return Icons.water_outlined;
+      default:       return Icons.event_repeat_outlined;
     }
   }
 
@@ -92,9 +92,16 @@ class _PlanesMantenimientoScreenState extends State<PlanesMantenimientoScreen> {
                     children: [
                       Icon(Icons.event_repeat_outlined, size: 80, color: Colors.grey[400]),
                       const SizedBox(height: 16),
-                      Text('No hay planes de mantenimiento', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+                      Text(
+                        'No hay planes de mantenimiento',
+                        style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                      ),
                       const SizedBox(height: 8),
-                      Text('Creá un plan para programar mantenimientos preventivos', style: TextStyle(fontSize: 13, color: Colors.grey[400])),
+                      Text(
+                        'Creá un plan para programar mantenimientos preventivos',
+                        style: TextStyle(fontSize: 13, color: Colors.grey[400]),
+                        textAlign: TextAlign.center,
+                      ),
                     ],
                   ),
                 )
@@ -167,108 +174,202 @@ class _PlanCard extends StatelessWidget {
     required this.onDesactivar,
   });
 
+  String get _frecuenciaLabel {
+    final valor = plan.intervaloValor.truncateToDouble() == plan.intervaloValor
+        ? plan.intervaloValor.toInt().toString()
+        : plan.intervaloValor.toStringAsFixed(1);
+    return 'Cada $valor ${plan.unidadIntervalo}';
+  }
+
+  String? get _proximoLabel {
+    if (plan.proximoValor == null) return null;
+    final valor = plan.proximoValor!.truncateToDouble() == plan.proximoValor
+        ? plan.proximoValor!.toInt().toString()
+        : plan.proximoValor!.toStringAsFixed(1);
+    return '$valor ${plan.unidadIntervalo}';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Card(
-      elevation: 1,
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: colorIntervalo.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(iconoIntervalo, color: colorIntervalo, size: 20),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 10),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Borde izquierdo de color según tipo de intervalo
+              Container(width: 4, color: colorIntervalo),
+
+              // Contenido principal
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 14, 8, 14),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (plan.nombreMaquina != null)
-                        Row(
-                          children: [
-                            Icon(Icons.precision_manufacturing_outlined, size: 13, color: Colors.grey[500]),
-                            const SizedBox(width: 4),
-                            Text(
-                              plan.codigoMaquina != null
-                                  ? '${plan.nombreMaquina} (${plan.codigoMaquina})'
-                                  : plan.nombreMaquina!,
-                              style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+                      // Fila superior: ícono + nombre máquina + menú
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(7),
+                            decoration: BoxDecoration(
+                              color: colorIntervalo.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                          ],
-                        ),
-                      const SizedBox(height: 2),
+                            child: Icon(iconoIntervalo, color: colorIntervalo, size: 18),
+                          ),
+                          const SizedBox(width: 10),
+                          if (plan.nombreMaquina != null) ...[
+                            Icon(
+                              Icons.precision_manufacturing_outlined,
+                              size: 12,
+                              color: Colors.grey[400],
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              // ✅ Fix del overflow
+                              child: Text(
+                                plan.codigoMaquina != null
+                                    ? '${plan.nombreMaquina} (${plan.codigoMaquina})'
+                                    : plan.nombreMaquina!,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey[500],
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ),
+                          ] else
+                            const Spacer(),
+                          if (esAdminOEncargado)
+                            SizedBox(
+                              width: 36,
+                              height: 36,
+                              child: IconButton(
+                                padding: EdgeInsets.zero,
+                                iconSize: 20,
+                                icon: Icon(Icons.more_vert, color: Colors.grey[400]),
+                                onPressed: () {
+                                  showModalBottomSheet(
+                                    context: context,
+                                    builder: (_) => SafeArea(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          ListTile(
+                                            leading: const Icon(
+                                              Icons.edit_outlined,
+                                              color: Color(0xFF1F4E79),
+                                            ),
+                                            title: const Text('Editar plan'),
+                                            onTap: () {
+                                              Navigator.pop(context);
+                                              onEditar();
+                                            },
+                                          ),
+                                          ListTile(
+                                            leading: const Icon(
+                                              Icons.block,
+                                              color: Colors.red,
+                                            ),
+                                            title: const Text('Desactivar plan'),
+                                            onTap: () {
+                                              Navigator.pop(context);
+                                              onDesactivar();
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 9),
+
+                      // Descripción de la tarea — texto principal
                       Text(
                         plan.descripcionTarea,
-                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                          color: Color(0xFF1A237E),
+                          height: 1.3,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Cada ${plan.intervaloValor.toStringAsFixed(plan.intervaloValor.truncateToDouble() == plan.intervaloValor ? 0 : 1)} ${plan.unidadIntervalo}',
-                        style: TextStyle(color: colorIntervalo, fontSize: 13, fontWeight: FontWeight.w500),
+
+                      const SizedBox(height: 10),
+
+                      // Chip de frecuencia + próximo valor
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colorIntervalo.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: colorIntervalo.withOpacity(0.3),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(iconoIntervalo, size: 11, color: colorIntervalo),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _frecuenciaLabel,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: colorIntervalo,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (_proximoLabel != null) ...[
+                            const SizedBox(width: 10),
+                            Icon(
+                              Icons.schedule_outlined,
+                              size: 12,
+                              color: Colors.grey[400],
+                            ),
+                            const SizedBox(width: 3),
+                            Flexible(
+                              child: Text(
+                                'Próximo: $_proximoLabel',
+                                style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ],
                   ),
                 ),
-                if (esAdminOEncargado)
-                  IconButton(
-                    icon: const Icon(Icons.more_vert),
-                    onPressed: () {
-                      showModalBottomSheet(
-                        context: context,
-                        builder: (_) => SafeArea(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              ListTile(
-                                leading: const Icon(Icons.edit_outlined, color: Color(0xFF1F4E79)),
-                                title: const Text('Editar plan'),
-                                onTap: () {
-                                  Navigator.pop(context);
-                                  onEditar();
-                                },
-                              ),
-                              ListTile(
-                                leading: const Icon(Icons.block, color: Colors.red),
-                                title: const Text('Desactivar plan'),
-                                onTap: () {
-                                  Navigator.pop(context);
-                                  onDesactivar();
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-              ],
-            ),
-            if (plan.proximoValor != null) ...[
-              const SizedBox(height: 12),
-              const Divider(height: 1),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Icon(Icons.schedule_outlined, size: 14, color: Colors.grey[500]),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Próximo: ${plan.proximoValor!.toStringAsFixed(plan.proximoValor!.truncateToDouble() == plan.proximoValor ? 0 : 1)} ${plan.unidadIntervalo}',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                  ),
-                ],
               ),
             ],
-          ],
+          ),
         ),
       ),
     );

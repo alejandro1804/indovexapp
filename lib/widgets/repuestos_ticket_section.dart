@@ -46,14 +46,12 @@ class _RepuestosTicketSectionState extends State<RepuestosTicketSection> {
 
   // Carga repuestos: primero los asociados a la máquina, después el resto
   Future<List<Map<String, dynamic>>> _cargarRepuestosDisponibles() async {
-    // Repuestos asociados a esta máquina
     final asociadosRaw = await _supabase
         .from('repuestos_maquinas')
         .select('repuesto_id')
         .eq('maquina_id', widget.maquinaId);
     final idsAsociados = (asociadosRaw as List).map((e) => e['repuesto_id'] as String).toSet();
 
-    // Todos los repuestos activos
     final todos = await _supabase
         .from('repuestos')
         .select('id, codigo, descripcion, stock_actual, unidad_medida')
@@ -61,7 +59,6 @@ class _RepuestosTicketSectionState extends State<RepuestosTicketSection> {
         .order('descripcion');
 
     final lista = List<Map<String, dynamic>>.from(todos);
-    // Marcar los asociados y ordenarlos primero
     for (final r in lista) {
       r['_asociado'] = idsAsociados.contains(r['id']);
     }
@@ -220,16 +217,28 @@ class _RepuestosTicketSectionState extends State<RepuestosTicketSection> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ✅ Fix overflow del header: título en Expanded, sin Spacer.
             Row(children: [
               const Icon(Icons.inventory_2_outlined, size: 18, color: Color(0xFF1F4E79)),
               const SizedBox(width: 8),
-              const Text('Repuestos utilizados', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-              const Spacer(),
-              if (widget.editable)
+              const Expanded(
+                child: Text(
+                  'Repuestos utilizados',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (widget.editable) ...[
+                const SizedBox(width: 4),
                 IconButton(
+                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints(),
+                  padding: const EdgeInsets.all(4),
+                  tooltip: 'Registrar consumo',
                   icon: const Icon(Icons.add_circle_outline, color: Color(0xFF1F4E79)),
                   onPressed: _mostrarFormularioConsumo,
                 ),
+              ],
             ]),
             const Divider(),
             if (_cargando)
@@ -263,9 +272,16 @@ class _RepuestosTicketSectionState extends State<RepuestosTicketSection> {
                         Text(
                           '${rep?['descripcion'] ?? ''} (${rep?['codigo'] ?? ''})',
                           style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         if (c['observacion'] != null && (c['observacion'] as String).isNotEmpty)
-                          Text(c['observacion'], style: TextStyle(fontSize: 12, color: Colors.grey[500], fontStyle: FontStyle.italic)),
+                          Text(
+                            c['observacion'],
+                            style: TextStyle(fontSize: 12, color: Colors.grey[500], fontStyle: FontStyle.italic),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                       ]),
                     ),
                   ]),

@@ -265,6 +265,8 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ✅ Fix overflow del header: título en Expanded, sin Spacer.
+            // El IconButton (+) se compacta para no robar ancho.
             Row(
               children: [
                 Icon(
@@ -273,12 +275,19 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
                   color: const Color(0xFF1F4E79),
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  _desdeMaquina ? 'Repuestos asociados' : 'Máquinas que lo usan',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                Expanded(
+                  child: Text(
+                    _desdeMaquina ? 'Repuestos asociados' : 'Máquinas que lo usan',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 4),
                 IconButton(
+                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints(),
+                  padding: const EdgeInsets.all(4),
+                  tooltip: _desdeMaquina ? 'Agregar repuesto' : 'Asociar máquina',
                   icon: const Icon(Icons.add_circle_outline, color: Color(0xFF1F4E79)),
                   onPressed: () => _mostrarFormulario(),
                 ),
@@ -308,7 +317,7 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 6),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -330,19 +339,45 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(titulo, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
+                            Text(
+                              titulo,
+                              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                             if (v.ubicacionEnMaquina != null && v.ubicacionEnMaquina!.isNotEmpty)
-                              Text(v.ubicacionEnMaquina!, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                              Text(
+                                v.ubicacionEnMaquina!,
+                                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             if (v.observacion != null && v.observacion!.isNotEmpty)
-                              Text(v.observacion!, style: TextStyle(fontSize: 12, color: Colors.grey[500], fontStyle: FontStyle.italic)),
+                              Text(
+                                v.observacion!,
+                                style: TextStyle(fontSize: 12, color: Colors.grey[500], fontStyle: FontStyle.italic),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                           ],
                         ),
                       ),
+                      const SizedBox(width: 4),
+                      // ✅ Botones compactos para no empujar el texto
                       IconButton(
+                        visualDensity: VisualDensity.compact,
+                        constraints: const BoxConstraints(),
+                        padding: const EdgeInsets.all(6),
+                        tooltip: 'Editar',
                         icon: const Icon(Icons.edit_outlined, size: 18),
                         onPressed: () => _mostrarFormulario(vinculo: v),
                       ),
+                      const SizedBox(width: 4),
                       IconButton(
+                        visualDensity: VisualDensity.compact,
+                        constraints: const BoxConstraints(),
+                        padding: const EdgeInsets.all(6),
+                        tooltip: 'Quitar',
                         icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
                         onPressed: () async {
                           final confirmar = await showDialog<bool>(

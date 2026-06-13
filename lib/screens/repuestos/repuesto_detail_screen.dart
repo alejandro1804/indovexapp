@@ -36,9 +36,7 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
     try {
       final data = await _supabase.from('categorias_repuestos').select().order('nombre');
       setState(() => _categorias = (data as List).map((e) => CategoriaRepuesto.fromMap(e)).toList());
-    } catch (_) {
-      // Si falla, el dropdown de categoría queda solo con "Sin categoría"
-    }
+    } catch (_) {}
   }
 
   Future<void> _recargarRepuesto() async {
@@ -49,17 +47,13 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
           .eq('id', _repuesto.id)
           .single();
       setState(() => _repuesto = Repuesto.fromMap(data));
-    } catch (e) {
-      // Si falla la recarga, mantiene los datos anteriores
-    }
+    } catch (e) {}
   }
 
   Future<void> _irAIngreso() async {
     final resultado = await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => IngresoRepuestoScreen(repuesto: _repuesto),
-      ),
+      MaterialPageRoute(builder: (_) => IngresoRepuestoScreen(repuesto: _repuesto)),
     );
     if (resultado == true) await _recargarRepuesto();
   }
@@ -67,9 +61,7 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
   Future<void> _irASalida() async {
     final resultado = await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => SalidaRepuestoScreen(repuesto: _repuesto),
-      ),
+      MaterialPageRoute(builder: (_) => SalidaRepuestoScreen(repuesto: _repuesto)),
     );
     if (resultado == true) await _recargarRepuesto();
   }
@@ -92,14 +84,28 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
             width: Responsive.isDesktop(context) ? 520 : double.maxFinite,
             child: SingleChildScrollView(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                TextField(controller: codigoController, decoration: const InputDecoration(labelText: 'Código *', border: OutlineInputBorder(), hintText: 'Ej: REP-001'), textCapitalization: TextCapitalization.characters, maxLength: 30),
+                TextField(
+                  controller: codigoController,
+                  decoration: const InputDecoration(labelText: 'Código *', border: OutlineInputBorder(), hintText: 'Ej: REP-001'),
+                  textCapitalization: TextCapitalization.characters,
+                  maxLength: 30,
+                ),
                 const SizedBox(height: 12),
-                TextField(controller: descripcionController, decoration: const InputDecoration(labelText: 'Descripción *', border: OutlineInputBorder()), textCapitalization: TextCapitalization.sentences, maxLines: 2, maxLength: 500),
+                TextField(
+                  controller: descripcionController,
+                  decoration: const InputDecoration(labelText: 'Descripción *', border: OutlineInputBorder()),
+                  textCapitalization: TextCapitalization.sentences,
+                  maxLines: 2,
+                  maxLength: 500,
+                ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String?>(
                   value: categoriaSeleccionada,
                   decoration: const InputDecoration(labelText: 'Categoría', border: OutlineInputBorder()),
-                  items: [const DropdownMenuItem(value: null, child: Text('Sin categoría')), ..._categorias.map((c) => DropdownMenuItem(value: c.id, child: Text(c.nombre)))],
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text('Sin categoría')),
+                    ..._categorias.map((c) => DropdownMenuItem(value: c.id, child: Text(c.nombre))),
+                  ],
                   onChanged: (v) => setDialogState(() => categoriaSeleccionada = v),
                 ),
                 const SizedBox(height: 12),
@@ -132,9 +138,23 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                TextField(controller: ubicacionController, decoration: const InputDecoration(labelText: 'Ubicación', border: OutlineInputBorder(), hintText: 'Ej: Estante A, Cajón 3'), textCapitalization: TextCapitalization.sentences, maxLength: 100),
+                TextField(
+                  controller: ubicacionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Ubicación',
+                    border: OutlineInputBorder(),
+                    hintText: 'Ej: Estante A, Cajón 3',
+                  ),
+                  textCapitalization: TextCapitalization.sentences,
+                  maxLength: 100,
+                ),
                 const SizedBox(height: 12),
-                TextField(controller: notasController, decoration: const InputDecoration(labelText: 'Notas', border: OutlineInputBorder()), maxLines: 2, maxLength: 500),
+                TextField(
+                  controller: notasController,
+                  decoration: const InputDecoration(labelText: 'Notas', border: OutlineInputBorder()),
+                  maxLines: 2,
+                  maxLength: 500,
+                ),
               ]),
             ),
           ),
@@ -158,7 +178,10 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
                   notas: notas,
                 );
               },
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1F4E79),
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Guardar'),
             ),
           ],
@@ -195,18 +218,26 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
 
   void _mostrarExito(String m) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(m), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating),
+    );
   }
 
   void _mostrarError(String m) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(m), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+    );
   }
 
   String _nombreCategoria(String? categoriaId) {
     if (categoriaId == null) return 'Sin categoría';
-    return _categorias.firstWhere((c) => c.id == categoriaId,
-        orElse: () => CategoriaRepuesto(id: '', empresaId: '', nombre: 'Sin categoría')).nombre;
+    return _categorias
+        .firstWhere(
+          (c) => c.id == categoriaId,
+          orElse: () => CategoriaRepuesto(id: '', empresaId: '', nombre: 'Sin categoría'),
+        )
+        .nombre;
   }
 
   @override
@@ -284,7 +315,8 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          // Acciones (solo si tiene algún permiso de movimiento)
+
+          // Acciones ingreso / salida
           if (puedeIngreso || puedeSalida)
             Row(
               children: [
@@ -318,7 +350,8 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
               ],
             ),
           if (puedeIngreso || puedeSalida) const SizedBox(height: 16),
-          // Info
+
+          // Información
           Card(
             elevation: 1,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -327,8 +360,10 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Información',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const Text(
+                    'Información',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
                   const Divider(),
                   _infoRow('Código', _repuesto.codigo),
                   _infoRow('Categoría', _nombreCategoria(_repuesto.categoriaId)),
@@ -341,12 +376,14 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
             ),
           ),
           const SizedBox(height: 16),
+
           // Máquinas que usan este repuesto
           RepuestosMaquinaSection(
             modo: 'desde_repuesto',
             entidadId: _repuesto.id,
           ),
           const SizedBox(height: 16),
+
           // Adjuntos
           AdjuntosSection(
             entidadTipo: 'repuesto',
@@ -358,24 +395,23 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
     );
   }
 
+  // ✅ Fix: ancho del label aumentado a 80 y usando flexible en lugar de SizedBox fijo
   Widget _infoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 90,
-            child: Text(
-              label,
-              style: TextStyle(color: Colors.grey[600], fontSize: 13),
-            ),
+          Text(
+            label,
+            style: TextStyle(color: Colors.grey[600], fontSize: 13),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
               value,
               style: const TextStyle(fontWeight: FontWeight.w500),
+              textAlign: TextAlign.end,
             ),
           ),
         ],
