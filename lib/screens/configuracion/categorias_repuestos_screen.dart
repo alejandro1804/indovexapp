@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/categoria_repuesto.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/responsive.dart';
+import '../../core/db_error_helper.dart';
 
 class CategoriasRepuestosScreen extends StatefulWidget {
   const CategoriasRepuestosScreen({super.key});
@@ -39,19 +40,21 @@ class _CategoriasRepuestosScreenState extends State<CategoriasRepuestosScreen> {
         content: SizedBox(
           width: Responsive.isDesktop(context) ? 400 : double.maxFinite,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            TextField(controller: nombreController, decoration: const InputDecoration(labelText: 'Nombre *', border: OutlineInputBorder()), textCapitalization: TextCapitalization.words),
+            TextField(controller: nombreController, decoration: const InputDecoration(labelText: 'Nombre *', border: OutlineInputBorder()), textCapitalization: TextCapitalization.words, maxLength: 100),
             const SizedBox(height: 16),
-            TextField(controller: descripcionController, decoration: const InputDecoration(labelText: 'Descripción', border: OutlineInputBorder()), maxLines: 2),
+            TextField(controller: descripcionController, decoration: const InputDecoration(labelText: 'Descripción', border: OutlineInputBorder()), maxLines: 2, maxLength: 500),
           ]),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
           ElevatedButton(
             onPressed: () async {
-              if (nombreController.text.trim().isEmpty) return;
+              final nombre = normalizarTexto(nombreController.text);
+              final descripcion = normalizarTexto(descripcionController.text);
+              if (nombre.isEmpty) return;
               Navigator.pop(context);
-              if (categoria == null) { await _crearCategoria(nombreController.text.trim(), descripcionController.text.trim()); }
-              else { await _editarCategoria(categoria.id, nombreController.text.trim(), descripcionController.text.trim()); }
+              if (categoria == null) { await _crearCategoria(nombre, descripcion); }
+              else { await _editarCategoria(categoria.id, nombre, descripcion); }
             },
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white),
             child: Text(categoria == null ? 'Crear' : 'Guardar'),
@@ -68,7 +71,7 @@ class _CategoriasRepuestosScreenState extends State<CategoriasRepuestosScreen> {
       await _supabase.from('categorias_repuestos').insert({'empresa_id': usuario.empresaId, 'nombre': nombre, 'descripcion': descripcion.isEmpty ? null : descripcion});
       await _cargarCategorias();
       _mostrarExito('Categoría creada correctamente');
-    } catch (e) { _mostrarError('Error al crear categoría: $e'); }
+    } catch (e) { _mostrarError(mensajeAmigableDb(e, entidad: 'categoría')); }
   }
 
   Future<void> _editarCategoria(String id, String nombre, String descripcion) async {
@@ -76,7 +79,7 @@ class _CategoriasRepuestosScreenState extends State<CategoriasRepuestosScreen> {
       await _supabase.from('categorias_repuestos').update({'nombre': nombre, 'descripcion': descripcion.isEmpty ? null : descripcion}).eq('id', id);
       await _cargarCategorias();
       _mostrarExito('Categoría actualizada correctamente');
-    } catch (e) { _mostrarError('Error al actualizar categoría: $e'); }
+    } catch (e) { _mostrarError(mensajeAmigableDb(e, entidad: 'categoría')); }
   }
 
   Future<void> _eliminarCategoria(CategoriaRepuesto categoria) async {

@@ -5,6 +5,7 @@ import '../../models/maquina.dart';
 import '../../models/sector.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/responsive.dart';
+import '../../core/db_error_helper.dart';
 import 'maquina_detail_screen.dart';
 
 class MaquinasScreen extends StatefulWidget {
@@ -98,9 +99,9 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
             width: Responsive.isDesktop(context) ? 480 : double.maxFinite,
             child: SingleChildScrollView(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                TextField(controller: nombreController, decoration: const InputDecoration(labelText: 'Nombre *', border: OutlineInputBorder()), textCapitalization: TextCapitalization.words),
+                TextField(controller: nombreController, decoration: const InputDecoration(labelText: 'Nombre *', border: OutlineInputBorder()), textCapitalization: TextCapitalization.words, maxLength: 100),
                 const SizedBox(height: 12),
-                TextField(controller: codigoController, decoration: const InputDecoration(labelText: 'Código *', border: OutlineInputBorder(), hintText: 'Ej: MAQ-001'), textCapitalization: TextCapitalization.characters),
+                TextField(controller: codigoController, decoration: const InputDecoration(labelText: 'Código *', border: OutlineInputBorder(), hintText: 'Ej: MAQ-001'), textCapitalization: TextCapitalization.characters, maxLength: 30),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   value: sectorSeleccionado,
@@ -120,7 +121,7 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
                   onChanged: (v) => setDialogState(() => estadoSeleccionado = v!),
                 ),
                 const SizedBox(height: 12),
-                TextField(controller: descripcionController, decoration: const InputDecoration(labelText: 'Descripción', border: OutlineInputBorder()), maxLines: 2),
+                TextField(controller: descripcionController, decoration: const InputDecoration(labelText: 'Descripción', border: OutlineInputBorder()), maxLines: 2, maxLength: 500),
               ]),
             ),
           ),
@@ -128,12 +129,15 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
             ElevatedButton(
               onPressed: () async {
-                if (nombreController.text.trim().isEmpty || codigoController.text.trim().isEmpty) return;
+                final nombre = normalizarTexto(nombreController.text);
+                final codigo = normalizarTexto(codigoController.text);
+                final descripcion = normalizarTexto(descripcionController.text);
+                if (nombre.isEmpty || codigo.isEmpty) return;
                 Navigator.pop(context);
                 if (maquina == null) {
-                  await _crearMaquina(nombre: nombreController.text.trim(), codigo: codigoController.text.trim(), sectorId: sectorSeleccionado, estado: estadoSeleccionado, descripcion: descripcionController.text.trim());
+                  await _crearMaquina(nombre: nombre, codigo: codigo, sectorId: sectorSeleccionado, estado: estadoSeleccionado, descripcion: descripcion);
                 } else {
-                  await _editarMaquina(id: maquina.id, nombre: nombreController.text.trim(), codigo: codigoController.text.trim(), sectorId: sectorSeleccionado, estado: estadoSeleccionado, descripcion: descripcionController.text.trim());
+                  await _editarMaquina(id: maquina.id, nombre: nombre, codigo: codigo, sectorId: sectorSeleccionado, estado: estadoSeleccionado, descripcion: descripcion);
                 }
               },
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white),
@@ -152,7 +156,7 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
       await _supabase.from('maquinas').insert({'empresa_id': usuario.empresaId, 'sector_id': sectorId, 'nombre': nombre, 'codigo': codigo, 'estado': estado, 'descripcion': descripcion.isEmpty ? null : descripcion});
       await _cargarDatos();
       _mostrarExito('Máquina creada correctamente');
-    } catch (e) { _mostrarError('Error al crear máquina: $e'); }
+    } catch (e) { _mostrarError(mensajeAmigableDb(e, entidad: 'máquina')); }
   }
 
   Future<void> _editarMaquina({required String id, required String nombre, required String codigo, required String sectorId, required String estado, required String descripcion}) async {
@@ -160,7 +164,7 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
       await _supabase.from('maquinas').update({'sector_id': sectorId, 'nombre': nombre, 'codigo': codigo, 'estado': estado, 'descripcion': descripcion.isEmpty ? null : descripcion}).eq('id', id);
       await _cargarDatos();
       _mostrarExito('Máquina actualizada correctamente');
-    } catch (e) { _mostrarError('Error al actualizar máquina: $e'); }
+    } catch (e) { _mostrarError(mensajeAmigableDb(e, entidad: 'máquina')); }
   }
 
   Future<void> _eliminarMaquina(Maquina maquina) async {

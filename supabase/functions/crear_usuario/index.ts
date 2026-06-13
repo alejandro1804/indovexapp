@@ -57,10 +57,27 @@ Deno.serve(async (req) => {
     }
 
     // 4. Leer los datos del nuevo usuario
-    const { email, password, nombre, rol_id } = await req.json()
+    const { email: emailRaw, password, nombre, rol_id } = await req.json()
+    const email = (emailRaw ?? '').trim().toLowerCase()
     if (!email || !password || !nombre || !rol_id) {
       return new Response(JSON.stringify({ error: 'Faltan datos obligatorios' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    // 4.1 Validar duplicado de nombre ANTES de crear el usuario en Auth
+    // (evita crear un usuario huérfano en Auth si el nombre ya existe)
+    const nombreNormalizado = nombre.trim().replace(/\s+/g, ' ')
+    const { data: existente } = await supabaseAdmin
+      .from('usuarios')
+      .select('id')
+      .eq('empresa_id', perfilCaller.empresa_id)
+      .ilike('nombre', nombreNormalizado)
+      .maybeSingle()
+
+    if (existente) {
+      return new Response(JSON.stringify({ error: 'Ya existe un usuario con ese nombre en tu empresa. Probá con otro nombre.' }), {
+        status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
@@ -72,7 +89,16 @@ Deno.serve(async (req) => {
     })
 
     if (errAuth || !nuevoAuth.user) {
-      return new Response(JSON.stringify({ error: errAuth?.message ?? 'Error al crear en Auth' }), {
+      const msg = errAuth?.message ?? ''
+      if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('already exists')) {
+        return new Response(JSON.stringify({
+          error: 'Este email ya está registrado en el sistema (posiblemente en otra empresa). ' +
+                 'Si es la misma persona trabajando para otra empresa, usá una variante del email (ej. nombre+empresa@dominio.com).'
+        }), {
+          status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
+      return new Response(JSON.stringify({ error: msg || 'Error al crear en Auth' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
@@ -84,7 +110,7 @@ Deno.serve(async (req) => {
         id: nuevoAuth.user.id,
         empresa_id: perfilCaller.empresa_id,
         rol_id,
-        nombre,
+        nombre: nombreNormalizado,
         email,
         estado: 'activo',
         primer_login: true,
@@ -93,6 +119,11 @@ Deno.serve(async (req) => {
     // 7. Si falla el insert, borrar el usuario de Auth para no dejar huérfanos
     if (errInsert) {
       await supabaseAdmin.auth.admin.deleteUser(nuevoAuth.user.id)
+      if (errInsert.code === '23505') {
+        return new Response(JSON.stringify({ error: 'Ya existe un usuario con ese nombre o email en tu empresa.' }), {
+          status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
       return new Response(JSON.stringify({ error: 'Error al guardar el perfil: ' + errInsert.message }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })

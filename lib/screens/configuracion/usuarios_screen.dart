@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:functions_client/functions_client.dart' show FunctionException;
 import '../../providers/auth_provider.dart';
 import '../../core/responsive.dart';
+import '../../core/db_error_helper.dart';
 
 class UsuariosScreen extends StatefulWidget {
   const UsuariosScreen({super.key});
@@ -61,12 +63,14 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                     controller: nombreController,
                     decoration: const InputDecoration(labelText: 'Nombre *', border: OutlineInputBorder()),
                     textCapitalization: TextCapitalization.words,
+                    maxLength: 100,
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: emailController,
                     decoration: const InputDecoration(labelText: 'Email *', border: OutlineInputBorder()),
                     keyboardType: TextInputType.emailAddress,
+                    maxLength: 255,
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -108,9 +112,16 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
             ElevatedButton(
               onPressed: () async {
-                if (emailController.text.trim().isEmpty || nombreController.text.trim().isEmpty || passwordController.text.trim().isEmpty || rolSeleccionado == null) return;
+                final nombre = normalizarTexto(nombreController.text);
+                final email = normalizarEmail(emailController.text);
+                final password = passwordController.text.trim();
+                if (email.isEmpty || nombre.isEmpty || password.isEmpty || rolSeleccionado == null) return;
+                if (!esEmailValido(email)) {
+                  _mostrarError('El email ingresado no tiene un formato válido.');
+                  return;
+                }
                 Navigator.pop(context);
-                await _crearUsuario(email: emailController.text.trim(), nombre: nombreController.text.trim(), password: passwordController.text.trim(), rolId: rolSeleccionado!);
+                await _crearUsuario(email: email, nombre: nombre, password: password, rolId: rolSeleccionado!);
               },
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white),
               child: const Text('Crear'),
@@ -138,11 +149,24 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
         _mostrarExito('Usuario creado correctamente');
         await _cargarDatos();
       } else {
-        final mensaje = data?['error'] ?? 'Error desconocido al crear usuario';
-        _mostrarError(mensaje.toString());
+        final mensaje = (data?['error'] ?? 'Error desconocido al crear usuario').toString();
+        _mostrarError(mensajeAmigableDesdeTexto(mensaje, entidad: 'usuario'));
       }
     } catch (e) {
-      _mostrarError('Error al crear usuario: $e');
+      String mensaje = 'Error al crear usuario';
+      // Cuando la edge function responde con status >= 400, el cliente
+      // lanza FunctionException y el mensaje de error real viene en e.details
+      if (e is FunctionException) {
+        final details = e.details;
+        if (details is Map && details['error'] != null) {
+          mensaje = details['error'].toString();
+        } else {
+          mensaje = e.toString();
+        }
+      } else {
+        mensaje = e.toString();
+      }
+      _mostrarError(mensajeAmigableDesdeTexto(mensaje, entidad: 'usuario'));
     }
   }
 
@@ -172,7 +196,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                   await _cargarDatos();
                   _mostrarExito('Rol actualizado correctamente');
                 } catch (e) {
-                  _mostrarError('Error al cambiar rol: $e');
+                  _mostrarError(mensajeAmigableDb(e, entidad: 'usuario'));
                 }
               },
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white),
@@ -262,7 +286,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
       }
       _mostrarExito('Sectores actualizados');
     } catch (e) {
-      _mostrarError('Error al guardar sectores: $e');
+      _mostrarError(mensajeAmigableDb(e, entidad: 'asignación de sector'));
     }
   }
 
@@ -370,7 +394,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
         await _cargarDatos();
         _mostrarExito('Usuario ${nuevoEstado == 'activo' ? 'activado' : 'desactivado'}');
       } catch (e) {
-        _mostrarError('Error al cambiar estado: $e');
+        _mostrarError(mensajeAmigableDb(e, entidad: 'usuario'));
       }
     }
   }

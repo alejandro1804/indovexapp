@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/proveedor.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/responsive.dart';
+import '../../core/db_error_helper.dart';
 
 class ProveedoresScreen extends StatefulWidget {
   const ProveedoresScreen({super.key});
@@ -44,15 +45,15 @@ class _ProveedoresScreenState extends State<ProveedoresScreen> {
           width: Responsive.isDesktop(context) ? 480 : double.maxFinite,
           child: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              TextField(controller: nombreController, decoration: const InputDecoration(labelText: 'Nombre *', border: OutlineInputBorder()), textCapitalization: TextCapitalization.words),
+              TextField(controller: nombreController, decoration: const InputDecoration(labelText: 'Nombre *', border: OutlineInputBorder()), textCapitalization: TextCapitalization.words, maxLength: 100),
               const SizedBox(height: 12),
-              TextField(controller: rutController, decoration: const InputDecoration(labelText: 'RUT', border: OutlineInputBorder(), hintText: 'Ej: 21234567-8'), keyboardType: TextInputType.number),
+              TextField(controller: rutController, decoration: const InputDecoration(labelText: 'RUT', border: OutlineInputBorder(), hintText: 'Ej: 210000000001 (12 dígitos)'), keyboardType: TextInputType.number, maxLength: 12),
               const SizedBox(height: 12),
               TextField(controller: contactoController, decoration: const InputDecoration(labelText: 'Contacto', border: OutlineInputBorder()), textCapitalization: TextCapitalization.words),
               const SizedBox(height: 12),
               TextField(controller: telefonoController, decoration: const InputDecoration(labelText: 'Teléfono', border: OutlineInputBorder(), prefixIcon: Icon(Icons.phone_outlined)), keyboardType: TextInputType.phone),
               const SizedBox(height: 12),
-              TextField(controller: emailController, decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder(), prefixIcon: Icon(Icons.email_outlined)), keyboardType: TextInputType.emailAddress),
+              TextField(controller: emailController, decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder(), prefixIcon: Icon(Icons.email_outlined)), keyboardType: TextInputType.emailAddress, maxLength: 255),
             ]),
           ),
         ),
@@ -60,12 +61,25 @@ class _ProveedoresScreenState extends State<ProveedoresScreen> {
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
           ElevatedButton(
             onPressed: () async {
-              if (nombreController.text.trim().isEmpty) return;
+              final nombre = normalizarTexto(nombreController.text);
+              final rut = normalizarTexto(rutController.text);
+              final contacto = normalizarTexto(contactoController.text);
+              final telefono = normalizarTexto(telefonoController.text);
+              final email = normalizarEmail(emailController.text);
+              if (nombre.isEmpty) return;
+              if (email.isNotEmpty && !esEmailValido(email)) {
+                _mostrarError('El email ingresado no tiene un formato válido.');
+                return;
+              }
+              if (rut.isNotEmpty && !esRutUyValido(rut)) {
+                _mostrarError('El RUT ingresado no es válido. Verificá los 12 dígitos.');
+                return;
+              }
               Navigator.pop(context);
               if (proveedor == null) {
-                await _crearProveedor(nombre: nombreController.text.trim(), rut: rutController.text.trim(), contacto: contactoController.text.trim(), telefono: telefonoController.text.trim(), email: emailController.text.trim());
+                await _crearProveedor(nombre: nombre, rut: rut, contacto: contacto, telefono: telefono, email: email);
               } else {
-                await _editarProveedor(id: proveedor.id, nombre: nombreController.text.trim(), rut: rutController.text.trim(), contacto: contactoController.text.trim(), telefono: telefonoController.text.trim(), email: emailController.text.trim());
+                await _editarProveedor(id: proveedor.id, nombre: nombre, rut: rut, contacto: contacto, telefono: telefono, email: email);
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white),
@@ -83,7 +97,7 @@ class _ProveedoresScreenState extends State<ProveedoresScreen> {
       await _supabase.from('proveedores').insert({'empresa_id': usuario.empresaId, 'nombre': nombre, 'rut': rut.isEmpty ? null : rut, 'contacto': contacto.isEmpty ? null : contacto, 'telefono': telefono.isEmpty ? null : telefono, 'email': email.isEmpty ? null : email});
       await _cargarProveedores();
       _mostrarExito('Proveedor creado correctamente');
-    } catch (e) { _mostrarError('Error al crear proveedor: $e'); }
+    } catch (e) { _mostrarError(mensajeAmigableDb(e, entidad: 'proveedor')); }
   }
 
   Future<void> _editarProveedor({required String id, required String nombre, required String rut, required String contacto, required String telefono, required String email}) async {
@@ -91,7 +105,7 @@ class _ProveedoresScreenState extends State<ProveedoresScreen> {
       await _supabase.from('proveedores').update({'nombre': nombre, 'rut': rut.isEmpty ? null : rut, 'contacto': contacto.isEmpty ? null : contacto, 'telefono': telefono.isEmpty ? null : telefono, 'email': email.isEmpty ? null : email}).eq('id', id);
       await _cargarProveedores();
       _mostrarExito('Proveedor actualizado correctamente');
-    } catch (e) { _mostrarError('Error al actualizar proveedor: $e'); }
+    } catch (e) { _mostrarError(mensajeAmigableDb(e, entidad: 'proveedor')); }
   }
 
   Future<void> _eliminarProveedor(Proveedor proveedor) async {

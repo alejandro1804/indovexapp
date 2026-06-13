@@ -9,7 +9,7 @@ class AuditLogService {
     String? operacion,
     DateTime? desde,
     DateTime? hasta,
-    int limite = 100,
+    int limite = 1000,
   }) async {
     var query = _client.from('audit_log').select();
 

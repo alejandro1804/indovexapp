@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../core/db_error_helper.dart';
 import 'permisos_rol_screen.dart';
 
 class RolesScreen extends StatefulWidget {
@@ -56,11 +57,12 @@ class _RolesScreenState extends State<RolesScreen> {
           controller: controller,
           autofocus: true,
           decoration: const InputDecoration(labelText: 'Nombre del rol', border: OutlineInputBorder()),
+          maxLength: 100,
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            onPressed: () => Navigator.pop(context, normalizarTexto(controller.text)),
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white),
             child: const Text('Crear'),
           ),
@@ -73,7 +75,7 @@ class _RolesScreenState extends State<RolesScreen> {
       _mostrarExito('Rol creado');
       await _cargar();
     } catch (e) {
-      _mostrarError('Error al crear rol: $e');
+      _mostrarError(mensajeAmigableDb(e, entidad: 'rol'));
     }
   }
 
@@ -87,11 +89,12 @@ class _RolesScreenState extends State<RolesScreen> {
           controller: controller,
           autofocus: true,
           decoration: const InputDecoration(labelText: 'Nombre del rol', border: OutlineInputBorder()),
+          maxLength: 100,
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            onPressed: () => Navigator.pop(context, normalizarTexto(controller.text)),
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white),
             child: const Text('Guardar'),
           ),
@@ -104,7 +107,7 @@ class _RolesScreenState extends State<RolesScreen> {
       _mostrarExito('Rol renombrado');
       await _cargar();
     } catch (e) {
-      _mostrarError('Error al renombrar: $e');
+      _mostrarError(mensajeAmigableDb(e, entidad: 'rol'));
     }
   }
 
@@ -130,7 +133,7 @@ class _RolesScreenState extends State<RolesScreen> {
       _mostrarExito('Rol eliminado');
       await _cargar();
     } catch (e) {
-      _mostrarError(e.toString().replaceAll('PostgrestException(message: ', '').split(',')[0]);
+      _mostrarError(mensajeAmigableDb(e, entidad: 'rol'));
     }
   }
 

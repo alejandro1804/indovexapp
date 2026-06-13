@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/sector.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/responsive.dart';
+import '../../core/db_error_helper.dart';
 
 class SectoresScreen extends StatefulWidget {
   const SectoresScreen({super.key});
@@ -54,12 +55,14 @@ class _SectoresScreenState extends State<SectoresScreen> {
                 controller: nombreController,
                 decoration: const InputDecoration(labelText: 'Nombre *', border: OutlineInputBorder()),
                 textCapitalization: TextCapitalization.words,
+                maxLength: 100,
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: descripcionController,
                 decoration: const InputDecoration(labelText: 'Descripción', border: OutlineInputBorder()),
                 maxLines: 2,
+                maxLength: 500,
               ),
             ],
           ),
@@ -68,13 +71,15 @@ class _SectoresScreenState extends State<SectoresScreen> {
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
           ElevatedButton(
             onPressed: () async {
-              if (nombreController.text.trim().isEmpty) return;
+              if (normalizarTexto(nombreController.text).isEmpty) return;
               Navigator.pop(context);
-              if (sector == null) {
-                await _crearSector(nombreController.text.trim(), descripcionController.text.trim());
-              } else {
-                await _editarSector(sector.id, nombreController.text.trim(), descripcionController.text.trim());
-              }
+      final nombre = normalizarTexto(nombreController.text);
+      final descripcion = normalizarTexto(descripcionController.text);
+      if (sector == null) {
+        await _crearSector(nombre, descripcion);
+      } else {
+        await _editarSector(sector.id, nombre, descripcion);
+      }
             },
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white),
             child: Text(sector == null ? 'Crear' : 'Guardar'),
@@ -96,7 +101,7 @@ class _SectoresScreenState extends State<SectoresScreen> {
       await _cargarSectores();
       _mostrarExito('Sector creado correctamente');
     } catch (e) {
-      _mostrarError('Error al crear sector: $e');
+      _mostrarError(mensajeAmigableDb(e, entidad: 'sector'));
     }
   }
 
@@ -109,7 +114,7 @@ class _SectoresScreenState extends State<SectoresScreen> {
       await _cargarSectores();
       _mostrarExito('Sector actualizado correctamente');
     } catch (e) {
-      _mostrarError('Error al actualizar sector: $e');
+      _mostrarError(mensajeAmigableDb(e, entidad: 'sector'));
     }
   }
 

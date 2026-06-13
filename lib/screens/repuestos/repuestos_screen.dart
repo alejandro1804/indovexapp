@@ -5,6 +5,7 @@ import '../../models/repuesto.dart';
 import '../../models/categoria_repuesto.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/responsive.dart';
+import '../../core/db_error_helper.dart';
 import 'repuesto_detail_screen.dart';
 
 class RepuestosScreen extends StatefulWidget {
@@ -78,9 +79,9 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
             width: Responsive.isDesktop(context) ? 520 : double.maxFinite,
             child: SingleChildScrollView(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                TextField(controller: codigoController, decoration: const InputDecoration(labelText: 'Código *', border: OutlineInputBorder(), hintText: 'Ej: REP-001'), textCapitalization: TextCapitalization.characters),
+                TextField(controller: codigoController, decoration: const InputDecoration(labelText: 'Código *', border: OutlineInputBorder(), hintText: 'Ej: REP-001'), textCapitalization: TextCapitalization.characters, maxLength: 30),
                 const SizedBox(height: 12),
-                TextField(controller: descripcionController, decoration: const InputDecoration(labelText: 'Descripción *', border: OutlineInputBorder()), textCapitalization: TextCapitalization.sentences, maxLines: 2),
+                TextField(controller: descripcionController, decoration: const InputDecoration(labelText: 'Descripción *', border: OutlineInputBorder()), textCapitalization: TextCapitalization.sentences, maxLines: 2, maxLength: 500),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String?>(
                   value: categoriaSeleccionada,
@@ -110,9 +111,9 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
                   Expanded(child: TextField(controller: stockMinimoController, decoration: const InputDecoration(labelText: 'Stock mínimo', border: OutlineInputBorder()), keyboardType: TextInputType.number)),
                 ]),
                 const SizedBox(height: 12),
-                TextField(controller: ubicacionController, decoration: const InputDecoration(labelText: 'Ubicación', border: OutlineInputBorder(), hintText: 'Ej: Estante A, Cajón 3'), textCapitalization: TextCapitalization.sentences),
+                TextField(controller: ubicacionController, decoration: const InputDecoration(labelText: 'Ubicación', border: OutlineInputBorder(), hintText: 'Ej: Estante A, Cajón 3'), textCapitalization: TextCapitalization.sentences, maxLength: 100),
                 const SizedBox(height: 12),
-                TextField(controller: notasController, decoration: const InputDecoration(labelText: 'Notas', border: OutlineInputBorder()), maxLines: 2),
+                TextField(controller: notasController, decoration: const InputDecoration(labelText: 'Notas', border: OutlineInputBorder()), maxLines: 2, maxLength: 500),
               ]),
             ),
           ),
@@ -120,12 +121,16 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
             ElevatedButton(
               onPressed: () async {
-                if (codigoController.text.trim().isEmpty || descripcionController.text.trim().isEmpty) return;
+                final codigo = normalizarTexto(codigoController.text);
+                final descripcion = normalizarTexto(descripcionController.text);
+                final ubicacion = normalizarTexto(ubicacionController.text);
+                final notas = normalizarTexto(notasController.text);
+                if (codigo.isEmpty || descripcion.isEmpty) return;
                 Navigator.pop(context);
                 if (repuesto == null) {
-                  await _crearRepuesto(codigo: codigoController.text.trim(), descripcion: descripcionController.text.trim(), categoriaId: categoriaSeleccionada, unidadMedida: unidadSeleccionada, stockActual: int.tryParse(stockActualController.text) ?? 0, stockMinimo: int.tryParse(stockMinimoController.text) ?? 0, ubicacion: ubicacionController.text.trim(), notas: notasController.text.trim());
+                  await _crearRepuesto(codigo: codigo, descripcion: descripcion, categoriaId: categoriaSeleccionada, unidadMedida: unidadSeleccionada, stockActual: int.tryParse(stockActualController.text) ?? 0, stockMinimo: int.tryParse(stockMinimoController.text) ?? 0, ubicacion: ubicacion, notas: notas);
                 } else {
-                  await _editarRepuesto(id: repuesto.id, codigo: codigoController.text.trim(), descripcion: descripcionController.text.trim(), categoriaId: categoriaSeleccionada, unidadMedida: unidadSeleccionada, stockMinimo: int.tryParse(stockMinimoController.text) ?? 0, ubicacion: ubicacionController.text.trim(), notas: notasController.text.trim());
+                  await _editarRepuesto(id: repuesto.id, codigo: codigo, descripcion: descripcion, categoriaId: categoriaSeleccionada, unidadMedida: unidadSeleccionada, stockMinimo: int.tryParse(stockMinimoController.text) ?? 0, ubicacion: ubicacion, notas: notas);
                 }
               },
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white),
@@ -144,7 +149,7 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
       await _supabase.from('repuestos').insert({'empresa_id': usuario.empresaId, 'categoria_id': categoriaId, 'codigo': codigo, 'descripcion': descripcion, 'stock_actual': stockActual, 'stock_minimo': stockMinimo, 'ubicacion': ubicacion.isEmpty ? null : ubicacion, 'unidad_medida': unidadMedida, 'notas': notas.isEmpty ? null : notas, 'activo': true});
       await _cargarDatos();
       _mostrarExito('Repuesto creado correctamente');
-    } catch (e) { _mostrarError('Error al crear repuesto: $e'); }
+    } catch (e) { _mostrarError(mensajeAmigableDb(e, entidad: 'repuesto')); }
   }
 
   Future<void> _editarRepuesto({required String id, required String codigo, required String descripcion, String? categoriaId, required String unidadMedida, required int stockMinimo, required String ubicacion, required String notas}) async {
@@ -152,7 +157,7 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
       await _supabase.from('repuestos').update({'categoria_id': categoriaId, 'codigo': codigo, 'descripcion': descripcion, 'stock_minimo': stockMinimo, 'ubicacion': ubicacion.isEmpty ? null : ubicacion, 'unidad_medida': unidadMedida, 'notas': notas.isEmpty ? null : notas}).eq('id', id);
       await _cargarDatos();
       _mostrarExito('Repuesto actualizado correctamente');
-    } catch (e) { _mostrarError('Error al actualizar repuesto: $e'); }
+    } catch (e) { _mostrarError(mensajeAmigableDb(e, entidad: 'repuesto')); }
   }
 
   void _mostrarExito(String m) { if (!mounted) return; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating)); }

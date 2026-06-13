@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:functions_client/functions_client.dart' show FunctionException;
 import 'package:url_launcher/url_launcher.dart';
+import '../../core/db_error_helper.dart';
 
 class RegistroEmpresaScreen extends StatefulWidget {
   const RegistroEmpresaScreen({super.key});
@@ -24,7 +26,7 @@ class _RegistroEmpresaScreenState extends State<RegistroEmpresaScreen> {
 
   bool _verPassword = false;
   bool _enviando = false;
-  bool _aceptoTerminos = false; // ← NUEVO
+  bool _aceptoTerminos = false;
 
   // URLs de documentos legales
   static const _urlTerminos = 'https://indovexapp.com/terminos.html';
@@ -38,20 +40,51 @@ class _RegistroEmpresaScreenState extends State<RegistroEmpresaScreen> {
   }
 
   Future<void> _registrar() async {
+    final empresaNombre = normalizarTexto(_empresaNombre.text);
+    final rut = normalizarTexto(_rut.text);
+    final direccion = normalizarTexto(_direccion.text);
+    final telefono = normalizarTexto(_telefono.text);
+    final emailContacto = normalizarEmail(_emailContacto.text);
+    final adminNombre = normalizarTexto(_adminNombre.text);
+    final adminEmail = normalizarEmail(_adminEmail.text);
+    final adminPassword = _adminPassword.text.trim();
+
     // Validacion basica
-    if (_empresaNombre.text.trim().isEmpty ||
-        _adminNombre.text.trim().isEmpty ||
-        _adminEmail.text.trim().isEmpty ||
-        _adminPassword.text.trim().isEmpty) {
+    if (empresaNombre.isEmpty ||
+        adminNombre.isEmpty ||
+        adminEmail.isEmpty ||
+        adminPassword.isEmpty) {
       _mostrarError('Completá los campos obligatorios (*)');
       return;
     }
-    if (_adminPassword.text.trim().length < 6) {
+    if (adminPassword.length < 6) {
       _mostrarError('La contraseña debe tener al menos 6 caracteres');
       return;
     }
 
-    // Validacion de términos ← NUEVO
+    // Validación de formato de email
+    if (!esEmailValido(adminEmail)) {
+      _mostrarError('El email del administrador no tiene un formato válido.');
+      return;
+    }
+    if (emailContacto.isNotEmpty && !esEmailValido(emailContacto)) {
+      _mostrarError('El email de contacto no tiene un formato válido.');
+      return;
+    }
+
+    // Validación de RUT (opcional, pero si se completa debe ser válido)
+    if (rut.isNotEmpty && !esRutUyValido(rut)) {
+      _mostrarError('El RUT ingresado no es válido. Verificá los 12 dígitos.');
+      return;
+    }
+
+    // Validación de longitud de nombres
+    if (empresaNombre.length > 100 || adminNombre.length > 100) {
+      _mostrarError('El nombre no puede superar los 100 caracteres.');
+      return;
+    }
+
+    // Validacion de términos
     if (!_aceptoTerminos) {
       _mostrarError('Debés aceptar los Términos y Condiciones para continuar');
       return;
@@ -62,14 +95,14 @@ class _RegistroEmpresaScreenState extends State<RegistroEmpresaScreen> {
       final response = await _supabase.functions.invoke(
         'registrar_empresa',
         body: {
-          'empresa_nombre': _empresaNombre.text.trim(),
-          'rut': _rut.text.trim(),
-          'direccion': _direccion.text.trim(),
-          'telefono': _telefono.text.trim(),
-          'email_contacto': _emailContacto.text.trim(),
-          'admin_nombre': _adminNombre.text.trim(),
-          'admin_email': _adminEmail.text.trim(),
-          'admin_password': _adminPassword.text.trim(),
+          'empresa_nombre': empresaNombre,
+          'rut': rut,
+          'direccion': direccion,
+          'telefono': telefono,
+          'email_contacto': emailContacto,
+          'admin_nombre': adminNombre,
+          'admin_email': adminEmail,
+          'admin_password': adminPassword,
         },
       );
 
@@ -78,11 +111,22 @@ class _RegistroEmpresaScreenState extends State<RegistroEmpresaScreen> {
         if (!mounted) return;
         await _mostrarExitoYVolver();
       } else {
-        final mensaje = data?['error'] ?? 'Error desconocido al registrar';
-        _mostrarError(mensaje.toString());
+        final mensaje = (data?['error'] ?? 'Error desconocido al registrar').toString();
+        _mostrarError(mensajeAmigableDesdeTexto(mensaje, entidad: 'empresa'));
       }
     } catch (e) {
-      _mostrarError('Error al registrar: $e');
+      String mensaje = 'Error al registrar';
+      if (e is FunctionException) {
+        final details = e.details;
+        if (details is Map && details['error'] != null) {
+          mensaje = details['error'].toString();
+        } else {
+          mensaje = e.toString();
+        }
+      } else {
+        mensaje = e.toString();
+      }
+      _mostrarError(mensajeAmigableDesdeTexto(mensaje, entidad: 'empresa'));
     } finally {
       if (mounted) setState(() => _enviando = false);
     }
@@ -123,7 +167,7 @@ class _RegistroEmpresaScreenState extends State<RegistroEmpresaScreen> {
     );
   }
 
-  // Widget del checkbox con links ← NUEVO
+  // Widget del checkbox con links
   Widget _checkboxTerminos() {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -202,6 +246,7 @@ class _RegistroEmpresaScreenState extends State<RegistroEmpresaScreen> {
                     labelText: 'Nombre de la empresa *',
                     border: OutlineInputBorder(),
                   ),
+                  maxLength: 100,
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -209,8 +254,10 @@ class _RegistroEmpresaScreenState extends State<RegistroEmpresaScreen> {
                   decoration: const InputDecoration(
                     labelText: 'RUT',
                     border: OutlineInputBorder(),
+                    hintText: 'Ej: 210000000001 (12 dígitos)',
                   ),
                   keyboardType: TextInputType.number,
+                  maxLength: 12,
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -219,6 +266,7 @@ class _RegistroEmpresaScreenState extends State<RegistroEmpresaScreen> {
                     labelText: 'Dirección',
                     border: OutlineInputBorder(),
                   ),
+                  maxLength: 100,
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -228,6 +276,7 @@ class _RegistroEmpresaScreenState extends State<RegistroEmpresaScreen> {
                     border: OutlineInputBorder(),
                   ),
                   keyboardType: TextInputType.phone,
+                  maxLength: 30,
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -237,6 +286,7 @@ class _RegistroEmpresaScreenState extends State<RegistroEmpresaScreen> {
                     border: OutlineInputBorder(),
                   ),
                   keyboardType: TextInputType.emailAddress,
+                  maxLength: 255,
                 ),
 
                 const SizedBox(height: 24),
@@ -261,6 +311,7 @@ class _RegistroEmpresaScreenState extends State<RegistroEmpresaScreen> {
                     border: OutlineInputBorder(),
                   ),
                   textCapitalization: TextCapitalization.words,
+                  maxLength: 100,
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -270,6 +321,7 @@ class _RegistroEmpresaScreenState extends State<RegistroEmpresaScreen> {
                     border: OutlineInputBorder(),
                   ),
                   keyboardType: TextInputType.emailAddress,
+                  maxLength: 255,
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -293,7 +345,7 @@ class _RegistroEmpresaScreenState extends State<RegistroEmpresaScreen> {
 
                 const SizedBox(height: 24),
 
-                // Checkbox términos ← NUEVO
+                // Checkbox términos
                 _checkboxTerminos(),
 
                 const SizedBox(height: 16),
