@@ -20,9 +20,15 @@ class _TicketsScreenState extends State<TicketsScreen> {
   String _filtroEstado = 'todos';
   String _filtroTipo = 'todos';
   String _filtroPrioridad = 'todos';
+  String _filtroSector = 'todos';
+  final _busquedaController = TextEditingController();
+  String _textoBusqueda = '';
 
   @override
   void initState() { super.initState(); _cargarTickets(); }
+
+  @override
+  void dispose() { _busquedaController.dispose(); super.dispose(); }
 
   Future<void> _cargarTickets() async {
     setState(() => _cargando = true);
@@ -97,13 +103,68 @@ class _TicketsScreenState extends State<TicketsScreen> {
     }
   }
 
+  // Extrae los sectores únicos presentes en los tickets cargados (sin query extra)
+  List<MapEntry<String, String>> get _sectoresDisponibles {
+    final mapa = <String, String>{};
+    for (final t in _tickets) {
+      final maquina = t['maquinas'] as Map?;
+      final sectorId = maquina?['sector_id'] as String?;
+      final sectorNombre = (maquina?['sectores'] as Map?)?['nombre'] as String?;
+      if (sectorId != null && sectorNombre != null) {
+        mapa[sectorId] = sectorNombre;
+      }
+    }
+    final lista = mapa.entries.toList();
+    lista.sort((a, b) => a.value.toLowerCase().compareTo(b.value.toLowerCase()));
+    return lista;
+  }
+
   List<Map<String, dynamic>> get _ticketsFiltrados {
+    final q = _textoBusqueda.trim().toLowerCase();
     return _tickets.where((t) {
       final coincideEstado = _filtroEstado == 'todos' || t['estado'] == _filtroEstado;
       final coincideTipo = _filtroTipo == 'todos' || (t['tipo'] ?? 'correctivo') == _filtroTipo;
       final coincidePrioridad = _filtroPrioridad == 'todos' || (t['prioridad'] ?? 'media') == _filtroPrioridad;
-      return coincideEstado && coincideTipo && coincidePrioridad;
+
+      final maquina = t['maquinas'] as Map?;
+      final sectorId = maquina?['sector_id'] as String?;
+      final coincideSector = _filtroSector == 'todos' || sectorId == _filtroSector;
+
+      // Búsqueda de texto: número, descripción, nombre de máquina y sector
+      bool coincideBusqueda = true;
+      if (q.isNotEmpty) {
+        final numero = (t['numero'] ?? '').toString().toLowerCase();
+        final desc = (t['descripcion_desperfecto'] ?? '').toString().toLowerCase();
+        final maqNombre = (maquina?['nombre'] ?? '').toString().toLowerCase();
+        final maqCodigo = (maquina?['codigo'] ?? '').toString().toLowerCase();
+        final sectorNombre = ((maquina?['sectores'] as Map?)?['nombre'] ?? '').toString().toLowerCase();
+        coincideBusqueda = numero.contains(q) ||
+            desc.contains(q) ||
+            maqNombre.contains(q) ||
+            maqCodigo.contains(q) ||
+            sectorNombre.contains(q);
+      }
+
+      return coincideEstado && coincideTipo && coincidePrioridad && coincideSector && coincideBusqueda;
     }).toList();
+  }
+
+  bool get _hayFiltrosActivos =>
+      _filtroEstado != 'todos' ||
+      _filtroTipo != 'todos' ||
+      _filtroPrioridad != 'todos' ||
+      _filtroSector != 'todos' ||
+      _textoBusqueda.trim().isNotEmpty;
+
+  void _limpiarFiltros() {
+    setState(() {
+      _filtroEstado = 'todos';
+      _filtroTipo = 'todos';
+      _filtroPrioridad = 'todos';
+      _filtroSector = 'todos';
+      _textoBusqueda = '';
+      _busquedaController.clear();
+    });
   }
 
   String _formatoAuditoria(DateTime? fechaUtc) {
@@ -170,6 +231,68 @@ class _TicketsScreenState extends State<TicketsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating));
   }
 
+  // Dropdown compacto reutilizable (mismo estilo que máquinas/repuestos)
+  // [contexto] es la palabra que se muestra en la barra cerrada cuando no hay
+  // filtro activo (value == 'todos'): "Estado", "Prioridad", "Tipo", "Sector".
+  Widget _buildDropdown({
+    required String value,
+    required String contexto,
+    required IconData icono,
+    required List<DropdownMenuItem<String>> items,
+    required ValueChanged<String> onChanged,
+  }) {
+    final activo = value != 'todos';
+    return DropdownButtonFormField<String>(
+      value: value,
+      isExpanded: true,
+      isDense: true,
+      style: const TextStyle(fontSize: 12, color: Colors.black87),
+      icon: const Icon(Icons.arrow_drop_down, size: 20),
+      decoration: InputDecoration(
+        isDense: true,
+        prefixIcon: Icon(icono, size: 18, color: activo ? const Color(0xFF1F4E79) : Colors.grey[600]),
+        prefixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: activo ? const Color(0xFF1F4E79) : Colors.grey.shade300),
+        ),
+      ),
+      // Lo que se ve en la barra CERRADA. Cuando el filtro está en 'todos',
+      // mostramos la palabra de contexto; si no, el label real del item.
+      selectedItemBuilder: (context) => items.map((item) {
+        final esTodos = item.value == 'todos';
+        final texto = esTodos ? contexto : _labelDeItem(item);
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            texto,
+            style: TextStyle(
+              fontSize: 12,
+              color: esTodos ? Colors.grey[600] : Colors.black87,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        );
+      }).toList(),
+      items: items,
+      onChanged: (v) => onChanged(v ?? 'todos'),
+    );
+  }
+
+  // Extrae el texto de un item creado con _item (su child es un Text)
+  String _labelDeItem(DropdownMenuItem<String> item) {
+    final child = item.child;
+    if (child is Text) return child.data ?? '';
+    return '';
+  }
+
+  DropdownMenuItem<String> _item(String value, String label) => DropdownMenuItem(
+        value: value,
+        child: Text(label, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+      );
+
   @override
   Widget build(BuildContext context) {
     final usuario = context.read<AuthProvider>().usuario;
@@ -179,16 +302,12 @@ class _TicketsScreenState extends State<TicketsScreen> {
     final titleSize = Responsive.cardTitleSize(context);
     final subtitleSize = Responsive.cardSubtitleSize(context);
     final chipSize = Responsive.chipFontSize(context);
-
-    final abiertos = _tickets.where((t) => t['estado'] == 'abierto').length;
-    final asignados = _tickets.where((t) => t['estado'] == 'asignado').length;
-    final enProceso = _tickets.where((t) => t['estado'] == 'en_proceso').length;
-    final resueltos = _tickets.where((t) => t['estado'] == 'resuelto').length;
-    final cerrados = _tickets.where((t) => t['estado'] == 'cerrado').length;
+    final sectores = _sectoresDisponibles;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tickets'),
+        title: const Text('Tickets', style: TextStyle(fontSize: 18)),
+        toolbarHeight: 48,
         backgroundColor: const Color(0xFF1F4E79),
         foregroundColor: Colors.white,
         actions: [
@@ -198,56 +317,130 @@ class _TicketsScreenState extends State<TicketsScreen> {
       body: _cargando
           ? const Center(child: CircularProgressIndicator())
           : Column(children: [
-              // Chips de estado
+              // Buscador (fila completa): número, descripción, máquina y sector
               Container(
                 color: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(children: [
-                    _buildContadorChip('todos', 'Todos', _tickets.length, Colors.grey),
-                    const SizedBox(width: 8),
-                    _buildContadorChip('abierto', 'Abiertos', abiertos, Colors.blue),
-                    const SizedBox(width: 8),
-                    _buildContadorChip('asignado', 'Asignados', asignados, Colors.orange),
-                    const SizedBox(width: 8),
-                    _buildContadorChip('en_proceso', 'En proceso', enProceso, Colors.purple),
-                    const SizedBox(width: 8),
-                    _buildContadorChip('resuelto', 'Resueltos', resueltos, Colors.green),
-                    const SizedBox(width: 8),
-                    _buildContadorChip('cerrado', 'Cerrados', cerrados, Colors.grey),
-                  ]),
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
+                child: TextField(
+                  controller: _busquedaController,
+                  onChanged: (v) => setState(() => _textoBusqueda = v),
+                  textInputAction: TextInputAction.search,
+                  style: const TextStyle(fontSize: 12),
+                  decoration: InputDecoration(
+                    hintText: 'Buscar por ticket, máquina o sector...',
+                    hintStyle: const TextStyle(fontSize: 12),
+                    prefixIcon: const Icon(Icons.search, size: 20),
+                    prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                    suffixIcon: _textoBusqueda.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                            onPressed: () { _busquedaController.clear(); setState(() => _textoBusqueda = ''); },
+                          )
+                        : null,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                  ),
                 ),
               ),
-              // Filtros secundarios: tipo y prioridad
+              // Estado + Prioridad
               Container(
                 color: Colors.white,
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(children: [
-                    _buildFiltroSimple('Tipo', _filtroTipo, {
-                      'todos': 'Todos',
-                      'correctivo': 'Correctivo',
-                      'preventivo': 'Preventivo',
-                    }, (v) => setState(() => _filtroTipo = v)),
-                    const SizedBox(width: 8),
-                    _buildFiltroSimple('Prioridad', _filtroPrioridad, {
-                      'todos': 'Todas',
-                      'baja': 'Baja',
-                      'media': 'Media',
-                      'alta': 'Alta',
-                      'critica': 'Crítica',
-                    }, (v) => setState(() => _filtroPrioridad = v)),
-                  ]),
-                ),
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+                child: Row(children: [
+                  Expanded(
+                    child: _buildDropdown(
+                      value: _filtroEstado,
+                      contexto: 'Estado',
+                      icono: Icons.flag_outlined,
+                      items: [
+                        _item('todos', 'Todos los estados'),
+                        _item('abierto', 'Abierto'),
+                        _item('asignado', 'Asignado'),
+                        _item('en_proceso', 'En proceso'),
+                        _item('resuelto', 'Resuelto'),
+                        _item('cerrado', 'Cerrado'),
+                        _item('rechazado', 'Rechazado'),
+                      ],
+                      onChanged: (v) => setState(() => _filtroEstado = v),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildDropdown(
+                      value: _filtroPrioridad,
+                      contexto: 'Prioridad',
+                      icono: Icons.priority_high_outlined,
+                      items: [
+                        _item('todos', 'Toda prioridad'),
+                        _item('baja', 'Baja'),
+                        _item('media', 'Media'),
+                        _item('alta', 'Alta'),
+                        _item('critica', 'Crítica'),
+                      ],
+                      onChanged: (v) => setState(() => _filtroPrioridad = v),
+                    ),
+                  ),
+                ]),
               ),
+              // Tipo + Sector
+              Container(
+                color: Colors.white,
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+                child: Row(children: [
+                  Expanded(
+                    child: _buildDropdown(
+                      value: _filtroTipo,
+                      contexto: 'Tipo',
+                      icono: Icons.build_outlined,
+                      items: [
+                        _item('todos', 'Todo tipo'),
+                        _item('correctivo', 'Correctivo'),
+                        _item('preventivo', 'Preventivo'),
+                      ],
+                      onChanged: (v) => setState(() => _filtroTipo = v),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildDropdown(
+                      value: _filtroSector,
+                      contexto: 'Sector',
+                      icono: Icons.apartment_outlined,
+                      items: [
+                        _item('todos', 'Todos los sectores'),
+                        ...sectores.map((s) => _item(s.key, s.value)),
+                      ],
+                      onChanged: (v) => setState(() => _filtroSector = v),
+                    ),
+                  ),
+                ]),
+              ),
+              // Contador + limpiar filtros
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 color: Colors.grey[100],
-                child: Text('${ticketsFiltrados.length} ticket${ticketsFiltrados.length != 1 ? 's' : ''}',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                child: Row(children: [
+                  Text('${ticketsFiltrados.length} ticket${ticketsFiltrados.length != 1 ? 's' : ''}',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                  const Spacer(),
+                  if (_hayFiltrosActivos)
+                    GestureDetector(
+                      onTap: _limpiarFiltros,
+                      child: Row(children: [
+                        Icon(Icons.filter_alt_off_outlined, size: 14, color: Colors.grey[600]),
+                        const SizedBox(width: 4),
+                        Text('Limpiar filtros', style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+                      ]),
+                    ),
+                ]),
               ),
               Expanded(
                 child: ticketsFiltrados.isEmpty
@@ -259,7 +452,11 @@ class _TicketsScreenState extends State<TicketsScreen> {
                         if (_tickets.isEmpty && puedeCrear) ...[
                           const SizedBox(height: 8),
                           Text('Tocá el botón + para crear uno', style: TextStyle(fontSize: 13, color: Colors.grey[400])),
-                        ]
+                        ],
+                        if (_tickets.isNotEmpty && _hayFiltrosActivos) ...[
+                          const SizedBox(height: 8),
+                          TextButton(onPressed: _limpiarFiltros, child: const Text('Limpiar filtros')),
+                        ],
                       ]))
                     : RefreshIndicator(
                         onRefresh: _cargarTickets,
@@ -303,7 +500,6 @@ class _TicketsScreenState extends State<TicketsScreen> {
                                         Row(children: [
                                           Text(ticket['numero'] ?? '', style: TextStyle(fontWeight: FontWeight.bold, fontSize: subtitleSize, color: Colors.grey[600])),
                                           const SizedBox(width: 6),
-                                          // Indicador de tipo
                                           Icon(
                                             tipo == 'preventivo' ? Icons.event_available_outlined : Icons.build_outlined,
                                             size: subtitleSize + 1,
@@ -319,7 +515,6 @@ class _TicketsScreenState extends State<TicketsScreen> {
                                             maxLines: 2, overflow: TextOverflow.ellipsis),
                                         const SizedBox(height: 4),
                                         Row(children: [
-                                          // Badge de prioridad
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                                             decoration: BoxDecoration(
@@ -376,61 +571,6 @@ class _TicketsScreenState extends State<TicketsScreen> {
               child: const Icon(Icons.add),
             )
           : null,
-    );
-  }
-
-  Widget _buildContadorChip(String valor, String label, int count, Color color) {
-    final seleccionado = _filtroEstado == valor;
-    return GestureDetector(
-      onTap: () => setState(() => _filtroEstado = valor),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: seleccionado ? color.withOpacity(0.15) : Colors.grey[100],
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: seleccionado ? color : Colors.grey[300]!, width: seleccionado ? 1.5 : 1),
-        ),
-        child: Row(children: [
-          Text(label, style: TextStyle(fontSize: 12, color: seleccionado ? color : Colors.grey[600],
-              fontWeight: seleccionado ? FontWeight.w600 : FontWeight.normal)),
-          const SizedBox(width: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-            decoration: BoxDecoration(color: seleccionado ? color : Colors.grey[400], borderRadius: BorderRadius.circular(10)),
-            child: Text('$count', style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
-          ),
-        ]),
-      ),
-    );
-  }
-
-  Widget _buildFiltroSimple(String titulo, String valorActual, Map<String, String> opciones, ValueChanged<String> onSelect) {
-    final activo = valorActual != 'todos';
-    return PopupMenuButton<String>(
-      onSelected: onSelect,
-      itemBuilder: (context) => opciones.entries
-          .map((e) => PopupMenuItem(value: e.key, child: Text(e.value)))
-          .toList(),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: activo ? const Color(0xFF1F4E79).withOpacity(0.1) : Colors.grey[100],
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: activo ? const Color(0xFF1F4E79) : Colors.grey[300]!),
-        ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Text(
-            activo ? opciones[valorActual]! : titulo,
-            style: TextStyle(
-              fontSize: 12,
-              color: activo ? const Color(0xFF1F4E79) : Colors.grey[600],
-              fontWeight: activo ? FontWeight.w600 : FontWeight.normal,
-            ),
-          ),
-          const SizedBox(width: 4),
-          Icon(Icons.arrow_drop_down, size: 18, color: activo ? const Color(0xFF1F4E79) : Colors.grey[600]),
-        ]),
-      ),
     );
   }
 }

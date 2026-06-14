@@ -54,6 +54,18 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
     }).toList();
   }
 
+  bool get _hayFiltrosActivos =>
+      _filtroCategoriaId != 'todos' || _soloStockBajo || _textoBusqueda.trim().isNotEmpty;
+
+  void _limpiarFiltros() {
+    setState(() {
+      _filtroCategoriaId = 'todos';
+      _soloStockBajo = false;
+      _textoBusqueda = '';
+      _busquedaController.clear();
+    });
+  }
+
   String _nombreCategoria(String? categoriaId) {
     if (categoriaId == null) return 'Sin categoría';
     return _categorias.firstWhere((c) => c.id == categoriaId,
@@ -222,17 +234,59 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
     );
   }
 
-  Widget _buildCategoriaChip(String valor, String label) {
-    final seleccionado = _filtroCategoriaId == valor;
-    return FilterChip(
-      label: Text(label),
-      selected: seleccionado,
-      onSelected: (_) => setState(() => _filtroCategoriaId = valor),
-      selectedColor: const Color(0xFF1F4E79).withOpacity(0.15),
-      checkmarkColor: const Color(0xFF1F4E79),
-      labelStyle: TextStyle(color: seleccionado ? const Color(0xFF1F4E79) : Colors.grey[700], fontWeight: seleccionado ? FontWeight.w600 : FontWeight.normal),
+  // Dropdown compacto reutilizable con palabra de contexto y resaltado activo.
+  Widget _buildDropdown({
+    required String value,
+    required String contexto,
+    required IconData icono,
+    required List<DropdownMenuItem<String>> items,
+    required ValueChanged<String> onChanged,
+  }) {
+    final activo = value != 'todos';
+    return DropdownButtonFormField<String>(
+      value: value,
+      isExpanded: true,
+      isDense: true,
+      style: const TextStyle(fontSize: 12, color: Colors.black87),
+      icon: const Icon(Icons.arrow_drop_down, size: 20),
+      decoration: InputDecoration(
+        isDense: true,
+        prefixIcon: Icon(icono, size: 18, color: activo ? const Color(0xFF1F4E79) : Colors.grey[600]),
+        prefixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: activo ? const Color(0xFF1F4E79) : Colors.grey.shade300),
+        ),
+      ),
+      selectedItemBuilder: (context) => items.map((item) {
+        final esTodos = item.value == 'todos';
+        final texto = esTodos ? contexto : _labelDeItem(item);
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            texto,
+            style: TextStyle(fontSize: 12, color: esTodos ? Colors.grey[600] : Colors.black87),
+            overflow: TextOverflow.ellipsis,
+          ),
+        );
+      }).toList(),
+      items: items,
+      onChanged: (v) => onChanged(v ?? 'todos'),
     );
   }
+
+  String _labelDeItem(DropdownMenuItem<String> item) {
+    final child = item.child;
+    if (child is Text) return child.data ?? '';
+    return '';
+  }
+
+  DropdownMenuItem<String> _item(String value, String label) => DropdownMenuItem(
+        value: value,
+        child: Text(label, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -244,7 +298,8 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Repuestos'),
+        title: const Text('Repuestos', style: TextStyle(fontSize: 18)),
+        toolbarHeight: 48,
         backgroundColor: const Color(0xFF1F4E79),
         foregroundColor: Colors.white,
         actions: [
@@ -263,52 +318,115 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
       body: _cargando
           ? const Center(child: CircularProgressIndicator())
           : Column(children: [
+              // Buscador (fila completa)
               Container(
                 color: Colors.white,
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
                 child: TextField(
                   controller: _busquedaController,
+                  onChanged: (v) => setState(() => _textoBusqueda = v),
+                  textInputAction: TextInputAction.search,
+                  style: const TextStyle(fontSize: 12),
                   decoration: InputDecoration(
                     hintText: 'Buscar por código o descripción...',
-                    prefixIcon: const Icon(Icons.search),
+                    hintStyle: const TextStyle(fontSize: 12),
+                    prefixIcon: const Icon(Icons.search, size: 20),
+                    prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                     suffixIcon: _textoBusqueda.isNotEmpty
-                        ? IconButton(icon: const Icon(Icons.clear), onPressed: () { _busquedaController.clear(); setState(() => _textoBusqueda = ''); })
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                            onPressed: () { _busquedaController.clear(); setState(() => _textoBusqueda = ''); },
+                          )
                         : null,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
                   ),
-                  onChanged: (v) => setState(() => _textoBusqueda = v),
                 ),
               ),
-              if (_categorias.isNotEmpty)
-                Container(
-                  color: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(children: [
-                      _buildCategoriaChip('todos', 'Todas'),
-                      ..._categorias.map((c) => Padding(padding: const EdgeInsets.only(left: 8), child: _buildCategoriaChip(c.id, c.nombre))),
-                    ]),
+              // Categoría + Stock (dos dropdowns lado a lado)
+              Container(
+                color: Colors.white,
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+                child: Row(children: [
+                  // Filtro de categoría
+                  Expanded(
+                    child: _buildDropdown(
+                      value: _filtroCategoriaId,
+                      contexto: 'Categoría',
+                      icono: Icons.category_outlined,
+                      items: [
+                        _item('todos', 'Todas las categorías'),
+                        ..._categorias.map((c) => _item(c.id, c.nombre)),
+                      ],
+                      onChanged: (v) => setState(() => _filtroCategoriaId = v),
+                    ),
                   ),
-                ),
-              if (_soloStockBajo)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  color: Colors.orange[50],
-                  child: Row(children: [
-                    const Icon(Icons.warning_amber_outlined, color: Colors.orange, size: 16),
-                    const SizedBox(width: 8),
-                    const Expanded(child: Text('Mostrando solo repuestos con stock bajo', style: TextStyle(color: Colors.orange, fontSize: 12))),
-                    GestureDetector(onTap: () => setState(() => _soloStockBajo = false), child: const Text('Ver todos', style: TextStyle(color: Colors.orange, fontSize: 12, decoration: TextDecoration.underline))),
-                  ]),
-                ),
+                  const SizedBox(width: 8),
+                  // Filtro de stock
+                  Expanded(
+                    child: DropdownButtonFormField<bool>(
+                      value: _soloStockBajo,
+                      isExpanded: true,
+                      isDense: true,
+                      style: const TextStyle(fontSize: 12, color: Colors.black87),
+                      icon: const Icon(Icons.arrow_drop_down, size: 20),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        prefixIcon: Icon(Icons.tune, size: 18, color: _soloStockBajo ? const Color(0xFF1F4E79) : Colors.grey[600]),
+                        prefixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: _soloStockBajo ? const Color(0xFF1F4E79) : Colors.grey.shade300),
+                        ),
+                      ),
+                      selectedItemBuilder: (context) => [
+                        // value=false → mostrar contexto "Stock"
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text('Stock', style: TextStyle(fontSize: 12, color: Colors.grey[600]), overflow: TextOverflow.ellipsis),
+                        ),
+                        // value=true → mostrar el filtro activo
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text('Solo stock bajo', style: TextStyle(fontSize: 12, color: Colors.black87), overflow: TextOverflow.ellipsis),
+                        ),
+                      ],
+                      items: const [
+                        DropdownMenuItem(value: false, child: Text('Todo el stock', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                        DropdownMenuItem(value: true, child: Text('Solo stock bajo', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                      ],
+                      onChanged: (v) => setState(() => _soloStockBajo = v ?? false),
+                    ),
+                  ),
+                ]),
+              ),
+              // Contador + limpiar filtros
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 color: Colors.grey[100],
-                child: Text('${repuestosFiltrados.length} repuesto${repuestosFiltrados.length != 1 ? 's' : ''}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                child: Row(children: [
+                  Text('${repuestosFiltrados.length} repuesto${repuestosFiltrados.length != 1 ? 's' : ''}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                  const Spacer(),
+                  if (_hayFiltrosActivos)
+                    GestureDetector(
+                      onTap: _limpiarFiltros,
+                      child: Row(children: [
+                        Icon(Icons.filter_alt_off_outlined, size: 14, color: Colors.grey[600]),
+                        const SizedBox(width: 4),
+                        Text('Limpiar filtros', style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+                      ]),
+                    ),
+                ]),
               ),
               Expanded(
                 child: repuestosFiltrados.isEmpty
@@ -316,6 +434,10 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
                         Icon(Icons.inventory_2_outlined, size: 80, color: Colors.grey[400]),
                         const SizedBox(height: 16),
                         Text(_repuestos.isEmpty ? 'No hay repuestos cargados' : 'No hay repuestos con ese filtro', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+                        if (_repuestos.isNotEmpty && _hayFiltrosActivos) ...[
+                          const SizedBox(height: 8),
+                          TextButton(onPressed: _limpiarFiltros, child: const Text('Limpiar filtros')),
+                        ],
                       ]))
                     : RefreshIndicator(
                         onRefresh: _cargarDatos,

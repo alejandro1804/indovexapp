@@ -16,13 +16,22 @@ class MaquinasScreen extends StatefulWidget {
 
 class _MaquinasScreenState extends State<MaquinasScreen> {
   final _supabase = Supabase.instance.client;
+  final _busquedaController = TextEditingController();
   List<Maquina> _maquinas = [];
   List<Sector> _sectores = [];
   bool _cargando = true;
   String _filtroEstado = 'todos';
+  String _filtroSector = 'todos'; // 'todos' o un sectorId
+  String _busqueda = '';
 
   @override
   void initState() { super.initState(); _cargarDatos(); }
+
+  @override
+  void dispose() {
+    _busquedaController.dispose();
+    super.dispose();
+  }
 
   Future<void> _cargarDatos() async {
     setState(() => _cargando = true);
@@ -46,8 +55,32 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
   }
 
   List<Maquina> get _maquinasFiltradas {
-    if (_filtroEstado == 'todos') return _maquinas;
-    return _maquinas.where((m) => m.estado == _filtroEstado).toList();
+    final q = _busqueda.trim().toLowerCase();
+    return _maquinas.where((m) {
+      // Filtro por estado
+      if (_filtroEstado != 'todos' && m.estado != _filtroEstado) return false;
+      // Filtro por sector
+      if (_filtroSector != 'todos' && m.sectorId != _filtroSector) return false;
+      // Búsqueda por nombre o código
+      if (q.isNotEmpty) {
+        final enNombre = m.nombre.toLowerCase().contains(q);
+        final enCodigo = m.codigo.toLowerCase().contains(q);
+        if (!enNombre && !enCodigo) return false;
+      }
+      return true;
+    }).toList();
+  }
+
+  bool get _hayFiltrosActivos =>
+      _filtroEstado != 'todos' || _filtroSector != 'todos' || _busqueda.trim().isNotEmpty;
+
+  void _limpiarFiltros() {
+    setState(() {
+      _filtroEstado = 'todos';
+      _filtroSector = 'todos';
+      _busqueda = '';
+      _busquedaController.clear();
+    });
   }
 
   String _nombreSector(String sectorId) {
@@ -260,17 +293,59 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
     );
   }
 
-  Widget _buildFiltroChip(String valor, String label) {
-    final seleccionado = _filtroEstado == valor;
-    return FilterChip(
-      label: Text(label),
-      selected: seleccionado,
-      onSelected: (_) => setState(() => _filtroEstado = valor),
-      selectedColor: const Color(0xFF1F4E79).withOpacity(0.15),
-      checkmarkColor: const Color(0xFF1F4E79),
-      labelStyle: TextStyle(color: seleccionado ? const Color(0xFF1F4E79) : Colors.grey[700], fontWeight: seleccionado ? FontWeight.w600 : FontWeight.normal),
+  // Dropdown compacto reutilizable con palabra de contexto y resaltado activo.
+  Widget _buildDropdown({
+    required String value,
+    required String contexto,
+    required IconData icono,
+    required List<DropdownMenuItem<String>> items,
+    required ValueChanged<String> onChanged,
+  }) {
+    final activo = value != 'todos';
+    return DropdownButtonFormField<String>(
+      value: value,
+      isExpanded: true,
+      isDense: true,
+      style: const TextStyle(fontSize: 12, color: Colors.black87),
+      icon: const Icon(Icons.arrow_drop_down, size: 20),
+      decoration: InputDecoration(
+        isDense: true,
+        prefixIcon: Icon(icono, size: 18, color: activo ? const Color(0xFF1F4E79) : Colors.grey[600]),
+        prefixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: activo ? const Color(0xFF1F4E79) : Colors.grey.shade300),
+        ),
+      ),
+      selectedItemBuilder: (context) => items.map((item) {
+        final esTodos = item.value == 'todos';
+        final texto = esTodos ? contexto : _labelDeItem(item);
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            texto,
+            style: TextStyle(fontSize: 12, color: esTodos ? Colors.grey[600] : Colors.black87),
+            overflow: TextOverflow.ellipsis,
+          ),
+        );
+      }).toList(),
+      items: items,
+      onChanged: (v) => onChanged(v ?? 'todos'),
     );
   }
+
+  String _labelDeItem(DropdownMenuItem<String> item) {
+    final child = item.child;
+    if (child is Text) return child.data ?? '';
+    return '';
+  }
+
+  DropdownMenuItem<String> _item(String value, String label) => DropdownMenuItem(
+        value: value,
+        child: Text(label, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -278,31 +353,104 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
     final padding = Responsive.pagePadding(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Máquinas'), backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white),
+      appBar: AppBar(
+        title: const Text('Máquinas', style: TextStyle(fontSize: 18)),
+        toolbarHeight: 48,
+        backgroundColor: const Color(0xFF1F4E79),
+        foregroundColor: Colors.white,
+      ),
       body: _cargando
           ? const Center(child: CircularProgressIndicator())
           : Column(children: [
+              // Buscador (fila completa)
               Container(
                 color: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(children: [
-                    _buildFiltroChip('todos', 'Todos'),
-                    const SizedBox(width: 8),
-                    _buildFiltroChip('operativa', 'Operativas'),
-                    const SizedBox(width: 8),
-                    _buildFiltroChip('en_mantenimiento', 'En mantenimiento'),
-                    const SizedBox(width: 8),
-                    _buildFiltroChip('fuera_de_servicio', 'Fuera de servicio'),
-                  ]),
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
+                child: TextField(
+                  controller: _busquedaController,
+                  onChanged: (v) => setState(() => _busqueda = v),
+                  textInputAction: TextInputAction.search,
+                  style: const TextStyle(fontSize: 12),
+                  decoration: InputDecoration(
+                    hintText: 'Buscar por nombre o código...',
+                    hintStyle: const TextStyle(fontSize: 12),
+                    prefixIcon: const Icon(Icons.search, size: 20),
+                    prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                    suffixIcon: _busqueda.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                            onPressed: () => setState(() {
+                              _busqueda = '';
+                              _busquedaController.clear();
+                            }),
+                          )
+                        : null,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                  ),
                 ),
               ),
+              // Sector + Estado (dos dropdowns lado a lado)
+              Container(
+                color: Colors.white,
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+                child: Row(children: [
+                  // Filtro de sector
+                  Expanded(
+                    child: _buildDropdown(
+                      value: _filtroSector,
+                      contexto: 'Sector',
+                      icono: Icons.apartment_outlined,
+                      items: [
+                        _item('todos', 'Todos los sectores'),
+                        ..._sectores.map((s) => _item(s.id, s.nombre)),
+                      ],
+                      onChanged: (v) => setState(() => _filtroSector = v),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Filtro de estado
+                  Expanded(
+                    child: _buildDropdown(
+                      value: _filtroEstado,
+                      contexto: 'Estado',
+                      icono: Icons.tune,
+                      items: [
+                        _item('todos', 'Todos los estados'),
+                        _item('operativa', 'Operativas'),
+                        _item('en_mantenimiento', 'En mantenimiento'),
+                        _item('fuera_de_servicio', 'Fuera de servicio'),
+                      ],
+                      onChanged: (v) => setState(() => _filtroEstado = v),
+                    ),
+                  ),
+                ]),
+              ),
+              // Contador + limpiar filtros
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 color: Colors.grey[100],
-                child: Text('${maquinasFiltradas.length} máquina${maquinasFiltradas.length != 1 ? 's' : ''}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                child: Row(children: [
+                  Text('${maquinasFiltradas.length} máquina${maquinasFiltradas.length != 1 ? 's' : ''}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                  const Spacer(),
+                  if (_hayFiltrosActivos)
+                    GestureDetector(
+                      onTap: _limpiarFiltros,
+                      child: Row(children: [
+                        Icon(Icons.filter_alt_off_outlined, size: 14, color: Colors.grey[600]),
+                        const SizedBox(width: 4),
+                        Text('Limpiar filtros', style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+                      ]),
+                    ),
+                ]),
               ),
               Expanded(
                 child: maquinasFiltradas.isEmpty
@@ -310,6 +458,10 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
                         Icon(Icons.precision_manufacturing_outlined, size: 80, color: Colors.grey[400]),
                         const SizedBox(height: 16),
                         Text(_maquinas.isEmpty ? 'No hay máquinas cargadas' : 'No hay máquinas con ese filtro', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+                        if (_maquinas.isNotEmpty && _hayFiltrosActivos) ...[
+                          const SizedBox(height: 8),
+                          TextButton(onPressed: _limpiarFiltros, child: const Text('Limpiar filtros')),
+                        ],
                       ]))
                     : RefreshIndicator(
                         onRefresh: _cargarDatos,
