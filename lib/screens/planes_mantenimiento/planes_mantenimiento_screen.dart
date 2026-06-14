@@ -15,12 +15,33 @@ class PlanesMantenimientoScreen extends StatefulWidget {
 }
 
 class _PlanesMantenimientoScreenState extends State<PlanesMantenimientoScreen> {
+  final _busquedaController = TextEditingController();
+  String _busqueda = '';
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<PlanMantenimientoProvider>().cargarPlanes();
     });
+  }
+
+  @override
+  void dispose() {
+    _busquedaController.dispose();
+    super.dispose();
+  }
+
+  // Filtra por nombre de máquina, código de máquina y descripción de la tarea
+  List<PlanMantenimiento> _filtrar(List<PlanMantenimiento> planes) {
+    final q = _busqueda.trim().toLowerCase();
+    if (q.isEmpty) return planes;
+    return planes.where((p) {
+      final maquina = (p.nombreMaquina ?? '').toLowerCase();
+      final codigo = (p.codigoMaquina ?? '').toLowerCase();
+      final tarea = p.descripcionTarea.toLowerCase();
+      return maquina.contains(q) || codigo.contains(q) || tarea.contains(q);
+    }).toList();
   }
 
   Color _colorIntervalo(String tipo) {
@@ -62,7 +83,8 @@ class _PlanesMantenimientoScreenState extends State<PlanesMantenimientoScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Planes de Mantenimiento'),
+        title: const Text('Planes de Mantenimiento', style: TextStyle(fontSize: 17)),
+        toolbarHeight: 48,
         backgroundColor: const Color(0xFF1F4E79),
         foregroundColor: Colors.white,
       ),
@@ -79,80 +101,157 @@ class _PlanesMantenimientoScreenState extends State<PlanesMantenimientoScreen> {
               },
               backgroundColor: const Color(0xFF1F4E79),
               foregroundColor: Colors.white,
-              icon: const Icon(Icons.add),
-              label: const Text('Nuevo plan'),
+              extendedPadding: const EdgeInsets.symmetric(horizontal: 14),
+              extendedIconLabelSpacing: 6,
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Nuevo plan', style: TextStyle(fontSize: 12)),
             )
           : null,
       body: provider.cargando
           ? const Center(child: CircularProgressIndicator())
-          : provider.planes.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.event_repeat_outlined, size: 80, color: Colors.grey[400]),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No hay planes de mantenimiento',
-                        style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+          : Column(
+              children: [
+                // Buscador por máquina / tarea
+                Container(
+                  color: Colors.white,
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                  child: TextField(
+                    controller: _busquedaController,
+                    onChanged: (v) => setState(() => _busqueda = v),
+                    textInputAction: TextInputAction.search,
+                    style: const TextStyle(fontSize: 12),
+                    decoration: InputDecoration(
+                      hintText: 'Buscar por máquina o tarea...',
+                      hintStyle: const TextStyle(fontSize: 12),
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                      suffixIcon: _busqueda.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, size: 18),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                              onPressed: () => setState(() {
+                                _busqueda = '';
+                                _busquedaController.clear();
+                              }),
+                            )
+                          : null,
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Creá un plan para programar mantenimientos preventivos',
-                        style: TextStyle(fontSize: 13, color: Colors.grey[400]),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
+                    ),
                   ),
-                )
-              : ListView.builder(
-                  padding: padding,
-                  itemCount: provider.planes.length,
-                  itemBuilder: (context, index) {
-                    final plan = provider.planes[index];
-                    return GestureDetector(
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => PlanMantenimientoDetailScreen(plan: plan),
-                        ),
-                      ),
-                      child: _PlanCard(
-                        plan: plan,
-                        colorIntervalo: _colorIntervalo(plan.tipoIntervalo),
-                        iconoIntervalo: _iconoIntervalo(plan.tipoIntervalo),
-                        esAdminOEncargado: esAdminOEncargado,
-                        onEditar: () => _editarPlan(plan),
-                        onDesactivar: () async {
-                          final confirmar = await showDialog<bool>(
-                            context: context,
-                            builder: (_) => AlertDialog(
-                              title: const Text('Desactivar plan'),
-                              content: const Text('¿Seguro que querés desactivar este plan?'),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context, false),
-                                  child: const Text('Cancelar'),
-                                ),
-                                ElevatedButton(
-                                  onPressed: () => Navigator.pop(context, true),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.red,
-                                    foregroundColor: Colors.white,
-                                  ),
-                                  child: const Text('Desactivar'),
-                                ),
-                              ],
-                            ),
-                          );
-                          if (confirmar == true && context.mounted) {
-                            await context.read<PlanMantenimientoProvider>().desactivarPlan(plan.id);
-                          }
-                        },
-                      ),
-                    );
-                  },
                 ),
+                Expanded(child: _buildLista(provider, esAdminOEncargado, padding)),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildLista(
+    PlanMantenimientoProvider provider,
+    bool esAdminOEncargado,
+    EdgeInsets padding,
+  ) {
+    if (provider.planes.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.event_repeat_outlined, size: 80, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              'No hay planes de mantenimiento',
+              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Creá un plan para programar mantenimientos preventivos',
+              style: TextStyle(fontSize: 10, color: Colors.grey[400]),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
+    final planesFiltrados = _filtrar(provider.planes);
+
+    if (planesFiltrados.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.search_off_outlined, size: 70, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              'No hay planes para esa búsqueda',
+              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => setState(() {
+                _busqueda = '';
+                _busquedaController.clear();
+              }),
+              child: const Text('Limpiar búsqueda'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: padding,
+      itemCount: planesFiltrados.length,
+      itemBuilder: (context, index) {
+        final plan = planesFiltrados[index];
+        return GestureDetector(
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => PlanMantenimientoDetailScreen(plan: plan),
+            ),
+          ),
+          child: _PlanCard(
+            plan: plan,
+            colorIntervalo: _colorIntervalo(plan.tipoIntervalo),
+            iconoIntervalo: _iconoIntervalo(plan.tipoIntervalo),
+            esAdminOEncargado: esAdminOEncargado,
+            onEditar: () => _editarPlan(plan),
+            onDesactivar: () async {
+              final confirmar = await showDialog<bool>(
+                context: context,
+                builder: (_) => AlertDialog(
+                  title: const Text('Desactivar plan'),
+                  content: const Text('¿Seguro que querés desactivar este plan?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancelar'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Desactivar'),
+                    ),
+                  ],
+                ),
+              );
+              if (confirmar == true && context.mounted) {
+                await context.read<PlanMantenimientoProvider>().desactivarPlan(plan.id);
+              }
+            },
+          ),
+        );
+      },
     );
   }
 }
@@ -235,13 +334,12 @@ class _PlanCard extends StatelessWidget {
                             ),
                             const SizedBox(width: 4),
                             Expanded(
-                              // ✅ Fix del overflow
                               child: Text(
                                 plan.codigoMaquina != null
                                     ? '${plan.nombreMaquina} (${plan.codigoMaquina})'
                                     : plan.nombreMaquina!,
                                 style: TextStyle(
-                                  fontSize: 11,
+                                  fontSize: 10,
                                   color: Colors.grey[500],
                                 ),
                                 overflow: TextOverflow.ellipsis,
@@ -270,7 +368,7 @@ class _PlanCard extends StatelessWidget {
                                               Icons.edit_outlined,
                                               color: Color(0xFF1F4E79),
                                             ),
-                                            title: const Text('Editar plan'),
+                                            title: const Text('Editar plan', style: TextStyle(fontSize: 13)),
                                             onTap: () {
                                               Navigator.pop(context);
                                               onEditar();
@@ -281,7 +379,7 @@ class _PlanCard extends StatelessWidget {
                                               Icons.block,
                                               color: Colors.red,
                                             ),
-                                            title: const Text('Desactivar plan'),
+                                            title: const Text('Desactivar plan', style: TextStyle(fontSize: 13)),
                                             onTap: () {
                                               Navigator.pop(context);
                                               onDesactivar();
@@ -304,7 +402,7 @@ class _PlanCard extends StatelessWidget {
                         plan.descripcionTarea,
                         style: const TextStyle(
                           fontWeight: FontWeight.w600,
-                          fontSize: 15,
+                          fontSize: 12,
                           color: Color(0xFF1A237E),
                           height: 1.3,
                         ),
@@ -338,7 +436,7 @@ class _PlanCard extends StatelessWidget {
                                 Text(
                                   _frecuenciaLabel,
                                   style: TextStyle(
-                                    fontSize: 12,
+                                    fontSize: 9,
                                     color: colorIntervalo,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -357,7 +455,7 @@ class _PlanCard extends StatelessWidget {
                             Flexible(
                               child: Text(
                                 'Próximo: $_proximoLabel',
-                                style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                                style: TextStyle(fontSize: 8, color: Colors.grey[500]),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),

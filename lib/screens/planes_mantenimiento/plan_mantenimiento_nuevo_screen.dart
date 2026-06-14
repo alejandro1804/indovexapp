@@ -77,12 +77,6 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
     }
   }
 
-  String get _unidadLabel {
-    final tipos = context.read<TipoIntervaloProvider>().tipos;
-    final tipo = tipos.where((t) => t.codigo == _tipoIntervaloSeleccionado).firstOrNull;
-    return tipo?.nombre ?? '';
-  }
-
   Future<void> _guardar() async {
     if (_maquinaSeleccionada == null) {
       _mostrarError('Seleccioná una máquina');
@@ -158,7 +152,11 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_esEdicion ? 'Editar Plan de Mantenimiento' : 'Nuevo Plan de Mantenimiento'),
+        title: Text(
+          _esEdicion ? 'Editar Plan' : 'Nuevo Plan',
+          style: const TextStyle(fontSize: 17),
+        ),
+        toolbarHeight: 48,
         backgroundColor: const Color(0xFF1F4E79),
         foregroundColor: Colors.white,
       ),
@@ -169,7 +167,7 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
                   child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                     Icon(Icons.precision_manufacturing_outlined, size: 80, color: Colors.grey[400]),
                     const SizedBox(height: 16),
-                    Text('No hay máquinas disponibles', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+                    Text('No hay máquinas disponibles', style: TextStyle(fontSize: 13, color: Colors.grey[600])),
                   ]),
                 )
               : ListView(
@@ -178,17 +176,26 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
                     // Máquina (no editable en modo edición)
                     DropdownButtonFormField<String>(
                       value: _maquinaSeleccionada,
+                      isExpanded: true,
+                      style: const TextStyle(fontSize: 13, color: Colors.black87),
                       decoration: InputDecoration(
                         labelText: 'Máquina *',
+                        labelStyle: const TextStyle(fontSize: 13),
                         border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.precision_manufacturing_outlined),
+                        prefixIcon: const Icon(Icons.precision_manufacturing_outlined, size: 20),
                         helperText: _esEdicion ? 'La máquina no puede modificarse' : null,
+                        helperStyle: const TextStyle(fontSize: 10),
+                        isDense: true,
                       ),
                       items: _maquinas.map((m) {
                         final sector = (m['sectores'] as Map?)?['nombre'] ?? '';
                         return DropdownMenuItem(
                           value: m['id'] as String,
-                          child: Text('${m['nombre']} (${m['codigo']}) — $sector', overflow: TextOverflow.ellipsis),
+                          child: Text(
+                            '${m['nombre']} (${m['codigo']}) — $sector',
+                            style: const TextStyle(fontSize: 13),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         );
                       }).toList(),
                       onChanged: _esEdicion ? null : (v) => setState(() => _maquinaSeleccionada = v),
@@ -198,66 +205,88 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
                     // Descripción
                     TextField(
                       controller: _descripcionController,
+                      style: const TextStyle(fontSize: 13),
                       decoration: const InputDecoration(
                         labelText: 'Tarea de mantenimiento *',
+                        labelStyle: TextStyle(fontSize: 13),
                         border: OutlineInputBorder(),
                         hintText: 'Ej: Cambio de filtro de aceite',
-                        prefixIcon: Icon(Icons.build_outlined),
+                        prefixIcon: Icon(Icons.build_outlined, size: 20),
+                        isDense: true,
                       ),
                       textCapitalization: TextCapitalization.sentences,
                     ),
                     const SizedBox(height: 16),
 
-                    // Tipo intervalo desde DB
-                    const Text('Tipo de intervalo', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87)),
-                    const SizedBox(height: 8),
-                    tiposProvider.cargando
-                        ? const Center(child: CircularProgressIndicator())
-                        : Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: tipos.map((t) {
-                              final seleccionado = _tipoIntervaloSeleccionado == t.codigo;
-                              return ChoiceChip(
-                                label: Text(t.nombre),
-                                selected: seleccionado,
-                                selectedColor: const Color(0xFF1F4E79).withOpacity(0.15),
-                                labelStyle: TextStyle(
-                                  color: seleccionado ? const Color(0xFF1F4E79) : Colors.grey[600],
-                                  fontWeight: seleccionado ? FontWeight.bold : FontWeight.normal,
-                                ),
-                                side: BorderSide(
-                                  color: seleccionado ? const Color(0xFF1F4E79) : Colors.grey[300]!,
-                                ),
-                                onSelected: (_) => setState(() => _tipoIntervaloSeleccionado = t.codigo),
-                              );
-                            }).toList(),
+                    // Cada cuánto (cifra) + Tipo de intervalo (dropdown) lado a lado
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Cifra
+                        Expanded(
+                          flex: 2,
+                          child: TextField(
+                            controller: _intervaloController,
+                            style: const TextStyle(fontSize: 13),
+                            decoration: const InputDecoration(
+                              labelText: 'Cada cuánto *',
+                              labelStyle: TextStyle(fontSize: 13),
+                              border: OutlineInputBorder(),
+                              hintText: 'Ej: 30',
+                              prefixIcon: Icon(Icons.repeat_outlined, size: 20),
+                              isDense: true,
+                            ),
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           ),
-                    const SizedBox(height: 16),
-
-                    // Valor intervalo
-                    TextField(
-                      controller: _intervaloController,
-                      decoration: InputDecoration(
-                        labelText: 'Cada cuánto *',
-                        border: const OutlineInputBorder(),
-                        hintText: 'Ej: 30',
-                        prefixIcon: const Icon(Icons.repeat_outlined),
-                        suffixText: _unidadLabel,
-                      ),
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        ),
+                        const SizedBox(width: 10),
+                        // Tipo de intervalo (dropdown)
+                        Expanded(
+                          flex: 3,
+                          child: tiposProvider.cargando
+                              ? const SizedBox(
+                                  height: 48,
+                                  child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                                )
+                              : DropdownButtonFormField<String>(
+                                  value: _tipoIntervaloSeleccionado,
+                                  isExpanded: true,
+                                  style: const TextStyle(fontSize: 13, color: Colors.black87),
+                                  decoration: const InputDecoration(
+                                    labelText: 'Tipo *',
+                                    labelStyle: TextStyle(fontSize: 13),
+                                    border: OutlineInputBorder(),
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+                                  ),
+                                  items: tipos.map((t) {
+                                    return DropdownMenuItem(
+                                      value: t.codigo,
+                                      child: Text(
+                                        t.nombre,
+                                        style: const TextStyle(fontSize: 13),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    );
+                                  }).toList(),
+                                  onChanged: (v) => setState(() => _tipoIntervaloSeleccionado = v),
+                                ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 16),
 
                     // Procedimiento
                     TextField(
                       controller: _procedimientoController,
+                      style: const TextStyle(fontSize: 13),
                       decoration: const InputDecoration(
                         labelText: 'Procedimiento / Guía de ejecución',
+                        labelStyle: TextStyle(fontSize: 13),
                         border: OutlineInputBorder(),
                         alignLabelWithHint: true,
                         hintText: 'Describí los pasos a seguir, herramientas necesarias, advertencias de seguridad...',
-                        prefixIcon: Icon(Icons.checklist_outlined),
+                        prefixIcon: Icon(Icons.checklist_outlined, size: 20),
                       ),
                       maxLines: 8,
                       textCapitalization: TextCapitalization.sentences,
@@ -271,8 +300,8 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
                         onPressed: _cargando ? null : _guardar,
                         icon: _cargando
                             ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                            : const Icon(Icons.save_outlined),
-                        label: Text(_esEdicion ? 'Guardar cambios' : 'Guardar plan', style: const TextStyle(fontSize: 16)),
+                            : const Icon(Icons.save_outlined, size: 20),
+                        label: Text(_esEdicion ? 'Guardar cambios' : 'Guardar plan', style: const TextStyle(fontSize: 14)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF1F4E79),
                           foregroundColor: Colors.white,

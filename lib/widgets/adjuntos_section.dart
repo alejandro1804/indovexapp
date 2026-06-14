@@ -154,7 +154,7 @@ class _AdjuntosSectionState extends State<AdjuntosSection> {
                     const SizedBox(width: 6),
                     const Text(
                       'Adjuntos',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                     ),
                     if (_adjuntos.isNotEmpty) ...[
                       const SizedBox(width: 6),
@@ -167,7 +167,7 @@ class _AdjuntosSectionState extends State<AdjuntosSection> {
                         child: Text(
                           '${_adjuntos.length}',
                           style: const TextStyle(
-                            fontSize: 12,
+                            fontSize: 10,
                             color: Color(0xFF1F4E79),
                             fontWeight: FontWeight.w600,
                           ),
@@ -203,7 +203,7 @@ class _AdjuntosSectionState extends State<AdjuntosSection> {
                 child: Center(
                   child: Text(
                     'Sin adjuntos',
-                    style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                    style: TextStyle(color: Colors.grey[500], fontSize: 11),
                   ),
                 ),
               )
@@ -237,50 +237,97 @@ class _AdjuntoTile extends StatelessWidget {
     required this.onEliminar,
   });
 
+  // Acorta nombres largos al medio, conservando el inicio y el final (extensión).
+  // Ej: "Screenshot_20260613_161402_com_indovex_app_MainActivity.jpg"
+  //   → "Screenshot_2026…MainActivity.jpg"
+  String _acortarNombre(String nombre, {int maxCaracteres = 32}) {
+    if (nombre.length <= maxCaracteres) return nombre;
+
+    // Separar extensión (lo que va después del último punto)
+    String base = nombre;
+    String extension = '';
+    final puntoIdx = nombre.lastIndexOf('.');
+    if (puntoIdx > 0 && puntoIdx > nombre.length - 8) {
+      base = nombre.substring(0, puntoIdx);
+      extension = nombre.substring(puntoIdx); // incluye el punto
+    }
+
+    // Espacio disponible para el texto, restando la extensión y el "…"
+    final disponible = maxCaracteres - extension.length - 1;
+    if (disponible < 6) {
+      // Nombre/extensión muy largos: caso de borde, recortar simple al final
+      return '${nombre.substring(0, maxCaracteres - 1)}…';
+    }
+
+    final inicio = (disponible * 0.6).round(); // más peso al inicio
+    final fin = disponible - inicio;
+    return '${base.substring(0, inicio)}…${base.substring(base.length - fin)}$extension';
+  }
+
   @override
   Widget build(BuildContext context) {
     final mime = adjunto['tipo_mime'] as String?;
     final nombre = adjunto['nombre_archivo'] as String? ?? 'Archivo';
     final tamanio = DocumentHelper.formatearTamanio(adjunto['tamanio_bytes'] as int?);
 
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: DocumentHelper.colorPorMime(mime).withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(
-          DocumentHelper.iconoPorMime(mime),
-          color: DocumentHelper.colorPorMime(mime),
-          size: 22,
-        ),
-      ),
-      title: Text(
-        nombre,
-        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      subtitle: tamanio.isNotEmpty
-          ? Text(tamanio, style: TextStyle(fontSize: 11, color: Colors.grey[500]))
-          : null,
-      trailing: Row(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(
-            icon: const Icon(Icons.open_in_new, size: 18),
-            color: const Color(0xFF1F4E79),
-            onPressed: onAbrir,
-            tooltip: 'Abrir',
+          // Línea 1: nombre del archivo en UNA sola línea, a todo el ancho.
+          // Si es muy largo, se acorta al medio conservando inicio + extensión.
+          Text(
+            _acortarNombre(nombre),
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline, size: 18),
-            color: Colors.red[400],
-            onPressed: onEliminar,
-            tooltip: 'Eliminar',
+          const SizedBox(height: 6),
+          // Línea 2: ícono tipo + tamaño a la izquierda, acciones a la derecha
+          Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: DocumentHelper.colorPorMime(mime).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(
+                  DocumentHelper.iconoPorMime(mime),
+                  color: DocumentHelper.colorPorMime(mime),
+                  size: 16,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  tamanio.isNotEmpty ? tamanio : '',
+                  style: TextStyle(fontSize: 9, color: Colors.grey[500]),
+                ),
+              ),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints(),
+                padding: const EdgeInsets.all(6),
+                icon: const Icon(Icons.open_in_new, size: 18),
+                color: const Color(0xFF1F4E79),
+                onPressed: onAbrir,
+                tooltip: 'Abrir',
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints(),
+                padding: const EdgeInsets.all(6),
+                icon: const Icon(Icons.delete_outline, size: 18),
+                color: Colors.red[400],
+                onPressed: onEliminar,
+                tooltip: 'Eliminar',
+              ),
+            ],
           ),
         ],
       ),

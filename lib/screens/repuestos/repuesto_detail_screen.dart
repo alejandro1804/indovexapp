@@ -79,13 +79,14 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Editar Repuesto'),
+          title: const Text('Editar Repuesto', style: TextStyle(fontSize: 18)),
           content: SizedBox(
             width: Responsive.isDesktop(context) ? 520 : double.maxFinite,
             child: SingleChildScrollView(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
                 TextField(
                   controller: codigoController,
+                  style: const TextStyle(fontSize: 13),
                   decoration: const InputDecoration(labelText: 'Código *', border: OutlineInputBorder(), hintText: 'Ej: REP-001'),
                   textCapitalization: TextCapitalization.characters,
                   maxLength: 30,
@@ -93,6 +94,7 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: descripcionController,
+                  style: const TextStyle(fontSize: 13),
                   decoration: const InputDecoration(labelText: 'Descripción *', border: OutlineInputBorder()),
                   textCapitalization: TextCapitalization.sentences,
                   maxLines: 2,
@@ -101,31 +103,36 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String?>(
                   value: categoriaSeleccionada,
+                  isExpanded: true,
+                  style: const TextStyle(fontSize: 13, color: Colors.black87),
                   decoration: const InputDecoration(labelText: 'Categoría', border: OutlineInputBorder()),
                   items: [
-                    const DropdownMenuItem(value: null, child: Text('Sin categoría')),
-                    ..._categorias.map((c) => DropdownMenuItem(value: c.id, child: Text(c.nombre))),
+                    const DropdownMenuItem(value: null, child: Text('Sin categoría', style: TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis)),
+                    ..._categorias.map((c) => DropdownMenuItem(value: c.id, child: Text(c.nombre, style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis))),
                   ],
                   onChanged: (v) => setDialogState(() => categoriaSeleccionada = v),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   value: unidadSeleccionada,
+                  isExpanded: true,
+                  style: const TextStyle(fontSize: 13, color: Colors.black87),
                   decoration: const InputDecoration(labelText: 'Unidad de medida *', border: OutlineInputBorder()),
                   items: const [
-                    DropdownMenuItem(value: 'unidad', child: Text('Unidad')),
-                    DropdownMenuItem(value: 'metro', child: Text('Metro')),
-                    DropdownMenuItem(value: 'litro', child: Text('Litro')),
-                    DropdownMenuItem(value: 'kg', child: Text('Kilogramo')),
-                    DropdownMenuItem(value: 'caja', child: Text('Caja')),
-                    DropdownMenuItem(value: 'par', child: Text('Par')),
-                    DropdownMenuItem(value: 'juego', child: Text('Juego')),
+                    DropdownMenuItem(value: 'unidad', child: Text('Unidad', style: TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'metro', child: Text('Metro', style: TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'litro', child: Text('Litro', style: TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'kg', child: Text('Kilogramo', style: TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'caja', child: Text('Caja', style: TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'par', child: Text('Par', style: TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(value: 'juego', child: Text('Juego', style: TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis)),
                   ],
                   onChanged: (v) => setDialogState(() => unidadSeleccionada = v!),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: stockMinimoController,
+                  style: const TextStyle(fontSize: 13),
                   decoration: const InputDecoration(labelText: 'Stock mínimo', border: OutlineInputBorder()),
                   keyboardType: TextInputType.number,
                 ),
@@ -134,12 +141,13 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
                   alignment: Alignment.centerLeft,
                   child: Text(
                     'Stock actual: ${_repuesto.stockActual} ${_repuesto.unidadMedida} (se modifica desde Ingreso/Salida)',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    style: TextStyle(fontSize: 10, color: Colors.grey[600]),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: ubicacionController,
+                  style: const TextStyle(fontSize: 13),
                   decoration: const InputDecoration(
                     labelText: 'Ubicación',
                     border: OutlineInputBorder(),
@@ -151,6 +159,7 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: notasController,
+                  style: const TextStyle(fontSize: 13),
                   decoration: const InputDecoration(labelText: 'Notas', border: OutlineInputBorder()),
                   maxLines: 2,
                   maxLength: 500,
@@ -250,7 +259,7 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_repuesto.descripcion),
+        title: Text(_repuesto.descripcion, style: const TextStyle(fontSize: 18)),
         backgroundColor: const Color(0xFF1F4E79),
         foregroundColor: Colors.white,
         actions: [
@@ -285,11 +294,11 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Stock actual', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                    Text('Stock actual', style: TextStyle(color: Colors.grey[600], fontSize: 11)),
                     Text(
                       '${_repuesto.stockActual} ${_repuesto.unidadMedida}',
                       style: TextStyle(
-                        fontSize: 28,
+                        fontSize: 26,
                         fontWeight: FontWeight.bold,
                         color: stockBajo ? Colors.orange : const Color(0xFF1F4E79),
                       ),
@@ -297,17 +306,17 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
                     if (stockBajo)
                       const Text(
                         '⚠ Stock bajo',
-                        style: TextStyle(color: Colors.orange, fontSize: 12, fontWeight: FontWeight.w600),
+                        style: TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.w600),
                       ),
                   ],
                 ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('Mínimo', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                    Text('Mínimo', style: TextStyle(color: Colors.grey[600], fontSize: 10)),
                     Text(
                       '${_repuesto.stockMinimo}',
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
@@ -325,7 +334,7 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
                     child: ElevatedButton.icon(
                       onPressed: _irAIngreso,
                       icon: const Icon(Icons.add_circle_outline),
-                      label: const Text('Ingreso'),
+                      label: const Text('Ingreso', style: TextStyle(fontSize: 12)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,
                         foregroundColor: Colors.white,
@@ -339,7 +348,7 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
                     child: ElevatedButton.icon(
                       onPressed: _irASalida,
                       icon: const Icon(Icons.remove_circle_outline),
-                      label: const Text('Salida'),
+                      label: const Text('Salida', style: TextStyle(fontSize: 12)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red[700],
                         foregroundColor: Colors.white,
@@ -362,7 +371,7 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
                 children: [
                   const Text(
                     'Información',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                   ),
                   const Divider(),
                   _infoRow('Código', _repuesto.codigo),
@@ -395,7 +404,6 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
     );
   }
 
-  // ✅ Fix: ancho del label aumentado a 80 y usando flexible en lugar de SizedBox fijo
   Widget _infoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -404,13 +412,13 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
         children: [
           Text(
             label,
-            style: TextStyle(color: Colors.grey[600], fontSize: 13),
+            style: TextStyle(color: Colors.grey[600], fontSize: 11),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(fontWeight: FontWeight.w500),
+              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
               textAlign: TextAlign.end,
             ),
           ),

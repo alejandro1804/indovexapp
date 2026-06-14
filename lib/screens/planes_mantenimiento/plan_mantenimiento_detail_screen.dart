@@ -66,7 +66,8 @@ class _PlanMantenimientoDetailScreenState extends State<PlanMantenimientoDetailS
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(plan.descripcionTarea),
+        title: const Text('Detalle del plan', style: TextStyle(fontSize: 17)),
+        toolbarHeight: 48,
         backgroundColor: const Color(0xFF1F4E79),
         foregroundColor: Colors.white,
         actions: [
@@ -138,18 +139,18 @@ class _PlanMantenimientoDetailScreenState extends State<PlanMantenimientoDetailS
                       plan.codigoMaquina != null
                           ? '${plan.nombreMaquina} (${plan.codigoMaquina})'
                           : plan.nombreMaquina!,
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                     ),
                   const SizedBox(height: 4),
                   Text(
                     'Cada ${plan.intervaloValor.toStringAsFixed(plan.intervaloValor.truncateToDouble() == plan.intervaloValor ? 0 : 1)} ${plan.unidadIntervalo}',
-                    style: TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.w500),
+                    style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w500),
                   ),
                   if (plan.proximoValor != null) ...[
                     const SizedBox(height: 2),
                     Text(
                       'Próximo: ${plan.proximoValor!.toStringAsFixed(plan.proximoValor!.truncateToDouble() == plan.proximoValor ? 0 : 1)} ${plan.unidadIntervalo}',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      style: TextStyle(fontSize: 9, color: Colors.grey[600]),
                     ),
                   ],
                 ]),
@@ -165,9 +166,9 @@ class _PlanMantenimientoDetailScreenState extends State<PlanMantenimientoDetailS
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('Tarea', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                const Text('Tarea', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                 const Divider(),
-                Text(plan.descripcionTarea, style: const TextStyle(fontSize: 14)),
+                Text(plan.descripcionTarea, style: const TextStyle(fontSize: 11)),
               ]),
             ),
           ),
@@ -184,10 +185,10 @@ class _PlanMantenimientoDetailScreenState extends State<PlanMantenimientoDetailS
                   Row(children: [
                     const Icon(Icons.checklist_outlined, size: 18, color: Color(0xFF1F4E79)),
                     const SizedBox(width: 8),
-                    const Text('Procedimiento', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    const Text('Procedimiento', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                   ]),
                   const Divider(),
-                  Text(plan.procedimiento!, style: const TextStyle(fontSize: 14, height: 1.6)),
+                  Text(plan.procedimiento!, style: const TextStyle(fontSize: 11, height: 1.6)),
                 ]),
               ),
             )
@@ -201,10 +202,10 @@ class _PlanMantenimientoDetailScreenState extends State<PlanMantenimientoDetailS
                   Row(children: [
                     const Icon(Icons.checklist_outlined, size: 18, color: Color(0xFF1F4E79)),
                     const SizedBox(width: 8),
-                    const Text('Procedimiento', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    const Text('Procedimiento', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                   ]),
                   const Divider(),
-                  Text('Sin procedimiento cargado.', style: TextStyle(fontSize: 14, color: Colors.grey[500])),
+                  Text('Sin procedimiento cargado.', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
                 ]),
               ),
             ),

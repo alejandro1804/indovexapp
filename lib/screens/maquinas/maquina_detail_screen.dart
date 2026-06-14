@@ -30,7 +30,7 @@ class MaquinaDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(maquina.nombre),
+        title: Text(maquina.nombre, style: const TextStyle(fontSize: 18)),
         backgroundColor: const Color(0xFF1F4E79),
         foregroundColor: Colors.white,
       ),
@@ -54,7 +54,7 @@ class MaquinaDetailScreen extends StatelessWidget {
                   style: TextStyle(
                     color: _colorEstado(maquina.estado),
                     fontWeight: FontWeight.w600,
-                    fontSize: 16,
+                    fontSize: 14,
                   ),
                 ),
               ],
@@ -73,12 +73,12 @@ class MaquinaDetailScreen extends StatelessWidget {
                 children: [
                   const Text(
                     'Información',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                   ),
                   const Divider(),
                   _infoRow('Código', maquina.codigo),
                   if (maquina.descripcion != null && maquina.descripcion!.isNotEmpty)
-                    _infoRow('Descripción', maquina.descripcion!),
+                    _infoRowVertical('Descripción', maquina.descripcion!),
                 ],
               ),
             ),
@@ -110,12 +110,36 @@ class MaquinaDetailScreen extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 100,
-            child: Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-          ),
+          Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 11)),
+          const SizedBox(width: 12),
           Expanded(
-            child: Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
+            child: Text(
+              value,
+              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+              textAlign: TextAlign.end,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Variante apilada: label en su propia línea, contenido a todo el ancho debajo.
+  // Útil para textos largos como la descripción.
+  Widget _infoRowVertical(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 11)),
+          const SizedBox(height: 4),
+          SizedBox(
+            width: double.infinity,
+            child: Text(
+              value,
+              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+            ),
           ),
         ],
       ),

@@ -102,7 +102,7 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
                     : _desdeMaquina
                         ? 'Agregar repuesto'
                         : 'Asociar a máquina',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
 
@@ -111,6 +111,7 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
                 DropdownButtonFormField<String>(
                   value: seleccionId,
                   isExpanded: true,
+                  style: const TextStyle(fontSize: 13, color: Colors.black87),
                   decoration: InputDecoration(
                     labelText: _desdeMaquina ? 'Repuesto *' : 'Máquina *',
                     border: const OutlineInputBorder(),
@@ -121,7 +122,7 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
                         : '${o['nombre']} (${o['codigo']})';
                     return DropdownMenuItem(
                       value: o['id'] as String,
-                      child: Text(label, overflow: TextOverflow.ellipsis),
+                      child: Text(label, style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis),
                     );
                   }).toList(),
                   onChanged: (v) => setSheetState(() => seleccionId = v),
@@ -138,7 +139,7 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
                     _desdeMaquina
                         ? '${vinculo.repuestoDescripcion ?? ''} (${vinculo.repuestoCodigo ?? ''})'
                         : '${vinculo.maquinaNombre ?? ''} (${vinculo.maquinaCodigo ?? ''})',
-                    style: const TextStyle(fontWeight: FontWeight.w500),
+                    style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
                   ),
                 ),
               const SizedBox(height: 12),
@@ -146,6 +147,7 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
               // Cantidad
               TextField(
                 controller: cantidadController,
+                style: const TextStyle(fontSize: 13),
                 decoration: const InputDecoration(
                   labelText: 'Cantidad *',
                   border: OutlineInputBorder(),
@@ -158,6 +160,7 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
               // Ubicación en máquina
               TextField(
                 controller: ubicacionController,
+                style: const TextStyle(fontSize: 13),
                 decoration: const InputDecoration(
                   labelText: 'Ubicación en máquina',
                   border: OutlineInputBorder(),
@@ -171,6 +174,7 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
               // Observación
               TextField(
                 controller: observacionController,
+                style: const TextStyle(fontSize: 13),
                 decoration: const InputDecoration(
                   labelText: 'Observación',
                   border: OutlineInputBorder(),
@@ -243,7 +247,7 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
                     backgroundColor: const Color(0xFF1F4E79),
                     foregroundColor: Colors.white,
                   ),
-                  child: Text(esEdicion ? 'Guardar cambios' : 'Agregar'),
+                  child: Text(esEdicion ? 'Guardar cambios' : 'Agregar', style: const TextStyle(fontSize: 13)),
                 ),
               ),
             ],
@@ -265,8 +269,7 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ✅ Fix overflow del header: título en Expanded, sin Spacer.
-            // El IconButton (+) se compacta para no robar ancho.
+            // Header: título en Expanded, sin Spacer. El IconButton (+) compacto.
             Row(
               children: [
                 Icon(
@@ -278,7 +281,7 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
                 Expanded(
                   child: Text(
                     _desdeMaquina ? 'Repuestos asociados' : 'Máquinas que lo usan',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -306,100 +309,140 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
                   _desdeMaquina
                       ? 'No hay repuestos asociados a esta máquina.'
                       : 'Este repuesto no está asociado a ninguna máquina.',
-                  style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                  style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                 ),
               )
             else
               ...provider.vinculos.map((v) {
-                final titulo = _desdeMaquina
-                    ? '${v.repuestoDescripcion ?? ''} (${v.repuestoCodigo ?? ''})'
-                    : '${v.maquinaNombre ?? ''} (${v.maquinaCodigo ?? ''})';
+                // Nombre y código por separado según el modo
+                final nombre = _desdeMaquina
+                    ? (v.repuestoDescripcion ?? '')
+                    : (v.maquinaNombre ?? '');
+                final codigo = _desdeMaquina
+                    ? (v.repuestoCodigo ?? '')
+                    : (v.maquinaCodigo ?? '');
                 return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1F4E79).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          '${v.cantidad}x',
-                          style: const TextStyle(
-                            color: Color(0xFF1F4E79),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                        ),
+                      // Línea 1: nombre del repuesto / máquina
+                      Text(
+                        nombre,
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              titulo,
-                              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                      const SizedBox(height: 4),
+                      // Línea 2: cantidad (Nx) + código
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1F4E79).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
                             ),
-                            if (v.ubicacionEnMaquina != null && v.ubicacionEnMaquina!.isNotEmpty)
-                              Text(
-                                v.ubicacionEnMaquina!,
-                                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                            child: Text(
+                              '${v.cantidad}x',
+                              style: const TextStyle(
+                                color: Color(0xFF1F4E79),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                          if (codigo.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                codigo,
+                                style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                            if (v.observacion != null && v.observacion!.isNotEmpty)
-                              Text(
-                                v.observacion!,
-                                style: TextStyle(fontSize: 12, color: Colors.grey[500], fontStyle: FontStyle.italic),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                            ),
                           ],
-                        ),
+                        ],
                       ),
-                      const SizedBox(width: 4),
-                      // ✅ Botones compactos para no empujar el texto
-                      IconButton(
-                        visualDensity: VisualDensity.compact,
-                        constraints: const BoxConstraints(),
-                        padding: const EdgeInsets.all(6),
-                        tooltip: 'Editar',
-                        icon: const Icon(Icons.edit_outlined, size: 18),
-                        onPressed: () => _mostrarFormulario(vinculo: v),
-                      ),
-                      const SizedBox(width: 4),
-                      IconButton(
-                        visualDensity: VisualDensity.compact,
-                        constraints: const BoxConstraints(),
-                        padding: const EdgeInsets.all(6),
-                        tooltip: 'Quitar',
-                        icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                        onPressed: () async {
-                          final confirmar = await showDialog<bool>(
-                            context: context,
-                            builder: (_) => AlertDialog(
-                              title: const Text('Quitar vínculo'),
-                              content: const Text('¿Seguro que querés quitar este vínculo?'),
-                              actions: [
-                                TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-                                ElevatedButton(
-                                  onPressed: () => Navigator.pop(context, true),
-                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-                                  child: const Text('Quitar'),
-                                ),
+                      const SizedBox(height: 4),
+                      // Línea 3: ubicación en máquina + íconos editar / eliminar
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (v.ubicacionEnMaquina != null && v.ubicacionEnMaquina!.isNotEmpty)
+                                  Row(
+                                    children: [
+                                      Icon(Icons.place_outlined, size: 12, color: Colors.grey[500]),
+                                      const SizedBox(width: 3),
+                                      Expanded(
+                                        child: Text(
+                                          v.ubicacionEnMaquina!,
+                                          style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                else
+                                  Text(
+                                    'Sin ubicación',
+                                    style: TextStyle(fontSize: 10, color: Colors.grey[400], fontStyle: FontStyle.italic),
+                                  ),
+                                if (v.observacion != null && v.observacion!.isNotEmpty)
+                                  Text(
+                                    v.observacion!,
+                                    style: TextStyle(fontSize: 10, color: Colors.grey[500], fontStyle: FontStyle.italic),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                               ],
                             ),
-                          );
-                          if (confirmar == true && context.mounted) {
-                            await context.read<RepuestoMaquinaProvider>().desvincular(v.id);
-                          }
-                        },
+                          ),
+                          const SizedBox(width: 4),
+                          IconButton(
+                            visualDensity: VisualDensity.compact,
+                            constraints: const BoxConstraints(),
+                            padding: const EdgeInsets.all(6),
+                            tooltip: 'Editar',
+                            icon: const Icon(Icons.edit_outlined, size: 18),
+                            onPressed: () => _mostrarFormulario(vinculo: v),
+                          ),
+                          const SizedBox(width: 4),
+                          IconButton(
+                            visualDensity: VisualDensity.compact,
+                            constraints: const BoxConstraints(),
+                            padding: const EdgeInsets.all(6),
+                            tooltip: 'Quitar',
+                            icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                            onPressed: () async {
+                              final confirmar = await showDialog<bool>(
+                                context: context,
+                                builder: (_) => AlertDialog(
+                                  title: const Text('Quitar vínculo'),
+                                  content: const Text('¿Seguro que querés quitar este vínculo?'),
+                                  actions: [
+                                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+                                    ElevatedButton(
+                                      onPressed: () => Navigator.pop(context, true),
+                                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                                      child: const Text('Quitar'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (confirmar == true && context.mounted) {
+                                await context.read<RepuestoMaquinaProvider>().desvincular(v.id);
+                              }
+                            },
+                          ),
+                        ],
                       ),
+                      const Divider(height: 16),
                     ],
                   ),
                 );
