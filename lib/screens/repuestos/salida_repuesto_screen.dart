@@ -56,6 +56,7 @@ class _SalidaRepuestoScreenState extends State<SalidaRepuestoScreen> {
         'p_observacion': _observacionController.text.trim().isEmpty
             ? null
             : _observacionController.text.trim(),
+        'p_registrado_por': _supabase.auth.currentUser!.id,
       });
 
       if (!mounted) return;
