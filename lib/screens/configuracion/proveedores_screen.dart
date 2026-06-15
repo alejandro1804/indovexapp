@@ -45,15 +45,15 @@ class _ProveedoresScreenState extends State<ProveedoresScreen> {
           width: Responsive.isDesktop(context) ? 480 : double.maxFinite,
           child: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              TextField(controller: nombreController, decoration: const InputDecoration(labelText: 'Nombre *', border: OutlineInputBorder()), textCapitalization: TextCapitalization.words, maxLength: 100),
+              TextField(controller: nombreController, style: const TextStyle(fontSize: 13), decoration: const InputDecoration(labelText: 'Nombre *', labelStyle: TextStyle(fontSize: 13), border: OutlineInputBorder()), textCapitalization: TextCapitalization.words, maxLength: 100),
               const SizedBox(height: 12),
-              TextField(controller: rutController, decoration: const InputDecoration(labelText: 'RUT', border: OutlineInputBorder(), hintText: 'Ej: 210000000001 (12 dígitos)'), keyboardType: TextInputType.number, maxLength: 12),
+              TextField(controller: rutController, style: const TextStyle(fontSize: 13), decoration: const InputDecoration(labelText: 'RUT', labelStyle: TextStyle(fontSize: 13), border: OutlineInputBorder(), hintText: 'Ej: 210000000001 (12 dígitos)'), keyboardType: TextInputType.number, maxLength: 12),
               const SizedBox(height: 12),
-              TextField(controller: contactoController, decoration: const InputDecoration(labelText: 'Contacto', border: OutlineInputBorder()), textCapitalization: TextCapitalization.words),
+              TextField(controller: contactoController, style: const TextStyle(fontSize: 13), decoration: const InputDecoration(labelText: 'Contacto', labelStyle: TextStyle(fontSize: 13), border: OutlineInputBorder()), textCapitalization: TextCapitalization.words),
               const SizedBox(height: 12),
-              TextField(controller: telefonoController, decoration: const InputDecoration(labelText: 'Teléfono', border: OutlineInputBorder(), prefixIcon: Icon(Icons.phone_outlined)), keyboardType: TextInputType.phone),
+              TextField(controller: telefonoController, style: const TextStyle(fontSize: 13), decoration: const InputDecoration(labelText: 'Teléfono', labelStyle: TextStyle(fontSize: 13), border: OutlineInputBorder(), prefixIcon: Icon(Icons.phone_outlined, size: 20)), keyboardType: TextInputType.phone),
               const SizedBox(height: 12),
-              TextField(controller: emailController, decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder(), prefixIcon: Icon(Icons.email_outlined)), keyboardType: TextInputType.emailAddress, maxLength: 255),
+              TextField(controller: emailController, style: const TextStyle(fontSize: 13), decoration: const InputDecoration(labelText: 'Email', labelStyle: TextStyle(fontSize: 13), border: OutlineInputBorder(), prefixIcon: Icon(Icons.email_outlined, size: 20)), keyboardType: TextInputType.emailAddress, maxLength: 255),
             ]),
           ),
         ),
@@ -137,16 +137,21 @@ class _ProveedoresScreenState extends State<ProveedoresScreen> {
     final columns = Responsive.gridColumns(context);
     final padding = Responsive.pagePadding(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Proveedores'), backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white),
+      appBar: AppBar(
+        title: const Text('Proveedores', style: TextStyle(fontSize: 17)),
+        toolbarHeight: 48,
+        backgroundColor: const Color(0xFF1F4E79),
+        foregroundColor: Colors.white,
+      ),
       body: _cargando
           ? const Center(child: CircularProgressIndicator())
           : _proveedores.isEmpty
               ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                   Icon(Icons.local_shipping_outlined, size: 80, color: Colors.grey[400]),
                   const SizedBox(height: 16),
-                  Text('No hay proveedores cargados', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+                  Text('No hay proveedores cargados', style: TextStyle(fontSize: 13, color: Colors.grey[600])),
                   const SizedBox(height: 8),
-                  Text('Tocá el botón + para agregar uno', style: TextStyle(fontSize: 13, color: Colors.grey[400])),
+                  Text('Tocá el botón + para agregar uno', style: TextStyle(fontSize: 10, color: Colors.grey[400])),
                 ]))
               : RefreshIndicator(
                   onRefresh: _cargarProveedores,
@@ -163,13 +168,28 @@ class _ProveedoresScreenState extends State<ProveedoresScreen> {
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: ListTile(
-        leading: CircleAvatar(backgroundColor: const Color(0xFF1F4E79).withOpacity(0.1), child: Text(proveedor.nombre[0].toUpperCase(), style: const TextStyle(color: Color(0xFF1F4E79), fontWeight: FontWeight.bold))),
-        title: Text(proveedor.nombre, style: const TextStyle(fontWeight: FontWeight.w600)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        leading: CircleAvatar(
+          radius: 18,
+          backgroundColor: const Color(0xFF1F4E79).withOpacity(0.1),
+          child: Text(proveedor.nombre[0].toUpperCase(), style: const TextStyle(color: Color(0xFF1F4E79), fontWeight: FontWeight.bold, fontSize: 13)),
+        ),
+        title: Text(
+          proveedor.nombre,
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+          overflow: TextOverflow.ellipsis,
+        ),
         subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          if (proveedor.rut != null && proveedor.rut!.isNotEmpty) Text('RUT: ${proveedor.rut}'),
-          if (proveedor.contacto != null && proveedor.contacto!.isNotEmpty) Text(proveedor.contacto!),
+          if (proveedor.rut != null && proveedor.rut!.isNotEmpty)
+            Text('RUT: ${proveedor.rut}', style: const TextStyle(fontSize: 10), overflow: TextOverflow.ellipsis),
+          if (proveedor.contacto != null && proveedor.contacto!.isNotEmpty)
+            Text(proveedor.contacto!, style: const TextStyle(fontSize: 10), overflow: TextOverflow.ellipsis),
           if (proveedor.telefono != null && proveedor.telefono!.isNotEmpty)
-            Row(children: [const Icon(Icons.phone_outlined, size: 12, color: Colors.grey), const SizedBox(width: 4), Text(proveedor.telefono!, style: const TextStyle(fontSize: 12))]),
+            Row(children: [
+              const Icon(Icons.phone_outlined, size: 11, color: Colors.grey),
+              const SizedBox(width: 4),
+              Expanded(child: Text(proveedor.telefono!, style: const TextStyle(fontSize: 10), overflow: TextOverflow.ellipsis)),
+            ]),
         ]),
         isThreeLine: true,
         trailing: PopupMenuButton(

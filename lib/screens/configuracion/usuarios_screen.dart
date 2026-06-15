@@ -61,26 +61,30 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                 children: [
                   TextField(
                     controller: nombreController,
-                    decoration: const InputDecoration(labelText: 'Nombre *', border: OutlineInputBorder()),
+                    style: const TextStyle(fontSize: 13),
+                    decoration: const InputDecoration(labelText: 'Nombre *', labelStyle: TextStyle(fontSize: 13), border: OutlineInputBorder()),
                     textCapitalization: TextCapitalization.words,
                     maxLength: 100,
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: emailController,
-                    decoration: const InputDecoration(labelText: 'Email *', border: OutlineInputBorder()),
+                    style: const TextStyle(fontSize: 13),
+                    decoration: const InputDecoration(labelText: 'Email *', labelStyle: TextStyle(fontSize: 13), border: OutlineInputBorder()),
                     keyboardType: TextInputType.emailAddress,
                     maxLength: 255,
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: passwordController,
+                    style: const TextStyle(fontSize: 13),
                     obscureText: !verPassword,
                     decoration: InputDecoration(
                       labelText: 'Contraseña temporal *',
+                      labelStyle: const TextStyle(fontSize: 13),
                       border: const OutlineInputBorder(),
                       suffixIcon: IconButton(
-                        icon: Icon(verPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: Colors.grey),
+                        icon: Icon(verPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: Colors.grey, size: 20),
                         onPressed: () => setDialogState(() => verPassword = !verPassword),
                       ),
                     ),
@@ -88,8 +92,10 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     value: rolSeleccionado,
-                    decoration: const InputDecoration(labelText: 'Rol *', border: OutlineInputBorder()),
-                    items: _roles.map((r) => DropdownMenuItem(value: r['id'] as String, child: Text(r['nombre'] as String))).toList(),
+                    isExpanded: true,
+                    style: const TextStyle(fontSize: 13, color: Colors.black87),
+                    decoration: const InputDecoration(labelText: 'Rol *', labelStyle: TextStyle(fontSize: 13), border: OutlineInputBorder()),
+                    items: _roles.map((r) => DropdownMenuItem(value: r['id'] as String, child: Text(r['nombre'] as String, style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis))).toList(),
                     onChanged: (v) => setDialogState(() => rolSeleccionado = v),
                   ),
                   const SizedBox(height: 12),
@@ -100,7 +106,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                       children: [
                         Icon(Icons.info_outline, color: Colors.blue[700], size: 16),
                         const SizedBox(width: 8),
-                        Expanded(child: Text('El usuario deberá cambiar su contraseña al primer ingreso.', style: TextStyle(fontSize: 12, color: Colors.blue[700]))),
+                        Expanded(child: Text('El usuario deberá cambiar su contraseña al primer ingreso.', style: TextStyle(fontSize: 10, color: Colors.blue[700]))),
                       ],
                     ),
                   ),
@@ -181,7 +187,8 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
           width: Responsive.isDesktop(context) ? 400 : double.maxFinite,
           child: TextField(
             controller: nombreController,
-            decoration: const InputDecoration(labelText: 'Nombre *', border: OutlineInputBorder()),
+            style: const TextStyle(fontSize: 13),
+            decoration: const InputDecoration(labelText: 'Nombre *', labelStyle: TextStyle(fontSize: 13), border: OutlineInputBorder()),
             textCapitalization: TextCapitalization.words,
             maxLength: 100,
             autofocus: true,
@@ -221,8 +228,10 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
             width: Responsive.isDesktop(context) ? 400 : double.maxFinite,
             child: DropdownButtonFormField<String>(
               value: rolSeleccionado,
-              decoration: const InputDecoration(labelText: 'Rol', border: OutlineInputBorder()),
-              items: _roles.map((r) => DropdownMenuItem(value: r['id'] as String, child: Text(r['nombre'] as String))).toList(),
+              isExpanded: true,
+              style: const TextStyle(fontSize: 13, color: Colors.black87),
+              decoration: const InputDecoration(labelText: 'Rol', labelStyle: TextStyle(fontSize: 13), border: OutlineInputBorder()),
+              items: _roles.map((r) => DropdownMenuItem(value: r['id'] as String, child: Text(r['nombre'] as String, style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis))).toList(),
               onChanged: (v) => setDialogState(() => rolSeleccionado = v!),
             ),
           ),
@@ -286,7 +295,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                 children: sectores.map((s) {
                   final id = s['id'] as String;
                   return CheckboxListTile(
-                    title: Text(s['nombre']),
+                    title: Text(s['nombre'], style: const TextStyle(fontSize: 13)),
                     value: seleccion.contains(id),
                     activeColor: const Color(0xFF1F4E79),
                     onChanged: (v) => setDialogState(() {
@@ -367,7 +376,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Entregá esta contraseña a ${usuario['nombre']}. La deberá cambiar al ingresar.'),
+                Text('Entregá esta contraseña a ${usuario['nombre']}. La deberá cambiar al ingresar.', style: const TextStyle(fontSize: 13)),
                 const SizedBox(height: 16),
                 Container(
                   width: double.infinity,
@@ -380,11 +389,11 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                   child: SelectableText(
                     temporal,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 2, fontFamily: 'monospace'),
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 2, fontFamily: 'monospace'),
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text('Tocá y mantené para copiar.', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                Text('Tocá y mantené para copiar.', style: TextStyle(fontSize: 10, color: Colors.grey[600])),
               ],
             ),
             actions: [
@@ -475,7 +484,12 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
     final padding = Responsive.pagePadding(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Usuarios'), backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white),
+      appBar: AppBar(
+        title: const Text('Usuarios', style: TextStyle(fontSize: 17)),
+        toolbarHeight: 48,
+        backgroundColor: const Color(0xFF1F4E79),
+        foregroundColor: Colors.white,
+      ),
       body: _cargando
           ? const Center(child: CircularProgressIndicator())
           : _usuarios.isEmpty
@@ -485,7 +499,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                     children: [
                       Icon(Icons.people_outline, size: 80, color: Colors.grey[400]),
                       const SizedBox(height: 16),
-                      Text('No hay usuarios', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+                      Text('No hay usuarios', style: TextStyle(fontSize: 13, color: Colors.grey[600])),
                     ],
                   ),
                 )
@@ -519,19 +533,27 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: esYo ? const BorderSide(color: Color(0xFF1F4E79), width: 1.5) : BorderSide.none),
       child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         leading: CircleAvatar(
+          radius: 18,
           backgroundColor: activo ? _colorRol(rolNombre).withOpacity(0.15) : Colors.grey[200],
-          child: Text(usuario['nombre'][0].toUpperCase(), style: TextStyle(color: activo ? _colorRol(rolNombre) : Colors.grey, fontWeight: FontWeight.bold)),
+          child: Text(usuario['nombre'][0].toUpperCase(), style: TextStyle(color: activo ? _colorRol(rolNombre) : Colors.grey, fontWeight: FontWeight.bold, fontSize: 13)),
         ),
         title: Row(
           children: [
-            Text(usuario['nombre'], style: TextStyle(fontWeight: FontWeight.w600, color: activo ? null : Colors.grey)),
+            Flexible(
+              child: Text(
+                usuario['nombre'],
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: activo ? null : Colors.grey),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
             if (esYo) ...[
               const SizedBox(width: 6),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(color: const Color(0xFF1F4E79).withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                child: const Text('Yo', style: TextStyle(fontSize: 10, color: Color(0xFF1F4E79))),
+                child: const Text('Yo', style: TextStyle(fontSize: 8, color: Color(0xFF1F4E79))),
               ),
             ],
           ],
@@ -539,21 +561,21 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(usuario['email'], style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            Text(usuario['email'], style: TextStyle(fontSize: 10, color: Colors.grey[600]), overflow: TextOverflow.ellipsis),
             const SizedBox(height: 4),
             Row(
               children: [
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(color: activo ? _colorRol(rolNombre).withOpacity(0.1) : Colors.grey[200], borderRadius: BorderRadius.circular(10)),
-                  child: Text(rolNombre, style: TextStyle(fontSize: 11, color: activo ? _colorRol(rolNombre) : Colors.grey, fontWeight: FontWeight.w600)),
+                  child: Text(rolNombre, style: TextStyle(fontSize: 9, color: activo ? _colorRol(rolNombre) : Colors.grey, fontWeight: FontWeight.w600)),
                 ),
                 if (!activo) ...[
                   const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(10)),
-                    child: const Text('Inactivo', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    child: const Text('Inactivo', style: TextStyle(fontSize: 9, color: Colors.grey)),
                   ),
                 ],
                 if (primerLogin && activo) ...[
@@ -561,7 +583,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(color: Colors.orange[50], borderRadius: BorderRadius.circular(10)),
-                    child: const Text('Pendiente', style: TextStyle(fontSize: 11, color: Colors.orange)),
+                    child: const Text('Pendiente', style: TextStyle(fontSize: 9, color: Colors.orange)),
                   ),
                 ],
               ],

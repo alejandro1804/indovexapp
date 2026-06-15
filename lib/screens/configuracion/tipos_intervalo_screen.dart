@@ -41,13 +41,15 @@ class _TiposIntervaloScreenState extends State<TiposIntervaloScreen> {
           children: [
             Text(
               esEdicion ? 'Editar tipo de intervalo' : 'Nuevo tipo de intervalo',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: nombreController,
+              style: const TextStyle(fontSize: 13),
               decoration: const InputDecoration(
                 labelText: 'Nombre *',
+                labelStyle: TextStyle(fontSize: 13),
                 border: OutlineInputBorder(),
                 hintText: 'Ej: Kilómetros',
               ),
@@ -56,8 +58,10 @@ class _TiposIntervaloScreenState extends State<TiposIntervaloScreen> {
             const SizedBox(height: 12),
             TextField(
               controller: codigoController,
+              style: const TextStyle(fontSize: 13),
               decoration: const InputDecoration(
                 labelText: 'Código *',
+                labelStyle: TextStyle(fontSize: 13),
                 border: OutlineInputBorder(),
                 hintText: 'Ej: km',
               ),
@@ -67,7 +71,7 @@ class _TiposIntervaloScreenState extends State<TiposIntervaloScreen> {
               const SizedBox(height: 8),
               Text(
                 'El código de los tipos predeterminados no se puede modificar.',
-                style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                style: TextStyle(fontSize: 10, color: Colors.grey[500]),
               ),
             ],
             const SizedBox(height: 20),
@@ -123,7 +127,7 @@ class _TiposIntervaloScreenState extends State<TiposIntervaloScreen> {
                   backgroundColor: const Color(0xFF1F4E79),
                   foregroundColor: Colors.white,
                 ),
-                child: Text(esEdicion ? 'Guardar cambios' : 'Crear tipo'),
+                child: Text(esEdicion ? 'Guardar cambios' : 'Crear tipo', style: const TextStyle(fontSize: 13)),
               ),
             ),
           ],
@@ -174,7 +178,8 @@ class _TiposIntervaloScreenState extends State<TiposIntervaloScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tipos de intervalo'),
+        title: const Text('Tipos de intervalo', style: TextStyle(fontSize: 17)),
+        toolbarHeight: 48,
         backgroundColor: const Color(0xFF1F4E79),
         foregroundColor: Colors.white,
       ),
@@ -182,8 +187,10 @@ class _TiposIntervaloScreenState extends State<TiposIntervaloScreen> {
         onPressed: () => _mostrarFormulario(),
         backgroundColor: const Color(0xFF1F4E79),
         foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: const Text('Nuevo tipo'),
+        extendedPadding: const EdgeInsets.symmetric(horizontal: 14),
+        extendedIconLabelSpacing: 6,
+        icon: const Icon(Icons.add, size: 18),
+        label: const Text('Nuevo tipo', style: TextStyle(fontSize: 12)),
       ),
       body: provider.cargando
           ? const Center(child: CircularProgressIndicator())
@@ -194,12 +201,12 @@ class _TiposIntervaloScreenState extends State<TiposIntervaloScreen> {
                     children: [
                       Icon(Icons.event_repeat_outlined, size: 80, color: Colors.grey[400]),
                       const SizedBox(height: 16),
-                      Text('No hay tipos de intervalo', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+                      Text('No hay tipos de intervalo', style: TextStyle(fontSize: 13, color: Colors.grey[600])),
                     ],
                   ),
                 )
               : ListView.separated(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(12),
                   itemCount: provider.tipos.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 8),
                   itemBuilder: (context, index) {
@@ -208,29 +215,39 @@ class _TiposIntervaloScreenState extends State<TiposIntervaloScreen> {
                       elevation: 1,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                         leading: CircleAvatar(
+                          radius: 18,
                           backgroundColor: const Color(0xFF1F4E79).withOpacity(0.1),
                           child: Text(
                             tipo.codigo.toUpperCase(),
                             style: const TextStyle(
                               color: Color(0xFF1F4E79),
                               fontWeight: FontWeight.bold,
-                              fontSize: 11,
+                              fontSize: 9,
                             ),
                           ),
                         ),
-                        title: Text(tipo.nombre, style: const TextStyle(fontWeight: FontWeight.w600)),
-                        subtitle: Text(tipo.esDefault ? 'Predeterminado' : 'Personalizado',
-                            style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                        title: Text(
+                          tipo.nombre,
+                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          tipo.esDefault ? 'Predeterminado' : 'Personalizado',
+                          style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                        ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
+                              visualDensity: VisualDensity.compact,
                               icon: const Icon(Icons.edit_outlined, size: 20),
                               onPressed: () => _mostrarFormulario(tipo: tipo),
                             ),
                             if (!tipo.esDefault)
                               IconButton(
+                                visualDensity: VisualDensity.compact,
                                 icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
                                 onPressed: () => _confirmarDesactivar(tipo),
                               ),

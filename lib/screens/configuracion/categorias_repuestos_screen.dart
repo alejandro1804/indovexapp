@@ -40,9 +40,9 @@ class _CategoriasRepuestosScreenState extends State<CategoriasRepuestosScreen> {
         content: SizedBox(
           width: Responsive.isDesktop(context) ? 400 : double.maxFinite,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            TextField(controller: nombreController, decoration: const InputDecoration(labelText: 'Nombre *', border: OutlineInputBorder()), textCapitalization: TextCapitalization.words, maxLength: 100),
+            TextField(controller: nombreController, style: const TextStyle(fontSize: 13), decoration: const InputDecoration(labelText: 'Nombre *', labelStyle: TextStyle(fontSize: 13), border: OutlineInputBorder()), textCapitalization: TextCapitalization.words, maxLength: 100),
             const SizedBox(height: 16),
-            TextField(controller: descripcionController, decoration: const InputDecoration(labelText: 'Descripción', border: OutlineInputBorder()), maxLines: 2, maxLength: 500),
+            TextField(controller: descripcionController, style: const TextStyle(fontSize: 13), decoration: const InputDecoration(labelText: 'Descripción', labelStyle: TextStyle(fontSize: 13), border: OutlineInputBorder()), maxLines: 2, maxLength: 500),
           ]),
         ),
         actions: [
@@ -111,16 +111,21 @@ class _CategoriasRepuestosScreenState extends State<CategoriasRepuestosScreen> {
     final columns = Responsive.gridColumns(context);
     final padding = Responsive.pagePadding(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Categorías de Repuestos'), backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white),
+      appBar: AppBar(
+        title: const Text('Categorías de Repuestos', style: TextStyle(fontSize: 17)),
+        toolbarHeight: 48,
+        backgroundColor: const Color(0xFF1F4E79),
+        foregroundColor: Colors.white,
+      ),
       body: _cargando
           ? const Center(child: CircularProgressIndicator())
           : _categorias.isEmpty
               ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                   Icon(Icons.category_outlined, size: 80, color: Colors.grey[400]),
                   const SizedBox(height: 16),
-                  Text('No hay categorías cargadas', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+                  Text('No hay categorías cargadas', style: TextStyle(fontSize: 13, color: Colors.grey[600])),
                   const SizedBox(height: 8),
-                  Text('Tocá el botón + para agregar una', style: TextStyle(fontSize: 13, color: Colors.grey[400])),
+                  Text('Tocá el botón + para agregar una', style: TextStyle(fontSize: 10, color: Colors.grey[400])),
                 ]))
               : RefreshIndicator(
                   onRefresh: _cargarCategorias,
@@ -137,9 +142,20 @@ class _CategoriasRepuestosScreenState extends State<CategoriasRepuestosScreen> {
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: ListTile(
-        leading: CircleAvatar(backgroundColor: const Color(0xFF2E75B6).withOpacity(0.1), child: Text(categoria.nombre[0].toUpperCase(), style: const TextStyle(color: Color(0xFF2E75B6), fontWeight: FontWeight.bold))),
-        title: Text(categoria.nombre, style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: categoria.descripcion != null && categoria.descripcion!.isNotEmpty ? Text(categoria.descripcion!) : null,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        leading: CircleAvatar(
+          radius: 18,
+          backgroundColor: const Color(0xFF2E75B6).withOpacity(0.1),
+          child: Text(categoria.nombre[0].toUpperCase(), style: const TextStyle(color: Color(0xFF2E75B6), fontWeight: FontWeight.bold, fontSize: 13)),
+        ),
+        title: Text(
+          categoria.nombre,
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: categoria.descripcion != null && categoria.descripcion!.isNotEmpty
+            ? Text(categoria.descripcion!, style: const TextStyle(fontSize: 10), maxLines: 2, overflow: TextOverflow.ellipsis)
+            : null,
         trailing: PopupMenuButton(
           itemBuilder: (_) => [
             const PopupMenuItem(value: 'editar', child: Row(children: [Icon(Icons.edit_outlined, size: 18), SizedBox(width: 8), Text('Editar')])),

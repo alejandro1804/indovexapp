@@ -54,7 +54,8 @@ class AuditoriaDetalleScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Detalle de auditoría'),
+        title: const Text('Detalle de auditoría', style: TextStyle(fontSize: 17)),
+        toolbarHeight: 48,
         backgroundColor: const Color(0xFF1F4E79),
         foregroundColor: Colors.white,
       ),
@@ -78,12 +79,13 @@ class AuditoriaDetalleScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(log.operacionLabel,
-                      style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13)),
+                      style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 11)),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(log.tablaLabel,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      overflow: TextOverflow.ellipsis),
                 ),
               ]),
               const SizedBox(height: 12),
@@ -116,7 +118,7 @@ class AuditoriaDetalleScreen extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         child: const Padding(
           padding: EdgeInsets.all(16),
-          child: Text('No se registraron cambios de valores.', style: TextStyle(color: Colors.grey)),
+          child: Text('No se registraron cambios de valores.', style: TextStyle(color: Colors.grey, fontSize: 11)),
         ),
       );
     }
@@ -127,7 +129,7 @@ class AuditoriaDetalleScreen extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Cambios realizados', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          const Text('Cambios realizados', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
           const Divider(),
           ...campos.map((campo) {
             final antes = _formatoValor(log.datosAntes?[campo]);
@@ -135,7 +137,7 @@ class AuditoriaDetalleScreen extends StatelessWidget {
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(campo, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                Text(campo, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11)),
                 const SizedBox(height: 4),
                 Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Expanded(
@@ -146,8 +148,8 @@ class AuditoriaDetalleScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text('Antes', style: TextStyle(fontSize: 10, color: Colors.red[700])),
-                        Text(antes, style: const TextStyle(fontSize: 13)),
+                        Text('Antes', style: TextStyle(fontSize: 9, color: Colors.red[700])),
+                        Text(antes, style: const TextStyle(fontSize: 11)),
                       ]),
                     ),
                   ),
@@ -163,8 +165,8 @@ class AuditoriaDetalleScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text('Después', style: TextStyle(fontSize: 10, color: Colors.green[700])),
-                        Text(despues, style: const TextStyle(fontSize: 13)),
+                        Text('Después', style: TextStyle(fontSize: 9, color: Colors.green[700])),
+                        Text(despues, style: const TextStyle(fontSize: 11)),
                       ]),
                     ),
                   ),
@@ -184,7 +186,7 @@ class AuditoriaDetalleScreen extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         child: const Padding(
           padding: EdgeInsets.all(16),
-          child: Text('Sin datos disponibles.', style: TextStyle(color: Colors.grey)),
+          child: Text('Sin datos disponibles.', style: TextStyle(color: Colors.grey, fontSize: 11)),
         ),
       );
     }
@@ -197,17 +199,17 @@ class AuditoriaDetalleScreen extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(titulo, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          Text(titulo, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
           const Divider(),
           ...claves.map((k) => Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   SizedBox(
                     width: 130,
-                    child: Text(k, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                    child: Text(k, style: TextStyle(fontSize: 10, color: Colors.grey[600])),
                   ),
                   Expanded(
-                    child: Text(_formatoValor(datos[k]), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                    child: Text(_formatoValor(datos[k]), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
                   ),
                 ]),
               )),
@@ -220,8 +222,8 @@ class AuditoriaDetalleScreen extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        SizedBox(width: 90, child: Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600]))),
-        Expanded(child: Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
+        SizedBox(width: 90, child: Text(label, style: TextStyle(fontSize: 10, color: Colors.grey[600]))),
+        Expanded(child: Text(value, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500))),
       ]),
     );
   }

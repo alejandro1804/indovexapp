@@ -53,14 +53,16 @@ class _SectoresScreenState extends State<SectoresScreen> {
             children: [
               TextField(
                 controller: nombreController,
-                decoration: const InputDecoration(labelText: 'Nombre *', border: OutlineInputBorder()),
+                style: const TextStyle(fontSize: 13),
+                decoration: const InputDecoration(labelText: 'Nombre *', labelStyle: TextStyle(fontSize: 13), border: OutlineInputBorder()),
                 textCapitalization: TextCapitalization.words,
                 maxLength: 100,
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: descripcionController,
-                decoration: const InputDecoration(labelText: 'Descripción', border: OutlineInputBorder()),
+                style: const TextStyle(fontSize: 13),
+                decoration: const InputDecoration(labelText: 'Descripción', labelStyle: TextStyle(fontSize: 13), border: OutlineInputBorder()),
                 maxLines: 2,
                 maxLength: 500,
               ),
@@ -73,13 +75,13 @@ class _SectoresScreenState extends State<SectoresScreen> {
             onPressed: () async {
               if (normalizarTexto(nombreController.text).isEmpty) return;
               Navigator.pop(context);
-      final nombre = normalizarTexto(nombreController.text);
-      final descripcion = normalizarTexto(descripcionController.text);
-      if (sector == null) {
-        await _crearSector(nombre, descripcion);
-      } else {
-        await _editarSector(sector.id, nombre, descripcion);
-      }
+              final nombre = normalizarTexto(nombreController.text);
+              final descripcion = normalizarTexto(descripcionController.text);
+              if (sector == null) {
+                await _crearSector(nombre, descripcion);
+              } else {
+                await _editarSector(sector.id, nombre, descripcion);
+              }
             },
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white),
             child: Text(sector == null ? 'Crear' : 'Guardar'),
@@ -166,7 +168,8 @@ class _SectoresScreenState extends State<SectoresScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Sectores'),
+        title: const Text('Sectores', style: TextStyle(fontSize: 17)),
+        toolbarHeight: 48,
         backgroundColor: const Color(0xFF1F4E79),
         foregroundColor: Colors.white,
       ),
@@ -179,9 +182,9 @@ class _SectoresScreenState extends State<SectoresScreen> {
                     children: [
                       Icon(Icons.domain_outlined, size: 80, color: Colors.grey[400]),
                       const SizedBox(height: 16),
-                      Text('No hay sectores cargados', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+                      Text('No hay sectores cargados', style: TextStyle(fontSize: 13, color: Colors.grey[600])),
                       const SizedBox(height: 8),
-                      Text('Tocá el botón + para agregar uno', style: TextStyle(fontSize: 13, color: Colors.grey[400])),
+                      Text('Tocá el botón + para agregar uno', style: TextStyle(fontSize: 10, color: Colors.grey[400])),
                     ],
                   ),
                 )
@@ -220,15 +223,23 @@ class _SectoresScreenState extends State<SectoresScreen> {
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         leading: CircleAvatar(
+          radius: 18,
           backgroundColor: const Color(0xFF1F4E79).withOpacity(0.1),
           child: Text(
             sector.nombre[0].toUpperCase(),
-            style: const TextStyle(color: Color(0xFF1F4E79), fontWeight: FontWeight.bold),
+            style: const TextStyle(color: Color(0xFF1F4E79), fontWeight: FontWeight.bold, fontSize: 13),
           ),
         ),
-        title: Text(sector.nombre, style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: sector.descripcion != null && sector.descripcion!.isNotEmpty ? Text(sector.descripcion!) : null,
+        title: Text(
+          sector.nombre,
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: sector.descripcion != null && sector.descripcion!.isNotEmpty
+            ? Text(sector.descripcion!, style: const TextStyle(fontSize: 10), maxLines: 2, overflow: TextOverflow.ellipsis)
+            : null,
         trailing: PopupMenuButton(
           itemBuilder: (_) => [
             const PopupMenuItem(value: 'editar', child: Row(children: [Icon(Icons.edit_outlined, size: 18), SizedBox(width: 8), Text('Editar')])),

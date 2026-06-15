@@ -70,12 +70,13 @@ class ConfiguracionScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Configuración'),
+        title: const Text('Configuración', style: TextStyle(fontSize: 17)),
+        toolbarHeight: 48,
         backgroundColor: const Color(0xFF1F4E79),
         foregroundColor: Colors.white,
       ),
       body: ListView.separated(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         itemCount: opciones.length,
         separatorBuilder: (_, __) => const SizedBox(height: 8),
         itemBuilder: (context, index) {
@@ -84,13 +85,24 @@ class ConfiguracionScreen extends StatelessWidget {
             elevation: 1,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               leading: CircleAvatar(
+                radius: 18,
                 backgroundColor: const Color(0xFF1F4E79).withOpacity(0.1),
-                child: Icon(opcion.icono, color: const Color(0xFF1F4E79)),
+                child: Icon(opcion.icono, color: const Color(0xFF1F4E79), size: 18),
               ),
-              title: Text(opcion.titulo, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-              subtitle: Text(opcion.descripcion, style: const TextStyle(fontSize: 12)),
-              trailing: const Icon(Icons.chevron_right),
+              title: Text(
+                opcion.titulo,
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: Text(
+                opcion.descripcion,
+                style: const TextStyle(fontSize: 10),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: const Icon(Icons.chevron_right, size: 20),
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => opcion.screen),

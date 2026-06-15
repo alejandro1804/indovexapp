@@ -151,7 +151,8 @@ class _RolesScreenState extends State<RolesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Roles y permisos'),
+        title: const Text('Roles y permisos', style: TextStyle(fontSize: 17)),
+        toolbarHeight: 48,
         backgroundColor: const Color(0xFF1F4E79),
         foregroundColor: Colors.white,
       ),
@@ -160,7 +161,7 @@ class _RolesScreenState extends State<RolesScreen> {
           : RefreshIndicator(
               onRefresh: _cargar,
               child: ListView.separated(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(12),
                 itemCount: _roles.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 8),
                 itemBuilder: (context, index) {
@@ -170,13 +171,26 @@ class _RolesScreenState extends State<RolesScreen> {
                     elevation: 1,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                       leading: CircleAvatar(
+                        radius: 18,
                         backgroundColor: const Color(0xFF1F4E79).withOpacity(0.1),
-                        child: Icon(esProtegido ? Icons.shield_outlined : Icons.badge_outlined, color: const Color(0xFF1F4E79)),
+                        child: Icon(
+                          esProtegido ? Icons.shield_outlined : Icons.badge_outlined,
+                          color: const Color(0xFF1F4E79),
+                          size: 18,
+                        ),
                       ),
                       title: Row(
                         children: [
-                          Text(rol['nombre'], style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                          // ✅ Fix overflow: nombre en Flexible con ellipsis
+                          Flexible(
+                            child: Text(
+                              rol['nombre'],
+                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                           if (esProtegido) ...[
                             const SizedBox(width: 6),
                             Container(
@@ -187,7 +201,10 @@ class _RolesScreenState extends State<RolesScreen> {
                           ],
                         ],
                       ),
-                      subtitle: Text('${rol['permisos']} permisos · ${rol['usuarios']} usuarios', style: const TextStyle(fontSize: 12)),
+                      subtitle: Text(
+                        '${rol['permisos']} permisos · ${rol['usuarios']} usuarios',
+                        style: const TextStyle(fontSize: 10),
+                      ),
                       trailing: PopupMenuButton<String>(
                         itemBuilder: (_) => [
                           const PopupMenuItem(value: 'permisos', child: Row(children: [Icon(Icons.tune, size: 18), SizedBox(width: 8), Text('Permisos')])),

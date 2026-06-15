@@ -134,7 +134,8 @@ class _AuditoriaScreenState extends State<AuditoriaScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Auditoría'),
+        title: const Text('Auditoría', style: TextStyle(fontSize: 17)),
+        toolbarHeight: 48,
         backgroundColor: const Color(0xFF1F4E79),
         foregroundColor: Colors.white,
         actions: [
@@ -156,7 +157,7 @@ class _AuditoriaScreenState extends State<AuditoriaScreen> {
           // Filtros
           Container(
             color: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(children: [
@@ -182,7 +183,7 @@ class _AuditoriaScreenState extends State<AuditoriaScreen> {
                       ),
                     ),
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.date_range_outlined, size: 16,
+                      Icon(Icons.date_range_outlined, size: 14,
                           color: provider.desde != null ? const Color(0xFF1F4E79) : Colors.grey[600]),
                       const SizedBox(width: 4),
                       Text(
@@ -190,7 +191,7 @@ class _AuditoriaScreenState extends State<AuditoriaScreen> {
                             ? '${_dos(provider.desde!.day)}/${_dos(provider.desde!.month)} - ${_dos(provider.hasta!.day)}/${_dos(provider.hasta!.month)}'
                             : 'Fechas',
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 11,
                           color: provider.desde != null ? const Color(0xFF1F4E79) : Colors.grey[600],
                           fontWeight: provider.desde != null ? FontWeight.w600 : FontWeight.normal,
                         ),
@@ -203,11 +204,11 @@ class _AuditoriaScreenState extends State<AuditoriaScreen> {
           ),
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             color: Colors.grey[100],
             child: Text(
               '${provider.logs.length} evento${provider.logs.length != 1 ? 's' : ''}',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 10, color: Colors.grey[600]),
             ),
           ),
           Expanded(
@@ -218,11 +219,11 @@ class _AuditoriaScreenState extends State<AuditoriaScreen> {
                         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                           Icon(Icons.history_outlined, size: 80, color: Colors.grey[400]),
                           const SizedBox(height: 16),
-                          Text('No hay eventos de auditoría', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+                          Text('No hay eventos de auditoría', style: TextStyle(fontSize: 13, color: Colors.grey[600])),
                         ]),
                       )
                     : ListView.separated(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(12),
                         itemCount: provider.logs.length,
                         separatorBuilder: (_, __) => const SizedBox(height: 8),
                         itemBuilder: (context, index) {
@@ -250,26 +251,27 @@ class _AuditoriaScreenState extends State<AuditoriaScreen> {
                                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                                       Row(children: [
                                         Text(log.operacionLabel,
-                                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: color)),
+                                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: color)),
                                         const SizedBox(width: 6),
                                         Expanded(
                                           child: Text(log.tablaLabel,
-                                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
                                               overflow: TextOverflow.ellipsis),
                                         ),
                                       ]),
                                       const SizedBox(height: 2),
                                       Text(
                                         log.nombreUsuario ?? 'Sistema',
-                                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                        style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                       Text(
                                         _formatoFecha(log.createdAt),
-                                        style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+                                        style: TextStyle(fontSize: 9, color: Colors.grey[400]),
                                       ),
                                     ]),
                                   ),
-                                  const Icon(Icons.chevron_right, color: Colors.grey),
+                                  const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
                                 ]),
                               ),
                             ),
@@ -287,7 +289,7 @@ class _AuditoriaScreenState extends State<AuditoriaScreen> {
     return PopupMenuButton<String>(
       onSelected: onSelect,
       itemBuilder: (context) => opciones.entries
-          .map((e) => PopupMenuItem(value: e.key, child: Text(e.value)))
+          .map((e) => PopupMenuItem(value: e.key, child: Text(e.value, style: const TextStyle(fontSize: 13))))
           .toList(),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -300,13 +302,13 @@ class _AuditoriaScreenState extends State<AuditoriaScreen> {
           Text(
             activo ? (opciones[valorActual] ?? titulo) : titulo,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 11,
               color: activo ? const Color(0xFF1F4E79) : Colors.grey[600],
               fontWeight: activo ? FontWeight.w600 : FontWeight.normal,
             ),
           ),
           const SizedBox(width: 4),
-          Icon(Icons.arrow_drop_down, size: 18, color: activo ? const Color(0xFF1F4E79) : Colors.grey[600]),
+          Icon(Icons.arrow_drop_down, size: 16, color: activo ? const Color(0xFF1F4E79) : Colors.grey[600]),
         ]),
       ),
     );
