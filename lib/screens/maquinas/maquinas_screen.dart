@@ -6,6 +6,8 @@ import '../../models/sector.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/responsive.dart';
 import '../../core/db_error_helper.dart';
+import '../../services/maquinas_pdf_service.dart';
+import '../../widgets/foto_principal_widget.dart';
 import 'maquina_detail_screen.dart';
 
 class MaquinasScreen extends StatefulWidget {
@@ -20,8 +22,9 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
   List<Maquina> _maquinas = [];
   List<Sector> _sectores = [];
   bool _cargando = true;
+  bool _exportando = false;
   String _filtroEstado = 'todos';
-  String _filtroSector = 'todos'; // 'todos' o un sectorId
+  String _filtroSector = 'todos';
   String _busqueda = '';
 
   @override
@@ -54,14 +57,16 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
     return usuario?.tienePermiso('gestionar_maquinas') ?? false;
   }
 
+  bool get _puedeExportarPdf {
+    final usuario = context.read<AuthProvider>().usuario;
+    return usuario?.tienePermiso('exportar_pdf_maquinas') ?? false;
+  }
+
   List<Maquina> get _maquinasFiltradas {
     final q = _busqueda.trim().toLowerCase();
     return _maquinas.where((m) {
-      // Filtro por estado
       if (_filtroEstado != 'todos' && m.estado != _filtroEstado) return false;
-      // Filtro por sector
       if (_filtroSector != 'todos' && m.sectorId != _filtroSector) return false;
-      // Búsqueda por nombre o código
       if (q.isNotEmpty) {
         final enNombre = m.nombre.toLowerCase().contains(q);
         final enCodigo = m.codigo.toLowerCase().contains(q);
@@ -84,8 +89,10 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
   }
 
   String _nombreSector(String sectorId) {
-    return _sectores.firstWhere((s) => s.id == sectorId,
-        orElse: () => Sector(id: '', empresaId: '', nombre: 'Sin sector')).nombre;
+    return _sectores.firstWhere(
+      (s) => s.id == sectorId,
+      orElse: () => Sector(id: '', empresaId: '', nombre: 'Sin sector'),
+    ).nombre;
   }
 
   Color _colorEstado(String estado) {
@@ -106,12 +113,24 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
     }
   }
 
-  IconData _iconoEstado(String estado) {
-    switch (estado) {
-      case 'operativa': return Icons.check_circle_outline;
-      case 'en_mantenimiento': return Icons.build_outlined;
-      case 'fuera_de_servicio': return Icons.cancel_outlined;
-      default: return Icons.help_outline;
+  Future<void> _exportarPdf() async {
+    final usuario = context.read<AuthProvider>().usuario;
+    if (usuario == null) return;
+    setState(() => _exportando = true);
+    try {
+      final sectoresMap = { for (final s in _sectores) s.id: s.nombre };
+      await MaquinasPdfService.generarYCompartir(
+        maquinas: _maquinasFiltradas,
+        nombreEmpresa: usuario.empresaId,
+        sectores: sectoresMap,
+        filtroEstado: _filtroEstado,
+        filtroSector: _filtroSector,
+        busqueda: _busqueda,
+      );
+    } catch (e) {
+      _mostrarError('Error al generar PDF: $e');
+    } finally {
+      if (mounted) setState(() => _exportando = false);
     }
   }
 
@@ -235,21 +254,28 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
     final avatarRadius = Responsive.avatarRadius(context);
     final cardPadding = Responsive.cardPadding(context);
     final puedeGestionar = _puedeGestionar;
+    final thumbSize = avatarRadius * 2;
 
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => MaquinaDetailScreen(maquina: maquina))).then((_) => _cargarDatos()),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => MaquinaDetailScreen(maquina: maquina)),
+        ).then((_) => _cargarDatos()),
         child: Padding(
           padding: cardPadding,
           child: Row(
             children: [
-              CircleAvatar(
-                radius: avatarRadius,
-                backgroundColor: _colorEstado(maquina.estado).withOpacity(0.1),
-                child: Icon(_iconoEstado(maquina.estado), color: _colorEstado(maquina.estado), size: avatarRadius),
+              FotoPrincipalWidget(
+                storagePath: maquina.imagenUrl,
+                tipo: 'maquina',
+                empresaId: maquina.empresaId,
+                entidadId: maquina.id,
+                size: thumbSize,
+                puedeEditar: false,
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -297,7 +323,6 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
     );
   }
 
-  // Dropdown compacto reutilizable con palabra de contexto y resaltado activo.
   Widget _buildDropdown({
     required String value,
     required String contexto,
@@ -328,11 +353,7 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
         final texto = esTodos ? contexto : _labelDeItem(item);
         return Align(
           alignment: Alignment.centerLeft,
-          child: Text(
-            texto,
-            style: TextStyle(fontSize: 12, color: esTodos ? Colors.grey[600] : Colors.black87),
-            overflow: TextOverflow.ellipsis,
-          ),
+          child: Text(texto, style: TextStyle(fontSize: 12, color: esTodos ? Colors.grey[600] : Colors.black87), overflow: TextOverflow.ellipsis),
         );
       }).toList(),
       items: items,
@@ -347,9 +368,9 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
   }
 
   DropdownMenuItem<String> _item(String value, String label) => DropdownMenuItem(
-        value: value,
-        child: Text(label, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
-      );
+    value: value,
+    child: Text(label, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -362,11 +383,23 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
         toolbarHeight: 48,
         backgroundColor: const Color(0xFF1F4E79),
         foregroundColor: Colors.white,
+        actions: [
+          if (_puedeExportarPdf)
+            _exportando
+                ? const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                  )
+                : IconButton(
+                    icon: const Icon(Icons.picture_as_pdf_outlined),
+                    tooltip: 'Exportar PDF',
+                    onPressed: _maquinas.isEmpty ? null : _exportarPdf,
+                  ),
+        ],
       ),
       body: _cargando
           ? const Center(child: CircularProgressIndicator())
           : Column(children: [
-              // Buscador (fila completa)
               Container(
                 color: Colors.white,
                 padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
@@ -385,28 +418,20 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
                             icon: const Icon(Icons.clear, size: 18),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                            onPressed: () => setState(() {
-                              _busqueda = '';
-                              _busquedaController.clear();
-                            }),
+                            onPressed: () => setState(() { _busqueda = ''; _busquedaController.clear(); }),
                           )
                         : null,
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
-                    ),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
                   ),
                 ),
               ),
-              // Sector + Estado (dos dropdowns lado a lado)
               Container(
                 color: Colors.white,
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
                 child: Row(children: [
-                  // Filtro de sector
                   Expanded(
                     child: _buildDropdown(
                       value: _filtroSector,
@@ -420,7 +445,6 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  // Filtro de estado
                   Expanded(
                     child: _buildDropdown(
                       value: _filtroEstado,
@@ -437,7 +461,6 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
                   ),
                 ]),
               ),
-              // Contador + limpiar filtros
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),

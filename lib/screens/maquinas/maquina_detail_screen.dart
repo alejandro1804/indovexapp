@@ -1,28 +1,57 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../models/maquina.dart';
+import '../../providers/auth_provider.dart';
 import '../../widgets/adjuntos_section.dart';
+import '../../widgets/foto_principal_widget.dart';
 import '../../widgets/repuestos_maquina_section.dart';
 
-class MaquinaDetailScreen extends StatelessWidget {
+class MaquinaDetailScreen extends StatefulWidget {
   final Maquina maquina;
 
   const MaquinaDetailScreen({super.key, required this.maquina});
 
+  @override
+  State<MaquinaDetailScreen> createState() => _MaquinaDetailScreenState();
+}
+
+class _MaquinaDetailScreenState extends State<MaquinaDetailScreen> {
+  late Maquina _maquina;
+
+  @override
+  void initState() {
+    super.initState();
+    _maquina = widget.maquina;
+  }
+
+  bool get _puedeGestionar {
+    final usuario = context.read<AuthProvider>().usuario;
+    return usuario?.tienePermiso('gestionar_maquinas') ?? false;
+  }
+
   Color _colorEstado(String estado) {
     switch (estado) {
-      case 'operativa': return Colors.green;
-      case 'en_mantenimiento': return Colors.orange;
-      case 'fuera_de_servicio': return Colors.red;
-      default: return Colors.grey;
+      case 'operativa':
+        return Colors.green;
+      case 'en_mantenimiento':
+        return Colors.orange;
+      case 'fuera_de_servicio':
+        return Colors.red;
+      default:
+        return Colors.grey;
     }
   }
 
   String _labelEstado(String estado) {
     switch (estado) {
-      case 'operativa': return 'Operativa';
-      case 'en_mantenimiento': return 'En mantenimiento';
-      case 'fuera_de_servicio': return 'Fuera de servicio';
-      default: return estado;
+      case 'operativa':
+        return 'Operativa';
+      case 'en_mantenimiento':
+        return 'En mantenimiento';
+      case 'fuera_de_servicio':
+        return 'Fuera de servicio';
+      default:
+        return estado;
     }
   }
 
@@ -30,29 +59,59 @@ class MaquinaDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(maquina.nombre, style: const TextStyle(fontSize: 18)),
+        title: Text(_maquina.nombre, style: const TextStyle(fontSize: 18)),
         backgroundColor: const Color(0xFF1F4E79),
         foregroundColor: Colors.white,
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Estado
+          // ── Foto principal ──────────────────────────────────────────────
+          Center(
+            child: FotoPrincipalWidget(
+              storagePath: _maquina.imagenUrl,
+              tipo: 'maquina',
+              empresaId: _maquina.empresaId,
+              entidadId: _maquina.id,
+              size: 120,
+              puedeEditar: _puedeGestionar,
+              onFotoActualizada: (nuevoPath) {
+                // Actualizar el modelo local para reflejar el cambio sin recargar
+                setState(() {
+                  _maquina = Maquina(
+                    id: _maquina.id,
+                    empresaId: _maquina.empresaId,
+                    sectorId: _maquina.sectorId,
+                    nombre: _maquina.nombre,
+                    codigo: _maquina.codigo,
+                    estado: _maquina.estado,
+                    descripcion: _maquina.descripcion,
+                    imagenUrl: nuevoPath.isEmpty ? null : nuevoPath,
+                  );
+                });
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // ── Estado ──────────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _colorEstado(maquina.estado).withOpacity(0.1),
+              color: _colorEstado(_maquina.estado).withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _colorEstado(maquina.estado).withOpacity(0.3)),
+              border: Border.all(
+                  color: _colorEstado(_maquina.estado).withOpacity(0.3)),
             ),
             child: Row(
               children: [
-                Icon(Icons.circle, color: _colorEstado(maquina.estado), size: 12),
+                Icon(Icons.circle,
+                    color: _colorEstado(_maquina.estado), size: 12),
                 const SizedBox(width: 8),
                 Text(
-                  _labelEstado(maquina.estado),
+                  _labelEstado(_maquina.estado),
                   style: TextStyle(
-                    color: _colorEstado(maquina.estado),
+                    color: _colorEstado(_maquina.estado),
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
                   ),
@@ -62,42 +121,42 @@ class MaquinaDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          // Información
+          // ── Información ─────────────────────────────────────────────────
           Card(
             elevation: 1,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Información',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
+                  const Text('Información',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   const Divider(),
-                  _infoRow('Código', maquina.codigo),
-                  if (maquina.descripcion != null && maquina.descripcion!.isNotEmpty)
-                    _infoRowVertical('Descripción', maquina.descripcion!),
+                  _infoRow('Código', _maquina.codigo),
+                  if (_maquina.descripcion != null &&
+                      _maquina.descripcion!.isNotEmpty)
+                    _infoRowVertical('Descripción', _maquina.descripcion!),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 16),
 
-          // Repuestos asociados a la máquina
+          // ── Repuestos asociados ─────────────────────────────────────────
           RepuestosMaquinaSection(
             modo: 'desde_maquina',
-            entidadId: maquina.id,
+            entidadId: _maquina.id,
           ),
           const SizedBox(height: 16),
 
-          // Adjuntos
+          // ── Adjuntos (PDFs, manuales, etc.) ────────────────────────────
           AdjuntosSection(
             entidadTipo: 'maquina',
-            entidadId: maquina.id,
+            entidadId: _maquina.id,
           ),
-
           const SizedBox(height: 24),
         ],
       ),
@@ -110,12 +169,14 @@ class MaquinaDetailScreen extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 11)),
+          Text(label,
+              style: TextStyle(color: Colors.grey[600], fontSize: 11)),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+              style: const TextStyle(
+                  fontWeight: FontWeight.w500, fontSize: 13),
               textAlign: TextAlign.end,
             ),
           ),
@@ -124,21 +185,21 @@ class MaquinaDetailScreen extends StatelessWidget {
     );
   }
 
-  // Variante apilada: label en su propia línea, contenido a todo el ancho debajo.
-  // Útil para textos largos como la descripción.
   Widget _infoRowVertical(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 11)),
+          Text(label,
+              style: TextStyle(color: Colors.grey[600], fontSize: 11)),
           const SizedBox(height: 4),
           SizedBox(
             width: double.infinity,
             child: Text(
               value,
-              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+              style: const TextStyle(
+                  fontWeight: FontWeight.w500, fontSize: 13),
             ),
           ),
         ],

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/responsive.dart';
+import '../../services/tickets_pdf_service.dart';
 import 'ticket_nuevo_screen.dart';
 import 'ticket_detail_screen.dart';
 
@@ -17,6 +18,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
   final _supabase = Supabase.instance.client;
   List<Map<String, dynamic>> _tickets = [];
   bool _cargando = true;
+  bool _exportando = false;
   String _filtroEstado = 'todos';
   String _filtroTipo = 'todos';
   String _filtroPrioridad = 'todos';
@@ -45,7 +47,6 @@ class _TicketsScreenState extends State<TicketsScreen> {
             .eq('tecnico_id', usuario.id)
             .order('created_at', ascending: false);
         tickets = List<Map<String, dynamic>>.from(result);
-
       } else if (usuario.esEncargado) {
         final sectoresData = await _supabase
             .from('encargado_sector')
@@ -64,7 +65,6 @@ class _TicketsScreenState extends State<TicketsScreen> {
             .where((t) => sectorIds.contains((t['maquinas'] as Map?)?['sector_id']))
             .map((t) => Map<String, dynamic>.from(t))
             .toList();
-
       } else {
         final result = await _supabase
             .from('tickets')
@@ -103,7 +103,6 @@ class _TicketsScreenState extends State<TicketsScreen> {
     }
   }
 
-  // Extrae los sectores únicos presentes en los tickets cargados (sin query extra)
   List<MapEntry<String, String>> get _sectoresDisponibles {
     final mapa = <String, String>{};
     for (final t in _tickets) {
@@ -125,12 +124,9 @@ class _TicketsScreenState extends State<TicketsScreen> {
       final coincideEstado = _filtroEstado == 'todos' || t['estado'] == _filtroEstado;
       final coincideTipo = _filtroTipo == 'todos' || (t['tipo'] ?? 'correctivo') == _filtroTipo;
       final coincidePrioridad = _filtroPrioridad == 'todos' || (t['prioridad'] ?? 'media') == _filtroPrioridad;
-
       final maquina = t['maquinas'] as Map?;
       final sectorId = maquina?['sector_id'] as String?;
       final coincideSector = _filtroSector == 'todos' || sectorId == _filtroSector;
-
-      // Búsqueda de texto: número, descripción, nombre de máquina y sector
       bool coincideBusqueda = true;
       if (q.isNotEmpty) {
         final numero = (t['numero'] ?? '').toString().toLowerCase();
@@ -138,23 +134,14 @@ class _TicketsScreenState extends State<TicketsScreen> {
         final maqNombre = (maquina?['nombre'] ?? '').toString().toLowerCase();
         final maqCodigo = (maquina?['codigo'] ?? '').toString().toLowerCase();
         final sectorNombre = ((maquina?['sectores'] as Map?)?['nombre'] ?? '').toString().toLowerCase();
-        coincideBusqueda = numero.contains(q) ||
-            desc.contains(q) ||
-            maqNombre.contains(q) ||
-            maqCodigo.contains(q) ||
-            sectorNombre.contains(q);
+        coincideBusqueda = numero.contains(q) || desc.contains(q) || maqNombre.contains(q) || maqCodigo.contains(q) || sectorNombre.contains(q);
       }
-
       return coincideEstado && coincideTipo && coincidePrioridad && coincideSector && coincideBusqueda;
     }).toList();
   }
 
   bool get _hayFiltrosActivos =>
-      _filtroEstado != 'todos' ||
-      _filtroTipo != 'todos' ||
-      _filtroPrioridad != 'todos' ||
-      _filtroSector != 'todos' ||
-      _textoBusqueda.trim().isNotEmpty;
+      _filtroEstado != 'todos' || _filtroTipo != 'todos' || _filtroPrioridad != 'todos' || _filtroSector != 'todos' || _textoBusqueda.trim().isNotEmpty;
 
   void _limpiarFiltros() {
     setState(() {
@@ -165,6 +152,32 @@ class _TicketsScreenState extends State<TicketsScreen> {
       _textoBusqueda = '';
       _busquedaController.clear();
     });
+  }
+
+  bool get _puedeExportarPdf {
+    final usuario = context.read<AuthProvider>().usuario;
+    return usuario?.tienePermiso('exportar_pdf_tickets') ?? false;
+  }
+
+  Future<void> _exportarPdf() async {
+    final usuario = context.read<AuthProvider>().usuario;
+    if (usuario == null) return;
+    setState(() => _exportando = true);
+    try {
+      await TicketsPdfService.generarYCompartir(
+        tickets: _ticketsFiltrados,
+        nombreEmpresa: usuario.empresaId,
+        filtroEstado: _filtroEstado,
+        filtroTipo: _filtroTipo,
+        filtroPrioridad: _filtroPrioridad,
+        filtroSector: _filtroSector,
+        busqueda: _textoBusqueda,
+      );
+    } catch (e) {
+      _mostrarError('Error al generar PDF: $e');
+    } finally {
+      if (mounted) setState(() => _exportando = false);
+    }
   }
 
   String _formatoAuditoria(DateTime? fechaUtc) {
@@ -182,47 +195,47 @@ class _TicketsScreenState extends State<TicketsScreen> {
 
   Color _colorEstado(String estado) {
     switch (estado) {
-      case 'abierto': return Colors.blue;
-      case 'asignado': return Colors.orange;
+      case 'abierto':    return Colors.blue;
+      case 'asignado':   return Colors.orange;
       case 'en_proceso': return Colors.purple;
-      case 'resuelto': return Colors.green;
-      case 'cerrado': return Colors.grey;
-      case 'rechazado': return Colors.red;
-      default: return Colors.grey;
+      case 'resuelto':   return Colors.green;
+      case 'cerrado':    return Colors.grey;
+      case 'rechazado':  return Colors.red;
+      default:           return Colors.grey;
     }
   }
 
   String _labelEstado(String estado) {
     switch (estado) {
-      case 'abierto': return 'Abierto';
-      case 'asignado': return 'Asignado';
+      case 'abierto':    return 'Abierto';
+      case 'asignado':   return 'Asignado';
       case 'en_proceso': return 'En proceso';
-      case 'resuelto': return 'Resuelto';
-      case 'cerrado': return 'Cerrado';
-      case 'rechazado': return 'Rechazado';
-      default: return estado;
+      case 'resuelto':   return 'Resuelto';
+      case 'cerrado':    return 'Cerrado';
+      case 'rechazado':  return 'Rechazado';
+      default:           return estado;
     }
   }
 
   IconData _iconoEstado(String estado) {
     switch (estado) {
-      case 'abierto': return Icons.fiber_new_outlined;
-      case 'asignado': return Icons.assignment_ind_outlined;
+      case 'abierto':    return Icons.fiber_new_outlined;
+      case 'asignado':   return Icons.assignment_ind_outlined;
       case 'en_proceso': return Icons.build_outlined;
-      case 'resuelto': return Icons.check_circle_outline;
-      case 'cerrado': return Icons.lock_outline;
-      case 'rechazado': return Icons.cancel_outlined;
-      default: return Icons.help_outline;
+      case 'resuelto':   return Icons.check_circle_outline;
+      case 'cerrado':    return Icons.lock_outline;
+      case 'rechazado':  return Icons.cancel_outlined;
+      default:           return Icons.help_outline;
     }
   }
 
   Color _colorPrioridad(String p) {
     switch (p) {
-      case 'baja': return Colors.green;
-      case 'media': return Colors.orange;
-      case 'alta': return Colors.deepOrange;
+      case 'baja':    return Colors.green;
+      case 'media':   return Colors.orange;
+      case 'alta':    return Colors.deepOrange;
       case 'critica': return Colors.red;
-      default: return Colors.grey;
+      default:        return Colors.grey;
     }
   }
 
@@ -231,9 +244,6 @@ class _TicketsScreenState extends State<TicketsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating));
   }
 
-  // Dropdown compacto reutilizable (mismo estilo que máquinas/repuestos)
-  // [contexto] es la palabra que se muestra en la barra cerrada cuando no hay
-  // filtro activo (value == 'todos'): "Estado", "Prioridad", "Tipo", "Sector".
   Widget _buildDropdown({
     required String value,
     required String contexto,
@@ -259,21 +269,12 @@ class _TicketsScreenState extends State<TicketsScreen> {
           borderSide: BorderSide(color: activo ? const Color(0xFF1F4E79) : Colors.grey.shade300),
         ),
       ),
-      // Lo que se ve en la barra CERRADA. Cuando el filtro está en 'todos',
-      // mostramos la palabra de contexto; si no, el label real del item.
       selectedItemBuilder: (context) => items.map((item) {
         final esTodos = item.value == 'todos';
         final texto = esTodos ? contexto : _labelDeItem(item);
         return Align(
           alignment: Alignment.centerLeft,
-          child: Text(
-            texto,
-            style: TextStyle(
-              fontSize: 12,
-              color: esTodos ? Colors.grey[600] : Colors.black87,
-            ),
-            overflow: TextOverflow.ellipsis,
-          ),
+          child: Text(texto, style: TextStyle(fontSize: 12, color: esTodos ? Colors.grey[600] : Colors.black87), overflow: TextOverflow.ellipsis),
         );
       }).toList(),
       items: items,
@@ -281,7 +282,6 @@ class _TicketsScreenState extends State<TicketsScreen> {
     );
   }
 
-  // Extrae el texto de un item creado con _item (su child es un Text)
   String _labelDeItem(DropdownMenuItem<String> item) {
     final child = item.child;
     if (child is Text) return child.data ?? '';
@@ -289,9 +289,9 @@ class _TicketsScreenState extends State<TicketsScreen> {
   }
 
   DropdownMenuItem<String> _item(String value, String label) => DropdownMenuItem(
-        value: value,
-        child: Text(label, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
-      );
+    value: value,
+    child: Text(label, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -311,13 +311,23 @@ class _TicketsScreenState extends State<TicketsScreen> {
         backgroundColor: const Color(0xFF1F4E79),
         foregroundColor: Colors.white,
         actions: [
+          if (_puedeExportarPdf)
+            _exportando
+                ? const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                  )
+                : IconButton(
+                    icon: const Icon(Icons.picture_as_pdf_outlined),
+                    tooltip: 'Exportar PDF',
+                    onPressed: _tickets.isEmpty ? null : _exportarPdf,
+                  ),
           IconButton(icon: const Icon(Icons.refresh), onPressed: _cargarTickets),
         ],
       ),
       body: _cargando
           ? const Center(child: CircularProgressIndicator())
           : Column(children: [
-              // Buscador (fila completa): número, descripción, máquina y sector
               Container(
                 color: Colors.white,
                 padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
@@ -342,14 +352,10 @@ class _TicketsScreenState extends State<TicketsScreen> {
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
-                    ),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
                   ),
                 ),
               ),
-              // Estado + Prioridad
               Container(
                 color: Colors.white,
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
@@ -389,7 +395,6 @@ class _TicketsScreenState extends State<TicketsScreen> {
                   ),
                 ]),
               ),
-              // Tipo + Sector
               Container(
                 color: Colors.white,
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
@@ -422,14 +427,12 @@ class _TicketsScreenState extends State<TicketsScreen> {
                   ),
                 ]),
               ),
-              // Contador + limpiar filtros
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 color: Colors.grey[100],
                 child: Row(children: [
-                  Text('${ticketsFiltrados.length} ticket${ticketsFiltrados.length != 1 ? 's' : ''}',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                  Text('${ticketsFiltrados.length} ticket${ticketsFiltrados.length != 1 ? 's' : ''}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                   const Spacer(),
                   if (_hayFiltrosActivos)
                     GestureDetector(
@@ -447,8 +450,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
                     ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                         Icon(Icons.confirmation_number_outlined, size: 80, color: Colors.grey[400]),
                         const SizedBox(height: 16),
-                        Text(_tickets.isEmpty ? 'No hay tickets' : 'No hay tickets con esos filtros',
-                            style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+                        Text(_tickets.isEmpty ? 'No hay tickets' : 'No hay tickets con esos filtros', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
                         if (_tickets.isEmpty && puedeCrear) ...[
                           const SizedBox(height: 8),
                           Text('Tocá el botón + para crear uno', style: TextStyle(fontSize: 13, color: Colors.grey[400])),
@@ -506,21 +508,15 @@ class _TicketsScreenState extends State<TicketsScreen> {
                                             color: tipo == 'preventivo' ? Colors.green : Colors.red,
                                           ),
                                           const SizedBox(width: 6),
-                                          Expanded(child: Text(maquina?['nombre'] ?? 'Sin máquina',
-                                              style: TextStyle(fontWeight: FontWeight.w600, fontSize: titleSize), overflow: TextOverflow.ellipsis)),
+                                          Expanded(child: Text(maquina?['nombre'] ?? 'Sin máquina', style: TextStyle(fontWeight: FontWeight.w600, fontSize: titleSize), overflow: TextOverflow.ellipsis)),
                                         ]),
                                         const SizedBox(height: 2),
-                                        Text(ticket['descripcion_desperfecto'] ?? '',
-                                            style: TextStyle(fontSize: subtitleSize, color: Colors.grey[700]),
-                                            maxLines: 2, overflow: TextOverflow.ellipsis),
+                                        Text(ticket['descripcion_desperfecto'] ?? '', style: TextStyle(fontSize: subtitleSize, color: Colors.grey[700]), maxLines: 2, overflow: TextOverflow.ellipsis),
                                         const SizedBox(height: 4),
                                         Row(children: [
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                                            decoration: BoxDecoration(
-                                              color: _colorPrioridad(prioridad).withOpacity(0.12),
-                                              borderRadius: BorderRadius.circular(8),
-                                            ),
+                                            decoration: BoxDecoration(color: _colorPrioridad(prioridad).withOpacity(0.12), borderRadius: BorderRadius.circular(8)),
                                             child: Text(
                                               prioridad[0].toUpperCase() + prioridad.substring(1),
                                               style: TextStyle(fontSize: chipSize, color: _colorPrioridad(prioridad), fontWeight: FontWeight.w600),
@@ -535,23 +531,15 @@ class _TicketsScreenState extends State<TicketsScreen> {
                                           ],
                                           Icon(Icons.calendar_today_outlined, size: subtitleSize, color: Colors.grey[400]),
                                           const SizedBox(width: 3),
-                                          Expanded(
-                                            child: Text(fechaStr,
-                                                style: TextStyle(fontSize: subtitleSize, color: Colors.grey[400]),
-                                                overflow: TextOverflow.ellipsis),
-                                          ),
+                                          Expanded(child: Text(fechaStr, style: TextStyle(fontSize: subtitleSize, color: Colors.grey[400]), overflow: TextOverflow.ellipsis)),
                                         ]),
                                       ]),
                                     ),
                                     const SizedBox(width: 6),
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: _colorEstado(estado).withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: Text(_labelEstado(estado),
-                                          style: TextStyle(fontSize: chipSize, color: _colorEstado(estado), fontWeight: FontWeight.w600)),
+                                      decoration: BoxDecoration(color: _colorEstado(estado).withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                                      child: Text(_labelEstado(estado), style: TextStyle(fontSize: chipSize, color: _colorEstado(estado), fontWeight: FontWeight.w600)),
                                     ),
                                   ]),
                                 ),

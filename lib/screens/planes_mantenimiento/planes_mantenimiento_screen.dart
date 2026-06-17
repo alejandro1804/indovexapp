@@ -4,6 +4,7 @@ import '../../providers/plan_mantenimiento_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/plan_mantenimiento.dart';
 import '../../core/responsive.dart';
+import '../../services/planes_pdf_service.dart';
 import 'plan_mantenimiento_nuevo_screen.dart';
 import 'plan_mantenimiento_detail_screen.dart';
 
@@ -17,6 +18,7 @@ class PlanesMantenimientoScreen extends StatefulWidget {
 class _PlanesMantenimientoScreenState extends State<PlanesMantenimientoScreen> {
   final _busquedaController = TextEditingController();
   String _busqueda = '';
+  bool _exportando = false;
 
   @override
   void initState() {
@@ -32,7 +34,6 @@ class _PlanesMantenimientoScreenState extends State<PlanesMantenimientoScreen> {
     super.dispose();
   }
 
-  // Filtra por nombre de máquina, código de máquina y descripción de la tarea
   List<PlanMantenimiento> _filtrar(List<PlanMantenimiento> planes) {
     final q = _busqueda.trim().toLowerCase();
     if (q.isEmpty) return planes;
@@ -42,6 +43,32 @@ class _PlanesMantenimientoScreenState extends State<PlanesMantenimientoScreen> {
       final tarea = p.descripcionTarea.toLowerCase();
       return maquina.contains(q) || codigo.contains(q) || tarea.contains(q);
     }).toList();
+  }
+
+  bool get _puedeExportarPdf {
+    final usuario = context.read<AuthProvider>().usuario;
+    return usuario?.tienePermiso('exportar_pdf_planes') ?? false;
+  }
+
+  Future<void> _exportarPdf(List<PlanMantenimiento> planesFiltrados) async {
+    final usuario = context.read<AuthProvider>().usuario;
+    if (usuario == null) return;
+    setState(() => _exportando = true);
+    try {
+      await PlanesPdfService.generarYCompartir(
+        planes: planesFiltrados,
+        nombreEmpresa: usuario.empresaId,
+        busqueda: _busqueda,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al generar PDF: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _exportando = false);
+    }
   }
 
   Color _colorIntervalo(String tipo) {
@@ -80,6 +107,7 @@ class _PlanesMantenimientoScreenState extends State<PlanesMantenimientoScreen> {
     final usuario = context.read<AuthProvider>().usuario;
     final padding = Responsive.pagePadding(context);
     final esAdminOEncargado = usuario?.esAdmin == true || usuario?.esEncargado == true;
+    final planesFiltrados = _filtrar(provider.planes);
 
     return Scaffold(
       appBar: AppBar(
@@ -87,6 +115,19 @@ class _PlanesMantenimientoScreenState extends State<PlanesMantenimientoScreen> {
         toolbarHeight: 48,
         backgroundColor: const Color(0xFF1F4E79),
         foregroundColor: Colors.white,
+        actions: [
+          if (_puedeExportarPdf)
+            _exportando
+                ? const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                  )
+                : IconButton(
+                    icon: const Icon(Icons.picture_as_pdf_outlined),
+                    tooltip: 'Exportar PDF',
+                    onPressed: provider.planes.isEmpty ? null : () => _exportarPdf(planesFiltrados),
+                  ),
+        ],
       ),
       floatingActionButton: esAdminOEncargado
           ? FloatingActionButton.extended(
@@ -111,7 +152,6 @@ class _PlanesMantenimientoScreenState extends State<PlanesMantenimientoScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                // Buscador por máquina / tarea
                 Container(
                   color: Colors.white,
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
@@ -130,23 +170,36 @@ class _PlanesMantenimientoScreenState extends State<PlanesMantenimientoScreen> {
                               icon: const Icon(Icons.clear, size: 18),
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                              onPressed: () => setState(() {
-                                _busqueda = '';
-                                _busquedaController.clear();
-                              }),
+                              onPressed: () => setState(() { _busqueda = ''; _busquedaController.clear(); }),
                             )
                           : null,
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
                     ),
                   ),
                 ),
-                Expanded(child: _buildLista(provider, esAdminOEncargado, padding)),
+                // Contador
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  color: Colors.grey[100],
+                  child: Row(children: [
+                    Text('${planesFiltrados.length} plan${planesFiltrados.length != 1 ? 'es' : ''}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                    const Spacer(),
+                    if (_busqueda.trim().isNotEmpty)
+                      GestureDetector(
+                        onTap: () => setState(() { _busqueda = ''; _busquedaController.clear(); }),
+                        child: Row(children: [
+                          Icon(Icons.filter_alt_off_outlined, size: 14, color: Colors.grey[600]),
+                          const SizedBox(width: 4),
+                          Text('Limpiar búsqueda', style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+                        ]),
+                      ),
+                  ]),
+                ),
+                Expanded(child: _buildLista(provider, planesFiltrados, esAdminOEncargado, padding)),
               ],
             ),
     );
@@ -154,6 +207,7 @@ class _PlanesMantenimientoScreenState extends State<PlanesMantenimientoScreen> {
 
   Widget _buildLista(
     PlanMantenimientoProvider provider,
+    List<PlanMantenimiento> planesFiltrados,
     bool esAdminOEncargado,
     EdgeInsets padding,
   ) {
@@ -164,22 +218,13 @@ class _PlanesMantenimientoScreenState extends State<PlanesMantenimientoScreen> {
           children: [
             Icon(Icons.event_repeat_outlined, size: 80, color: Colors.grey[400]),
             const SizedBox(height: 16),
-            Text(
-              'No hay planes de mantenimiento',
-              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-            ),
+            Text('No hay planes de mantenimiento', style: TextStyle(fontSize: 13, color: Colors.grey[600])),
             const SizedBox(height: 8),
-            Text(
-              'Creá un plan para programar mantenimientos preventivos',
-              style: TextStyle(fontSize: 10, color: Colors.grey[400]),
-              textAlign: TextAlign.center,
-            ),
+            Text('Creá un plan para programar mantenimientos preventivos', style: TextStyle(fontSize: 10, color: Colors.grey[400]), textAlign: TextAlign.center),
           ],
         ),
       );
     }
-
-    final planesFiltrados = _filtrar(provider.planes);
 
     if (planesFiltrados.isEmpty) {
       return Center(
@@ -188,16 +233,10 @@ class _PlanesMantenimientoScreenState extends State<PlanesMantenimientoScreen> {
           children: [
             Icon(Icons.search_off_outlined, size: 70, color: Colors.grey[400]),
             const SizedBox(height: 16),
-            Text(
-              'No hay planes para esa búsqueda',
-              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-            ),
+            Text('No hay planes para esa búsqueda', style: TextStyle(fontSize: 13, color: Colors.grey[600])),
             const SizedBox(height: 8),
             TextButton(
-              onPressed: () => setState(() {
-                _busqueda = '';
-                _busquedaController.clear();
-              }),
+              onPressed: () => setState(() { _busqueda = ''; _busquedaController.clear(); }),
               child: const Text('Limpiar búsqueda'),
             ),
           ],
@@ -213,9 +252,7 @@ class _PlanesMantenimientoScreenState extends State<PlanesMantenimientoScreen> {
         return GestureDetector(
           onTap: () => Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) => PlanMantenimientoDetailScreen(plan: plan),
-            ),
+            MaterialPageRoute(builder: (_) => PlanMantenimientoDetailScreen(plan: plan)),
           ),
           child: _PlanCard(
             plan: plan,
@@ -230,16 +267,10 @@ class _PlanesMantenimientoScreenState extends State<PlanesMantenimientoScreen> {
                   title: const Text('Desactivar plan'),
                   content: const Text('¿Seguro que querés desactivar este plan?'),
                   actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('Cancelar'),
-                    ),
+                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
                     ElevatedButton(
                       onPressed: () => Navigator.pop(context, true),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
-                      ),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
                       child: const Text('Desactivar'),
                     ),
                   ],
@@ -303,45 +334,29 @@ class _PlanCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Borde izquierdo de color según tipo de intervalo
               Container(width: 4, color: colorIntervalo),
-
-              // Contenido principal
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(14, 14, 8, 14),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Fila superior: ícono + nombre máquina + menú
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Container(
                             padding: const EdgeInsets.all(7),
-                            decoration: BoxDecoration(
-                              color: colorIntervalo.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
+                            decoration: BoxDecoration(color: colorIntervalo.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
                             child: Icon(iconoIntervalo, color: colorIntervalo, size: 18),
                           ),
                           const SizedBox(width: 10),
                           if (plan.nombreMaquina != null) ...[
-                            Icon(
-                              Icons.precision_manufacturing_outlined,
-                              size: 12,
-                              color: Colors.grey[400],
-                            ),
+                            Icon(Icons.precision_manufacturing_outlined, size: 12, color: Colors.grey[400]),
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
-                                plan.codigoMaquina != null
-                                    ? '${plan.nombreMaquina} (${plan.codigoMaquina})'
-                                    : plan.nombreMaquina!,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.grey[500],
-                                ),
+                                plan.codigoMaquina != null ? '${plan.nombreMaquina} (${plan.codigoMaquina})' : plan.nombreMaquina!,
+                                style: TextStyle(fontSize: 10, color: Colors.grey[500]),
                                 overflow: TextOverflow.ellipsis,
                                 maxLines: 1,
                               ),
@@ -364,26 +379,14 @@ class _PlanCard extends StatelessWidget {
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           ListTile(
-                                            leading: const Icon(
-                                              Icons.edit_outlined,
-                                              color: Color(0xFF1F4E79),
-                                            ),
+                                            leading: const Icon(Icons.edit_outlined, color: Color(0xFF1F4E79)),
                                             title: const Text('Editar plan', style: TextStyle(fontSize: 13)),
-                                            onTap: () {
-                                              Navigator.pop(context);
-                                              onEditar();
-                                            },
+                                            onTap: () { Navigator.pop(context); onEditar(); },
                                           ),
                                           ListTile(
-                                            leading: const Icon(
-                                              Icons.block,
-                                              color: Colors.red,
-                                            ),
+                                            leading: const Icon(Icons.block, color: Colors.red),
                                             title: const Text('Desactivar plan', style: TextStyle(fontSize: 13)),
-                                            onTap: () {
-                                              Navigator.pop(context);
-                                              onDesactivar();
-                                            },
+                                            onTap: () { Navigator.pop(context); onDesactivar(); },
                                           ),
                                         ],
                                       ),
@@ -394,71 +397,37 @@ class _PlanCard extends StatelessWidget {
                             ),
                         ],
                       ),
-
                       const SizedBox(height: 9),
-
-                      // Descripción de la tarea — texto principal
                       Text(
                         plan.descripcionTarea,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12,
-                          color: Color(0xFF1A237E),
-                          height: 1.3,
-                        ),
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF1A237E), height: 1.3),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-
                       const SizedBox(height: 10),
-
-                      // Chip de frecuencia + próximo valor
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               color: colorIntervalo.withOpacity(0.08),
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: colorIntervalo.withOpacity(0.3),
-                                width: 1,
-                              ),
+                              border: Border.all(color: colorIntervalo.withOpacity(0.3), width: 1),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(iconoIntervalo, size: 11, color: colorIntervalo),
                                 const SizedBox(width: 4),
-                                Text(
-                                  _frecuenciaLabel,
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    color: colorIntervalo,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
+                                Text(_frecuenciaLabel, style: TextStyle(fontSize: 9, color: colorIntervalo, fontWeight: FontWeight.w600)),
                               ],
                             ),
                           ),
                           if (_proximoLabel != null) ...[
                             const SizedBox(width: 10),
-                            Icon(
-                              Icons.schedule_outlined,
-                              size: 12,
-                              color: Colors.grey[400],
-                            ),
+                            Icon(Icons.schedule_outlined, size: 12, color: Colors.grey[400]),
                             const SizedBox(width: 3),
-                            Flexible(
-                              child: Text(
-                                'Próximo: $_proximoLabel',
-                                style: TextStyle(fontSize: 8, color: Colors.grey[500]),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
+                            Flexible(child: Text('Próximo: $_proximoLabel', style: TextStyle(fontSize: 8, color: Colors.grey[500]), overflow: TextOverflow.ellipsis)),
                           ],
                         ],
                       ),

@@ -7,6 +7,7 @@ import '../../providers/auth_provider.dart';
 import '../../core/responsive.dart';
 import '../../core/db_error_helper.dart';
 import '../../widgets/adjuntos_section.dart';
+import '../../widgets/foto_principal_widget.dart';
 import '../../widgets/repuestos_maquina_section.dart';
 import 'ingreso_repuesto_screen.dart';
 import 'salida_repuesto_screen.dart';
@@ -41,11 +42,7 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
 
   Future<void> _recargarRepuesto() async {
     try {
-      final data = await _supabase
-          .from('repuestos')
-          .select()
-          .eq('id', _repuesto.id)
-          .single();
+      final data = await _supabase.from('repuestos').select().eq('id', _repuesto.id).single();
       setState(() => _repuesto = Repuesto.fromMap(data));
     } catch (e) {}
   }
@@ -148,11 +145,7 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
                 TextField(
                   controller: ubicacionController,
                   style: const TextStyle(fontSize: 13),
-                  decoration: const InputDecoration(
-                    labelText: 'Ubicación',
-                    border: OutlineInputBorder(),
-                    hintText: 'Ej: Estante A, Cajón 3',
-                  ),
+                  decoration: const InputDecoration(labelText: 'Ubicación', border: OutlineInputBorder(), hintText: 'Ej: Estante A, Cajón 3'),
                   textCapitalization: TextCapitalization.sentences,
                   maxLength: 100,
                 ),
@@ -187,10 +180,7 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
                   notas: notas,
                 );
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1F4E79),
-                foregroundColor: Colors.white,
-              ),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white),
               child: const Text('Guardar'),
             ),
           ],
@@ -227,26 +217,20 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
 
   void _mostrarExito(String m) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(m), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating));
   }
 
   void _mostrarError(String m) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(m), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating));
   }
 
   String _nombreCategoria(String? categoriaId) {
     if (categoriaId == null) return 'Sin categoría';
-    return _categorias
-        .firstWhere(
-          (c) => c.id == categoriaId,
-          orElse: () => CategoriaRepuesto(id: '', empresaId: '', nombre: 'Sin categoría'),
-        )
-        .nombre;
+    return _categorias.firstWhere(
+      (c) => c.id == categoriaId,
+      orElse: () => CategoriaRepuesto(id: '', empresaId: '', nombre: 'Sin categoría'),
+    ).nombre;
   }
 
   @override
@@ -274,18 +258,45 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Stock actual
+          // ── Foto principal ──────────────────────────────────────────────
+          Center(
+            child: FotoPrincipalWidget(
+              storagePath: _repuesto.imagenUrl,
+              tipo: 'repuesto',
+              empresaId: _repuesto.empresaId,
+              entidadId: _repuesto.id,
+              size: 120,
+              puedeEditar: puedeGestionar,
+              onFotoActualizada: (nuevoPath) {
+                setState(() {
+                  _repuesto = Repuesto(
+                    id: _repuesto.id,
+                    empresaId: _repuesto.empresaId,
+                    categoriaId: _repuesto.categoriaId,
+                    codigo: _repuesto.codigo,
+                    descripcion: _repuesto.descripcion,
+                    stockActual: _repuesto.stockActual,
+                    stockMinimo: _repuesto.stockMinimo,
+                    ubicacion: _repuesto.ubicacion,
+                    unidadMedida: _repuesto.unidadMedida,
+                    notas: _repuesto.notas,
+                    imagenUrl: nuevoPath.isEmpty ? null : nuevoPath,
+                    activo: _repuesto.activo,
+                  );
+                });
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // ── Stock actual ────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: stockBajo
-                  ? Colors.orange.withOpacity(0.1)
-                  : const Color(0xFF1F4E79).withOpacity(0.1),
+              color: stockBajo ? Colors.orange.withOpacity(0.1) : const Color(0xFF1F4E79).withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: stockBajo
-                    ? Colors.orange.withOpacity(0.3)
-                    : const Color(0xFF1F4E79).withOpacity(0.3),
+                color: stockBajo ? Colors.orange.withOpacity(0.3) : const Color(0xFF1F4E79).withOpacity(0.3),
               ),
             ),
             child: Row(
@@ -297,27 +308,17 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
                     Text('Stock actual', style: TextStyle(color: Colors.grey[600], fontSize: 11)),
                     Text(
                       '${_repuesto.stockActual} ${_repuesto.unidadMedida}',
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                        color: stockBajo ? Colors.orange : const Color(0xFF1F4E79),
-                      ),
+                      style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: stockBajo ? Colors.orange : const Color(0xFF1F4E79)),
                     ),
                     if (stockBajo)
-                      const Text(
-                        '⚠ Stock bajo',
-                        style: TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.w600),
-                      ),
+                      const Text('⚠ Stock bajo', style: TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.w600)),
                   ],
                 ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text('Mínimo', style: TextStyle(color: Colors.grey[600], fontSize: 10)),
-                    Text(
-                      '${_repuesto.stockMinimo}',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                    ),
+                    Text('${_repuesto.stockMinimo}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                   ],
                 ),
               ],
@@ -325,7 +326,7 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
           ),
           const SizedBox(height: 16),
 
-          // Acciones ingreso / salida
+          // ── Acciones ingreso / salida ───────────────────────────────────
           if (puedeIngreso || puedeSalida)
             Row(
               children: [
@@ -335,11 +336,7 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
                       onPressed: _irAIngreso,
                       icon: const Icon(Icons.add_circle_outline),
                       label: const Text('Ingreso', style: TextStyle(fontSize: 12)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 12)),
                     ),
                   ),
                 if (puedeIngreso && puedeSalida) const SizedBox(width: 12),
@@ -349,18 +346,14 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
                       onPressed: _irASalida,
                       icon: const Icon(Icons.remove_circle_outline),
                       label: const Text('Salida', style: TextStyle(fontSize: 12)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red[700],
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red[700], foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 12)),
                     ),
                   ),
               ],
             ),
           if (puedeIngreso || puedeSalida) const SizedBox(height: 16),
 
-          // Información
+          // ── Información ─────────────────────────────────────────────────
           Card(
             elevation: 1,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -369,10 +362,7 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Información',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
+                  const Text('Información', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   const Divider(),
                   _infoRow('Código', _repuesto.codigo),
                   _infoRow('Categoría', _nombreCategoria(_repuesto.categoriaId)),
@@ -386,18 +376,12 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
           ),
           const SizedBox(height: 16),
 
-          // Máquinas que usan este repuesto
-          RepuestosMaquinaSection(
-            modo: 'desde_repuesto',
-            entidadId: _repuesto.id,
-          ),
+          // ── Máquinas que usan este repuesto ────────────────────────────
+          RepuestosMaquinaSection(modo: 'desde_repuesto', entidadId: _repuesto.id),
           const SizedBox(height: 16),
 
-          // Adjuntos
-          AdjuntosSection(
-            entidadTipo: 'repuesto',
-            entidadId: _repuesto.id,
-          ),
+          // ── Adjuntos (PDFs, manuales, etc.) ────────────────────────────
+          AdjuntosSection(entidadTipo: 'repuesto', entidadId: _repuesto.id),
           const SizedBox(height: 24),
         ],
       ),
@@ -410,17 +394,10 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: TextStyle(color: Colors.grey[600], fontSize: 11),
-          ),
+          Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 11)),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
-              textAlign: TextAlign.end,
-            ),
+            child: Text(value, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13), textAlign: TextAlign.end),
           ),
         ],
       ),

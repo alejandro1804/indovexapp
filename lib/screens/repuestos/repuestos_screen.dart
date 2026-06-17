@@ -6,6 +6,8 @@ import '../../models/categoria_repuesto.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/responsive.dart';
 import '../../core/db_error_helper.dart';
+import '../../services/repuestos_pdf_service.dart';
+import '../../widgets/foto_principal_widget.dart';
 import 'repuesto_detail_screen.dart';
 
 class RepuestosScreen extends StatefulWidget {
@@ -19,6 +21,7 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
   List<Repuesto> _repuestos = [];
   List<CategoriaRepuesto> _categorias = [];
   bool _cargando = true;
+  bool _exportando = false;
   String _filtroCategoriaId = 'todos';
   bool _soloStockBajo = false;
   final _busquedaController = TextEditingController();
@@ -68,8 +71,36 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
 
   String _nombreCategoria(String? categoriaId) {
     if (categoriaId == null) return 'Sin categoría';
-    return _categorias.firstWhere((c) => c.id == categoriaId,
-        orElse: () => CategoriaRepuesto(id: '', empresaId: '', nombre: 'Sin categoría')).nombre;
+    return _categorias.firstWhere(
+      (c) => c.id == categoriaId,
+      orElse: () => CategoriaRepuesto(id: '', empresaId: '', nombre: 'Sin categoría'),
+    ).nombre;
+  }
+
+  bool get _puedeExportarPdf {
+    final usuario = context.read<AuthProvider>().usuario;
+    return usuario?.tienePermiso('exportar_pdf_repuestos') ?? false;
+  }
+
+  Future<void> _exportarPdf() async {
+    final usuario = context.read<AuthProvider>().usuario;
+    if (usuario == null) return;
+    setState(() => _exportando = true);
+    try {
+      final categoriasMap = { for (final c in _categorias) c.id: c.nombre };
+      await RepuestosPdfService.generarYCompartir(
+        repuestos: _repuestosFiltrados,
+        nombreEmpresa: usuario.empresaId,
+        categorias: categoriasMap,
+        filtroCategoria: _filtroCategoriaId,
+        soloStockBajo: _soloStockBajo,
+        busqueda: _textoBusqueda,
+      );
+    } catch (e) {
+      _mostrarError('Error al generar PDF: $e');
+    } finally {
+      if (mounted) setState(() => _exportando = false);
+    }
   }
 
   Future<void> _mostrarFormulario({Repuesto? repuesto}) async {
@@ -182,6 +213,7 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
     final stockSize = Responsive.stockNumberSize(context);
     final avatarRadius = Responsive.avatarRadius(context);
     final cardPadding = Responsive.cardPadding(context);
+    final thumbSize = avatarRadius * 2;
 
     return Card(
       elevation: 1,
@@ -191,19 +223,36 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => RepuestoDetailScreen(repuesto: repuesto))).then((_) => _cargarDatos()),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => RepuestoDetailScreen(repuesto: repuesto)),
+        ).then((_) => _cargarDatos()),
         child: Padding(
           padding: cardPadding,
           child: Row(
             children: [
-              CircleAvatar(
-                radius: avatarRadius,
-                backgroundColor: stockBajo ? Colors.orange.withOpacity(0.1) : const Color(0xFF1F4E79).withOpacity(0.1),
-                child: Icon(
-                  stockBajo ? Icons.warning_amber_outlined : Icons.inventory_2_outlined,
-                  color: stockBajo ? Colors.orange : const Color(0xFF1F4E79),
-                  size: avatarRadius,
-                ),
+              Stack(
+                children: [
+                  FotoPrincipalWidget(
+                    storagePath: repuesto.imagenUrl,
+                    tipo: 'repuesto',
+                    empresaId: repuesto.empresaId,
+                    entidadId: repuesto.id,
+                    size: thumbSize,
+                    puedeEditar: false,
+                  ),
+                  if (stockBajo)
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        width: thumbSize * 0.36,
+                        height: thumbSize * 0.36,
+                        decoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle),
+                        child: Icon(Icons.warning_amber_rounded, color: Colors.white, size: thumbSize * 0.22),
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -234,7 +283,6 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
     );
   }
 
-  // Dropdown compacto reutilizable con palabra de contexto y resaltado activo.
   Widget _buildDropdown({
     required String value,
     required String contexto,
@@ -265,11 +313,7 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
         final texto = esTodos ? contexto : _labelDeItem(item);
         return Align(
           alignment: Alignment.centerLeft,
-          child: Text(
-            texto,
-            style: TextStyle(fontSize: 12, color: esTodos ? Colors.grey[600] : Colors.black87),
-            overflow: TextOverflow.ellipsis,
-          ),
+          child: Text(texto, style: TextStyle(fontSize: 12, color: esTodos ? Colors.grey[600] : Colors.black87), overflow: TextOverflow.ellipsis),
         );
       }).toList(),
       items: items,
@@ -284,9 +328,9 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
   }
 
   DropdownMenuItem<String> _item(String value, String label) => DropdownMenuItem(
-        value: value,
-        child: Text(label, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
-      );
+    value: value,
+    child: Text(label, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -313,12 +357,22 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
                 child: Text('$stockBajoCount', style: const TextStyle(color: Colors.white, fontSize: 10), textAlign: TextAlign.center),
               )),
             ]),
+          if (_puedeExportarPdf)
+            _exportando
+                ? const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                  )
+                : IconButton(
+                    icon: const Icon(Icons.picture_as_pdf_outlined),
+                    tooltip: 'Exportar PDF',
+                    onPressed: _repuestos.isEmpty ? null : _exportarPdf,
+                  ),
         ],
       ),
       body: _cargando
           ? const Center(child: CircularProgressIndicator())
           : Column(children: [
-              // Buscador (fila completa)
               Container(
                 color: Colors.white,
                 padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
@@ -343,19 +397,14 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
-                    ),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
                   ),
                 ),
               ),
-              // Categoría + Stock (dos dropdowns lado a lado)
               Container(
                 color: Colors.white,
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
                 child: Row(children: [
-                  // Filtro de categoría
                   Expanded(
                     child: _buildDropdown(
                       value: _filtroCategoriaId,
@@ -369,7 +418,6 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  // Filtro de stock
                   Expanded(
                     child: DropdownButtonFormField<bool>(
                       value: _soloStockBajo,
@@ -389,16 +437,8 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
                         ),
                       ),
                       selectedItemBuilder: (context) => [
-                        // value=false → mostrar contexto "Stock"
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text('Stock', style: TextStyle(fontSize: 12, color: Colors.grey[600]), overflow: TextOverflow.ellipsis),
-                        ),
-                        // value=true → mostrar el filtro activo
-                        const Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text('Solo stock bajo', style: TextStyle(fontSize: 12, color: Colors.black87), overflow: TextOverflow.ellipsis),
-                        ),
+                        Align(alignment: Alignment.centerLeft, child: Text('Stock', style: TextStyle(fontSize: 12, color: Colors.grey[600]), overflow: TextOverflow.ellipsis)),
+                        const Align(alignment: Alignment.centerLeft, child: Text('Solo stock bajo', style: TextStyle(fontSize: 12, color: Colors.black87), overflow: TextOverflow.ellipsis)),
                       ],
                       items: const [
                         DropdownMenuItem(value: false, child: Text('Todo el stock', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
@@ -409,7 +449,6 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
                   ),
                 ]),
               ),
-              // Contador + limpiar filtros
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
