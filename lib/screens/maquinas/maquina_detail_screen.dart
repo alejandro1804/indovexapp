@@ -5,6 +5,7 @@ import '../../providers/auth_provider.dart';
 import '../../widgets/adjuntos_section.dart';
 import '../../widgets/foto_principal_widget.dart';
 import '../../widgets/repuestos_maquina_section.dart';
+import 'qr_maquina_screen.dart';
 
 class MaquinaDetailScreen extends StatefulWidget {
   final Maquina maquina;
@@ -62,6 +63,20 @@ class _MaquinaDetailScreenState extends State<MaquinaDetailScreen> {
         title: Text(_maquina.nombre, style: const TextStyle(fontSize: 18)),
         backgroundColor: const Color(0xFF1F4E79),
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.qr_code),
+            tooltip: 'Ver QR',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => QrMaquinaScreen(maquina: _maquina),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -76,7 +91,6 @@ class _MaquinaDetailScreenState extends State<MaquinaDetailScreen> {
               size: 120,
               puedeEditar: _puedeGestionar,
               onFotoActualizada: (nuevoPath) {
-                // Actualizar el modelo local para reflejar el cambio sin recargar
                 setState(() {
                   _maquina = Maquina(
                     id: _maquina.id,
