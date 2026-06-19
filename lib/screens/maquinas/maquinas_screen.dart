@@ -9,6 +9,7 @@ import '../../core/db_error_helper.dart';
 import '../../services/maquinas_pdf_service.dart';
 import '../../widgets/foto_principal_widget.dart';
 import 'maquina_detail_screen.dart';
+import 'escanear_qr_screen.dart';
 
 class MaquinasScreen extends StatefulWidget {
   const MaquinasScreen({super.key});
@@ -132,6 +133,41 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
     } finally {
       if (mounted) setState(() => _exportando = false);
     }
+  }
+
+  Future<void> _escanearQr() async {
+    final maquinaId = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (_) => const EscanearQrScreen()),
+    );
+    if (maquinaId == null || !mounted) return;
+
+    // Buscar la máquina en la lista ya cargada
+    Maquina? maquina;
+    for (final m in _maquinas) {
+      if (m.id == maquinaId) {
+        maquina = m;
+        break;
+      }
+    }
+
+    // Si no está en la lista (otro filtro, o recién creada), traerla de la BD
+    if (maquina == null) {
+      try {
+        final data =
+            await _supabase.from('maquinas').select().eq('id', maquinaId).single();
+        maquina = Maquina.fromMap(data);
+      } catch (e) {
+        _mostrarError('Máquina no encontrada o sin acceso');
+        return;
+      }
+    }
+
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => MaquinaDetailScreen(maquina: maquina!)),
+    ).then((_) => _cargarDatos());
   }
 
   Future<void> _mostrarFormulario({Maquina? maquina}) async {
@@ -384,6 +420,11 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
         backgroundColor: const Color(0xFF1F4E79),
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.qr_code_scanner),
+            tooltip: 'Escanear QR',
+            onPressed: _escanearQr,
+          ),
           if (_puedeExportarPdf)
             _exportando
                 ? const Padding(

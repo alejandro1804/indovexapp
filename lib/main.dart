@@ -77,6 +77,13 @@ class AuthGate extends StatefulWidget {
 class _AuthGateState extends State<AuthGate> {
   late final AppLinks _appLinks;
 
+  // Guarda un link entrante que aún no se pudo procesar (ej: app sin sesión,
+  // o home todavía no montado).
+  Uri? _pendingDeepLink;
+
+  // Indica que el home ya está montado y se pueden procesar deep links.
+  bool _listoParaDeepLinks = false;
+
   @override
   void initState() {
     super.initState();
@@ -89,17 +96,36 @@ class _AuthGateState extends State<AuthGate> {
 
     // App abierta en background: escucha links entrantes
     _appLinks.uriLinkStream.listen((uri) {
-      _handleDeepLink(uri);
+      _procesarOGuardar(uri);
     });
 
     // App estaba cerrada: chequea si se abrió con un link
     _appLinks.getInitialLink().then((uri) {
-      if (uri != null) _handleDeepLink(uri);
+      if (uri != null) _procesarOGuardar(uri);
     });
   }
 
+  // Decide si procesar el link ahora o guardarlo para después.
+  void _procesarOGuardar(Uri uri) {
+    if (_listoParaDeepLinks &&
+        Supabase.instance.client.auth.currentSession != null) {
+      _handleDeepLink(uri);
+    } else {
+      _pendingDeepLink = uri;
+    }
+  }
+
+  // Procesa un link guardado, si existe y hay sesión.
+  void _procesarPendiente() {
+    final uri = _pendingDeepLink;
+    if (uri != null &&
+        Supabase.instance.client.auth.currentSession != null) {
+      _pendingDeepLink = null;
+      _handleDeepLink(uri);
+    }
+  }
+
   Future<void> _handleDeepLink(Uri uri) async {
-    // Espera a que haya sesión activa antes de navegar
     if (Supabase.instance.client.auth.currentSession == null) return;
 
     // https://app.indovexapp.com/maquina/{id}
@@ -126,7 +152,6 @@ class _AuthGateState extends State<AuthGate> {
           ),
         );
       } catch (e) {
-        // Máquina no encontrada o sin permiso — no navegar
         debugPrint('Deep link: máquina no encontrada ($maquinaId): $e');
       }
     }
@@ -149,11 +174,20 @@ class _AuthGateState extends State<AuthGate> {
         context,
         MaterialPageRoute(builder: (_) => destino),
       );
+
+      // El home ya está montado: ahora sí se pueden procesar deep links.
+      // Esperamos un frame para asegurar que la navegación terminó.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _listoParaDeepLinks = true;
+        _procesarPendiente();
+      });
     } else {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const LoginScreen()),
       );
+      // Sin sesión: el deep link (si lo hay) queda guardado en _pendingDeepLink
+      // y se procesará cuando el usuario se loguee y vuelva a abrirse el link.
     }
   }
 
