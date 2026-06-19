@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/maquina.dart';
@@ -420,11 +421,12 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
         backgroundColor: const Color(0xFF1F4E79),
         foregroundColor: Colors.white,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.qr_code_scanner),
-            tooltip: 'Escanear QR',
-            onPressed: _escanearQr,
-          ),
+          if (!kIsWeb)
+            IconButton(
+              icon: const Icon(Icons.qr_code_scanner),
+              tooltip: 'Escanear QR',
+              onPressed: _escanearQr,
+            ),
           if (_puedeExportarPdf)
             _exportando
                 ? const Padding(
