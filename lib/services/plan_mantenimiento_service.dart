@@ -13,11 +13,14 @@ class PlanMantenimientoService {
     return response['empresa_id'] as String;
   }
 
-  Future<List<PlanMantenimiento>> obtenerPlanes({String? maquinaId}) async {
+  Future<List<PlanMantenimiento>> obtenerPlanes({
+    String? maquinaId,
+    bool activo = true,
+  }) async {
     var query = _client
         .from('planes_mantenimiento')
         .select('*, maquinas(nombre, codigo)')
-        .eq('activo', true);
+        .eq('activo', activo);
 
     if (maquinaId != null) {
       query = query.eq('maquina_id', maquinaId);

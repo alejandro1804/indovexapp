@@ -63,4 +63,50 @@ class PlanMantenimiento {
       default: return tipoIntervalo;
     }
   }
+
+  // Umbral para detectar epoch en milisegundos.
+  // ~1e12 ms ≈ año 2001; cualquier "cantidad de días" real será mucho menor.
+  static const double _umbralEpochMs = 1e11;
+
+  // Formatea un número con separador de miles (punto) — convención es-UY.
+  // Ej: 12500 -> "12.500", 12500.5 -> "12.500,5"
+  static String _formatearNumero(double valor) {
+    final esEntero = valor.truncateToDouble() == valor;
+    final parteEntera = valor.truncate().abs();
+    final decimales = esEntero ? '' : ',${(valor.abs() - parteEntera).toStringAsFixed(1).substring(2)}';
+
+    final str = parteEntera.toString();
+    final buffer = StringBuffer();
+    for (int i = 0; i < str.length; i++) {
+      if (i > 0 && (str.length - i) % 3 == 0) buffer.write('.');
+      buffer.write(str[i]);
+    }
+    final signo = valor.isNegative ? '-' : '';
+    return '$signo${buffer.toString()}$decimales';
+  }
+
+  static String _dos(int n) => n.toString().padLeft(2, '0');
+
+  // Etiqueta legible del próximo mantenimiento, según el tipo de intervalo.
+  // - dias: si el valor parece epoch en ms, lo muestra como fecha dd/mm/aaaa.
+  //         si es un número chico, lo muestra como cantidad de días.
+  // - horas/ciclos/m3/km: número con separador de miles + unidad.
+  // Devuelve null si no hay próximo valor cargado.
+  String? get proximoLabel {
+    final v = proximoValor;
+    if (v == null) return null;
+
+    if (tipoIntervalo == 'dias') {
+      if (v >= _umbralEpochMs) {
+        final fecha = DateTime.fromMillisecondsSinceEpoch(v.toInt()).toLocal();
+        return '${_dos(fecha.day)}/${_dos(fecha.month)}/${fecha.year}';
+      }
+      return '${_formatearNumero(v)} $unidadIntervalo';
+    }
+
+    return '${_formatearNumero(v)} $unidadIntervalo';
+  }
+
+  // Etiqueta de la frecuencia: "Cada X <unidad>".
+  String get frecuenciaLabel => 'Cada ${_formatearNumero(intervaloValor)} $unidadIntervalo';
 }

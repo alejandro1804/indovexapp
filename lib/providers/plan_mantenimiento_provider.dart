@@ -9,9 +9,13 @@ class PlanMantenimientoProvider extends ChangeNotifier {
   bool _cargando = false;
   String? _error;
 
+  // true = mostrando planes activos | false = mostrando desactivados
+  bool _mostrandoActivos = true;
+
   List<PlanMantenimiento> get planes => _planes;
   bool get cargando => _cargando;
   String? get error => _error;
+  bool get mostrandoActivos => _mostrandoActivos;
 
   Future<void> cargarPlanes({String? maquinaId}) async {
     _cargando = true;
@@ -19,7 +23,10 @@ class PlanMantenimientoProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _planes = await _service.obtenerPlanes(maquinaId: maquinaId);
+      _planes = await _service.obtenerPlanes(
+        maquinaId: maquinaId,
+        activo: _mostrandoActivos,
+      );
     } catch (e) {
       print('ERROR cargarPlanes: $e');
       _error = e.toString();
@@ -27,6 +34,13 @@ class PlanMantenimientoProvider extends ChangeNotifier {
       _cargando = false;
       notifyListeners();
     }
+  }
+
+  // Cambia entre ver activos / inactivos y recarga la lista.
+  Future<void> setMostrandoActivos(bool valor, {String? maquinaId}) async {
+    if (_mostrandoActivos == valor) return;
+    _mostrandoActivos = valor;
+    await cargarPlanes(maquinaId: maquinaId);
   }
 
   Future<bool> crearPlan({
@@ -44,8 +58,11 @@ class PlanMantenimientoProvider extends ChangeNotifier {
         intervaloValor: intervaloValor,
         procedimiento: procedimiento,
       );
-      _planes.insert(0, nuevo);
-      notifyListeners();
+      // Solo lo agregamos a la lista visible si estamos viendo activos.
+      if (_mostrandoActivos) {
+        _planes.insert(0, nuevo);
+        notifyListeners();
+      }
       return true;
     } catch (e) {
       print('ERROR crearPlan: $e');
@@ -72,11 +89,22 @@ class PlanMantenimientoProvider extends ChangeNotifier {
         activo: activo,
         procedimiento: procedimiento,
       );
+
       final index = _planes.indexWhere((p) => p.id == id);
-      if (index != -1) {
-        _planes[index] = actualizado;
-        notifyListeners();
+
+      // Si el estado activo del plan ya no coincide con lo que estamos
+      // mostrando, lo quitamos de la lista visible. Si coincide, lo
+      // reemplazamos en su lugar.
+      if (actualizado.activo != _mostrandoActivos) {
+        if (index != -1) _planes.removeAt(index);
+      } else {
+        if (index != -1) {
+          _planes[index] = actualizado;
+        } else {
+          _planes.insert(0, actualizado);
+        }
       }
+      notifyListeners();
       return true;
     } catch (e) {
       print('ERROR actualizarPlan: $e');
@@ -87,12 +115,49 @@ class PlanMantenimientoProvider extends ChangeNotifier {
   }
 
   Future<bool> desactivarPlan(String id) async {
-    return actualizarPlan(id: id, activo: false);
+    try {
+      await _service.actualizarPlan(id: id, activo: false);
+      // Si estamos viendo activos, el plan desactivado sale de la lista.
+      // Si estamos viendo inactivos, debería aparecer — recargamos.
+      if (_mostrandoActivos) {
+        _planes.removeWhere((p) => p.id == id);
+        notifyListeners();
+      } else {
+        await cargarPlanes();
+      }
+      return true;
+    } catch (e) {
+      print('ERROR desactivarPlan: $e');
+      _error = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> reactivarPlan(String id) async {
+    try {
+      await _service.actualizarPlan(id: id, activo: true);
+      // Si estamos viendo inactivos, el plan reactivado sale de la lista.
+      // Si estamos viendo activos, debería aparecer — recargamos.
+      if (!_mostrandoActivos) {
+        _planes.removeWhere((p) => p.id == id);
+        notifyListeners();
+      } else {
+        await cargarPlanes();
+      }
+      return true;
+    } catch (e) {
+      print('ERROR reactivarPlan: $e');
+      _error = e.toString();
+      notifyListeners();
+      return false;
+    }
   }
 
   void limpiar() {
     _planes = [];
     _error = null;
+    _mostrandoActivos = true;
     notifyListeners();
   }
 }

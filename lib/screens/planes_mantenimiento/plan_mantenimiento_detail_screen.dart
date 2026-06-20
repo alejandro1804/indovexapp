@@ -143,13 +143,13 @@ class _PlanMantenimientoDetailScreenState extends State<PlanMantenimientoDetailS
                     ),
                   const SizedBox(height: 4),
                   Text(
-                    'Cada ${plan.intervaloValor.toStringAsFixed(plan.intervaloValor.truncateToDouble() == plan.intervaloValor ? 0 : 1)} ${plan.unidadIntervalo}',
+                    plan.frecuenciaLabel,
                     style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w500),
                   ),
-                  if (plan.proximoValor != null) ...[
+                  if (plan.proximoLabel != null) ...[
                     const SizedBox(height: 2),
                     Text(
-                      'Próximo: ${plan.proximoValor!.toStringAsFixed(plan.proximoValor!.truncateToDouble() == plan.proximoValor ? 0 : 1)} ${plan.unidadIntervalo}',
+                      'Próximo: ${plan.proximoLabel}',
                       style: TextStyle(fontSize: 9, color: Colors.grey[600]),
                     ),
                   ],
