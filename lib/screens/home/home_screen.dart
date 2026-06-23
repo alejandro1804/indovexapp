@@ -11,6 +11,7 @@ import '../configuracion/configuracion_screen.dart';
 import '../auth/login_screen.dart';
 import '../planes/planes_screen.dart';
 import '../planes_mantenimiento/planes_mantenimiento_screen.dart';
+import '../dashboard/dashboard_screen.dart';
 import '../admin/empresas_screen.dart';
 import '../admin/gestion_planes_screen.dart';
 
@@ -60,6 +61,15 @@ class _HomeScreenState extends State<HomeScreen> {
         icon: Icons.event_repeat_outlined,
         iconActivo: Icons.event_repeat,
         screen: const PlanesMantenimientoScreen(),
+      ));
+    }
+
+    if (usuario.tienePermiso('ver_dashboard')) {
+      items.add(_NavItem(
+        label: 'Dashboard',
+        icon: Icons.dashboard_outlined,
+        iconActivo: Icons.dashboard,
+        screen: const DashboardScreen(),
       ));
     }
 

@@ -5,7 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// --- Validación de RUT uruguayo (módulo 11, mismo algoritmo que rut_uy_valido en DB) ---
 function rutUyValido(rut: string): boolean {
   if (!/^[0-9]{12}$/.test(rut)) return false
   const pesos = [4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
@@ -20,6 +19,61 @@ function rutUyValido(rut: string): boolean {
 
 function emailValido(email: string): boolean {
   return /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(email)
+}
+
+async function enviarEmailNotificacion(datos: {
+  empresa_nombre: string
+  rut: string | null
+  admin_nombre: string
+  admin_email: string
+  fecha: string
+}) {
+  const smtpHost = Deno.env.get('ZOHO_SMTP_HOST')!
+  const smtpPort = parseInt(Deno.env.get('ZOHO_SMTP_PORT') ?? '465')
+  const smtpUser = Deno.env.get('ZOHO_SMTP_USER')!
+  const smtpPass = Deno.env.get('ZOHO_SMTP_PASS')!
+
+  const asunto = `Nueva solicitud de registro — ${datos.empresa_nombre}`
+  const cuerpo = `
+Nueva empresa pendiente de aprobación en IndovexApp.
+
+Empresa:     ${datos.empresa_nombre}
+RUT:         ${datos.rut ?? 'No ingresado'}
+Administrador: ${datos.admin_nombre}
+Email:       ${datos.admin_email}
+Fecha:       ${datos.fecha}
+
+Ingresá a la app para aprobar o rechazar la solicitud.
+  `.trim()
+
+  // Encode credentials for Basic Auth
+  const credentials = btoa(`${smtpUser}:${smtpPass}`)
+
+  // Usar Zoho Mail API REST como alternativa a SMTP directo en Deno
+  // Zoho SMTP via fetch con nodemailer no está disponible en Deno edge
+  // Usamos el endpoint SMTP de Zoho via TCP con la librería smtp de deno
+  const { SMTPClient } = await import('https://deno.land/x/denomailer@1.6.0/mod.ts')
+
+  const client = new SMTPClient({
+    connection: {
+      hostname: smtpHost,
+      port: smtpPort,
+      tls: true,
+      auth: {
+        username: smtpUser,
+        password: smtpPass,
+      },
+    },
+  })
+
+  await client.send({
+    from: `IndovexApp <${smtpUser}>`,
+    to: smtpUser, // se envía a soporte@indovexapp.com (o sea, a vos)
+    subject: asunto,
+    content: cuerpo,
+  })
+
+  await client.close()
 }
 
 Deno.serve(async (req) => {
@@ -51,7 +105,6 @@ Deno.serve(async (req) => {
       })
     }
 
-    // --- Normalización ---
     const empresaNombre = empresa_nombre.trim().replace(/\s+/g, ' ')
     const adminNombre = admin_nombre.trim().replace(/\s+/g, ' ')
     const adminEmail = admin_email.trim().toLowerCase()
@@ -60,7 +113,6 @@ Deno.serve(async (req) => {
     const telefonoNorm = telefono ? telefono.trim().replace(/\s+/g, ' ') : null
     const emailContactoNorm = email_contacto ? email_contacto.trim().toLowerCase() : null
 
-    // --- Validaciones ---
     if (!emailValido(adminEmail)) {
       return new Response(JSON.stringify({ error: 'El email del administrador no tiene un formato válido.' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -85,7 +137,6 @@ Deno.serve(async (req) => {
       })
     }
 
-    // --- Verificar RUT duplicado ANTES de crear nada ---
     if (rutNormalizado) {
       const { data: empresaExistente } = await supabaseAdmin
         .from('empresas')
@@ -100,7 +151,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 1. Crear el usuario admin en Auth
     const { data: nuevoAuth, error: errAuth } = await supabaseAdmin.auth.admin.createUser({
       email: adminEmail,
       password: admin_password,
@@ -123,7 +173,6 @@ Deno.serve(async (req) => {
 
     const nuevoUserId = nuevoAuth.user.id
 
-    // 2. Crear la empresa en estado pendiente con trial de 30 dias
     const { data: nuevaEmpresa, error: errEmpresa } = await supabaseAdmin
       .from('empresas')
       .insert({
@@ -151,7 +200,6 @@ Deno.serve(async (req) => {
       })
     }
 
-    // 3. Crear el usuario en la tabla usuarios
     const { error: errUsuario } = await supabaseAdmin
       .from('usuarios')
       .insert({
@@ -170,6 +218,21 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Error al crear el usuario admin: ' + errUsuario.message }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
+    }
+
+    // ── Enviar email de notificación a soporte (no bloquea el registro si falla) ──
+    try {
+      const fecha = new Date().toLocaleString('es-UY', { timeZone: 'America/Montevideo' })
+      await enviarEmailNotificacion({
+        empresa_nombre: empresaNombre,
+        rut: rutNormalizado,
+        admin_nombre: adminNombre,
+        admin_email: adminEmail,
+        fecha,
+      })
+    } catch (emailErr) {
+      console.error('Error al enviar email de notificación:', emailErr)
+      // No se interrumpe el registro por fallo de email
     }
 
     return new Response(JSON.stringify({ success: true, empresa_id: nuevaEmpresa.id }), {

@@ -4,6 +4,7 @@ class Usuario {
   final String rolId;
   final String nombre;
   final String email;
+  final String? telefono;
   final String estado;
   final String rolNombre;
   final bool primerLogin;
@@ -16,6 +17,7 @@ class Usuario {
     required this.rolId,
     required this.nombre,
     required this.email,
+    this.telefono,
     required this.estado,
     required this.rolNombre,
     required this.primerLogin,
@@ -30,6 +32,7 @@ class Usuario {
       rolId: map['rol_id'] ?? '',
       nombre: map['nombre'],
       email: map['email'],
+      telefono: map['telefono'],
       estado: map['estado'],
       rolNombre: map['roles']?['nombre'] ?? '',
       primerLogin: map['primer_login'] ?? false,

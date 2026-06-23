@@ -5,6 +5,7 @@ import 'package:functions_client/functions_client.dart' show FunctionException;
 import '../../providers/auth_provider.dart';
 import '../../core/responsive.dart';
 import '../../core/db_error_helper.dart';
+import 'destinatarios_whatsapp_screen.dart';
 
 class UsuariosScreen extends StatefulWidget {
   const UsuariosScreen({super.key});
@@ -44,6 +45,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
   Future<void> _mostrarFormularioNuevo() async {
     final emailController = TextEditingController();
     final nombreController = TextEditingController();
+    final telefonoController = TextEditingController();
     final passwordController = TextEditingController();
     String? rolSeleccionado = _roles.isNotEmpty ? _roles.first['id'] : null;
     bool verPassword = false;
@@ -73,6 +75,20 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                     decoration: const InputDecoration(labelText: 'Email *', labelStyle: TextStyle(fontSize: 13), border: OutlineInputBorder()),
                     keyboardType: TextInputType.emailAddress,
                     maxLength: 255,
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: telefonoController,
+                    style: const TextStyle(fontSize: 13),
+                    decoration: const InputDecoration(
+                      labelText: 'Teléfono (WhatsApp)',
+                      labelStyle: TextStyle(fontSize: 13),
+                      border: OutlineInputBorder(),
+                      hintText: '+598XXXXXXXX',
+                      hintStyle: TextStyle(fontSize: 12),
+                    ),
+                    keyboardType: TextInputType.phone,
+                    maxLength: 20,
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -120,14 +136,25 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
               onPressed: () async {
                 final nombre = normalizarTexto(nombreController.text);
                 final email = normalizarEmail(emailController.text);
+                final telefono = telefonoController.text.trim();
                 final password = passwordController.text.trim();
                 if (email.isEmpty || nombre.isEmpty || password.isEmpty || rolSeleccionado == null) return;
                 if (!esEmailValido(email)) {
                   _mostrarError('El email ingresado no tiene un formato válido.');
                   return;
                 }
+                if (telefono.isNotEmpty && !_esTelefonoValido(telefono)) {
+                  _mostrarError('El teléfono debe tener formato internacional, ej: +59899668216');
+                  return;
+                }
                 Navigator.pop(context);
-                await _crearUsuario(email: email, nombre: nombre, password: password, rolId: rolSeleccionado!);
+                await _crearUsuario(
+                  email: email,
+                  nombre: nombre,
+                  password: password,
+                  rolId: rolSeleccionado!,
+                  telefono: telefono.isEmpty ? null : telefono,
+                );
               },
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white),
               child: const Text('Crear'),
@@ -138,7 +165,13 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
     );
   }
 
-  Future<void> _crearUsuario({required String email, required String nombre, required String password, required String rolId}) async {
+  /// Valida formato internacional básico: + seguido de 8 a 15 dígitos.
+  bool _esTelefonoValido(String telefono) {
+    final regex = RegExp(r'^\+\d{8,15}$');
+    return regex.hasMatch(telefono);
+  }
+
+  Future<void> _crearUsuario({required String email, required String nombre, required String password, required String rolId, String? telefono}) async {
     try {
       final response = await _supabase.functions.invoke(
         'crear_usuario',
@@ -152,6 +185,18 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
 
       final data = response.data;
       if (data != null && data['success'] == true) {
+        // Si se cargó teléfono, lo guardamos en el usuario recién creado.
+        // El id del nuevo usuario viene en la respuesta de la edge function.
+        if (telefono != null) {
+          final nuevoId = data['usuario_id'] ?? data['id'];
+          if (nuevoId != null) {
+            try {
+              await _supabase.from('usuarios').update({'telefono': telefono}).eq('id', nuevoId);
+            } catch (_) {
+              // Si falla solo el teléfono, no bloqueamos la creación
+            }
+          }
+        }
         _mostrarExito('Usuario creado correctamente');
         await _cargarDatos();
       } else {
@@ -160,8 +205,6 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
       }
     } catch (e) {
       String mensaje = 'Error al crear usuario';
-      // Cuando la edge function responde con status >= 400, el cliente
-      // lanza FunctionException y el mensaje de error real viene en e.details
       if (e is FunctionException) {
         final details = e.details;
         if (details is Map && details['error'] != null) {
@@ -205,6 +248,63 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                 await _supabase.from('usuarios').update({'nombre': nombre}).eq('id', usuario['id']);
                 await _cargarDatos();
                 _mostrarExito('Nombre actualizado correctamente');
+              } catch (e) {
+                _mostrarError(mensajeAmigableDb(e, entidad: 'usuario'));
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _editarTelefono(Map<String, dynamic> usuario) async {
+    final telefonoController = TextEditingController(text: usuario['telefono'] ?? '');
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Editar teléfono'),
+        content: SizedBox(
+          width: Responsive.isDesktop(context) ? 400 : double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: telefonoController,
+                style: const TextStyle(fontSize: 13),
+                decoration: const InputDecoration(
+                  labelText: 'Teléfono (WhatsApp)',
+                  labelStyle: TextStyle(fontSize: 13),
+                  border: OutlineInputBorder(),
+                  hintText: '+598XXXXXXXX',
+                  hintStyle: TextStyle(fontSize: 12),
+                ),
+                keyboardType: TextInputType.phone,
+                maxLength: 20,
+                autofocus: true,
+              ),
+              const SizedBox(height: 4),
+              Text('Dejá el campo vacío para quitar el teléfono. Necesario para recibir alertas por WhatsApp.', style: TextStyle(fontSize: 10, color: Colors.grey[600])),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          ElevatedButton(
+            onPressed: () async {
+              final telefono = telefonoController.text.trim();
+              if (telefono.isNotEmpty && !_esTelefonoValido(telefono)) {
+                _mostrarError('El teléfono debe tener formato internacional, ej: +59899668216');
+                return;
+              }
+              Navigator.pop(context);
+              try {
+                await _supabase.from('usuarios').update({'telefono': telefono.isEmpty ? null : telefono}).eq('id', usuario['id']);
+                await _cargarDatos();
+                _mostrarExito('Teléfono actualizado correctamente');
               } catch (e) {
                 _mostrarError(mensajeAmigableDb(e, entidad: 'usuario'));
               }
@@ -489,6 +589,18 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
         toolbarHeight: 48,
         backgroundColor: const Color(0xFF1F4E79),
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            tooltip: 'Destinatarios de alertas',
+            icon: const Icon(Icons.notifications_active_outlined),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const DestinatariosWhatsappScreen()),
+              );
+            },
+          ),
+        ],
       ),
       body: _cargando
           ? const Center(child: CircularProgressIndicator())
@@ -562,6 +674,16 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(usuario['email'], style: TextStyle(fontSize: 10, color: Colors.grey[600]), overflow: TextOverflow.ellipsis),
+            if (usuario['telefono'] != null && (usuario['telefono'] as String).trim().isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Row(
+                children: [
+                  Icon(Icons.phone_outlined, size: 11, color: Colors.grey[500]),
+                  const SizedBox(width: 4),
+                  Expanded(child: Text(usuario['telefono'], style: TextStyle(fontSize: 10, color: Colors.grey[600]), overflow: TextOverflow.ellipsis)),
+                ],
+              ),
+            ],
             const SizedBox(height: 4),
             Row(
               children: [
@@ -597,6 +719,10 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
               value: 'editar_nombre',
               child: Row(children: [Icon(Icons.edit_outlined, size: 18), SizedBox(width: 8), Text('Editar nombre')]),
             ),
+            const PopupMenuItem(
+              value: 'editar_telefono',
+              child: Row(children: [Icon(Icons.phone_outlined, size: 18), SizedBox(width: 8), Text('Editar teléfono')]),
+            ),
             if (!esYo)
               const PopupMenuItem(
                 value: 'cambiar_rol',
@@ -626,6 +752,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
           ],
           onSelected: (value) {
             if (value == 'editar_nombre') _editarNombre(usuario);
+            if (value == 'editar_telefono') _editarTelefono(usuario);
             if (value == 'cambiar_rol') _cambiarRol(usuario);
             if (value == 'asignar_sectores') _asignarSectores(usuario);
             if (value == 'resetear_pass') _resetearPassword(usuario);

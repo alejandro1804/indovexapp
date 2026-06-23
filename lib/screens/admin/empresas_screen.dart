@@ -108,7 +108,11 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
     );
     if (confirmar != true) return;
     try {
-      await _supabase.rpc('aprobar_empresa', params: {'p_empresa_id': empresa['empresa_id']});
+      // Llama a la Edge Function que aprueba Y envía el email de bienvenida
+      await _supabase.functions.invoke(
+        'aprobar-empresa',
+        body: {'empresa_id': empresa['empresa_id']},
+      );
       _mostrarExito('Empresa aprobada correctamente');
       await _cargar();
     } catch (e) {

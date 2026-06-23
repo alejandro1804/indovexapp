@@ -1,6 +1,4 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-
-serve(async (req) => {
+Deno.serve(async (req) => {
   try {
     const { repuesto, stock_actual, stock_minimo, empresa_id } = await req.json()
 
@@ -17,9 +15,15 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
     const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-    // 1. Buscar destinatarios activos de esta empresa
+    // 1. Buscar destinatarios activos de esta empresa, resolviendo el
+    //    teléfono vía join contra usuarios. El !inner + filtro descarta
+    //    automáticamente a los usuarios que no completaron su teléfono.
     const destRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/whatsapp_destinatarios?empresa_id=eq.${empresa_id}&activo=eq.true&select=numero_whatsapp,nombre_referencia`,
+      `${SUPABASE_URL}/rest/v1/whatsapp_destinatarios` +
+        `?empresa_id=eq.${empresa_id}` +
+        `&activo=eq.true` +
+        `&usuarios.telefono=not.is.null` +
+        `&select=usuario_id,usuarios!inner(nombre,telefono)`,
       {
         headers: {
           apikey: SERVICE_ROLE_KEY,
@@ -36,12 +40,15 @@ serve(async (req) => {
       )
     }
 
-    const destinatarios: { numero_whatsapp: string; nombre_referencia: string | null }[] =
-      await destRes.json()
+    type DestinatarioRow = { usuario_id: string; usuarios: { nombre: string; telefono: string } }
+    const filas: DestinatarioRow[] = await destRes.json()
 
-    if (destinatarios.length === 0) {
+    if (filas.length === 0) {
       return new Response(
-        JSON.stringify({ ok: true, info: 'No hay destinatarios activos configurados para esta empresa' }),
+        JSON.stringify({
+          ok: true,
+          info: 'No hay destinatarios activos con teléfono configurado para esta empresa',
+        }),
         { headers: { 'Content-Type': 'application/json' } }
       )
     }
@@ -50,7 +57,7 @@ serve(async (req) => {
 
     // 2. Enviar el mensaje a cada destinatario en paralelo
     const resultados = await Promise.all(
-      destinatarios.map(async (d) => {
+      filas.map(async (f) => {
         const res = await fetch(
           `https://api.twilio.com/2010-04-01/Accounts/${SID}/Messages.json`,
           {
@@ -61,14 +68,14 @@ serve(async (req) => {
             },
             body: new URLSearchParams({
               From: FROM,
-              To: `whatsapp:${d.numero_whatsapp}`,
+              To: `whatsapp:${f.usuarios.telefono}`,
               Body: mensaje,
             }),
           }
         )
         return {
-          destinatario: d.numero_whatsapp,
-          referencia: d.nombre_referencia,
+          usuario: f.usuarios.nombre,
+          telefono: f.usuarios.telefono,
           ok: res.ok,
           status: res.status,
         }

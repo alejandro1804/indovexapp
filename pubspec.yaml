@@ -28,6 +28,7 @@ dependencies:
   app_links: ^6.3.2
   mobile_scanner: ^5.2.3
   barcode: ^2.2.9
+  fl_chart: ^0.69.0
 
 dev_dependencies:
   flutter_test:
