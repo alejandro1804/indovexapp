@@ -15,15 +15,15 @@ Deno.serve(async (req) => {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
     const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-    // 1. Buscar destinatarios activos de esta empresa, resolviendo el
-    //    teléfono vía join contra usuarios. El !inner + filtro descarta
-    //    automáticamente a los usuarios que no completaron su teléfono.
+    // 1. Buscar destinatarios activos de esta empresa con su teléfono vía join.
+    //    NO filtramos el teléfono en la URL: el filtro sobre una columna embebida
+    //    (usuarios.telefono) tiene comportamiento inconsistente en PostgREST.
+    //    En su lugar traemos todo y filtramos en código, que es predecible.
     const destRes = await fetch(
       `${SUPABASE_URL}/rest/v1/whatsapp_destinatarios` +
         `?empresa_id=eq.${empresa_id}` +
         `&activo=eq.true` +
-        `&usuarios.telefono=not.is.null` +
-        `&select=usuario_id,usuarios!inner(nombre,telefono)`,
+        `&select=usuario_id,usuarios!inner(nombre,telefono,estado)`,
       {
         headers: {
           apikey: SERVICE_ROLE_KEY,
@@ -40,14 +40,28 @@ Deno.serve(async (req) => {
       )
     }
 
-    type DestinatarioRow = { usuario_id: string; usuarios: { nombre: string; telefono: string } }
-    const filas: DestinatarioRow[] = await destRes.json()
+    type DestinatarioRow = {
+      usuario_id: string
+      usuarios: { nombre: string; telefono: string | null; estado: string | null }
+    }
+    const filasRaw: DestinatarioRow[] = await destRes.json()
+
+    // 2. Filtrar en código: solo usuarios activos con teléfono no vacío.
+    const filas = filasRaw.filter(
+      (f) =>
+        f.usuarios &&
+        f.usuarios.telefono != null &&
+        f.usuarios.telefono.trim() !== '' &&
+        (f.usuarios.estado == null || f.usuarios.estado === 'activo')
+    )
 
     if (filas.length === 0) {
       return new Response(
         JSON.stringify({
           ok: true,
           info: 'No hay destinatarios activos con teléfono configurado para esta empresa',
+          // Diagnóstico: cuántas filas vinieron antes de filtrar
+          destinatarios_brutos: filasRaw.length,
         }),
         { headers: { 'Content-Type': 'application/json' } }
       )
@@ -55,7 +69,7 @@ Deno.serve(async (req) => {
 
     const mensaje = `⚠️ Stock bajo: ${repuesto}. Actual: ${stock_actual} | Mínimo: ${stock_minimo}`
 
-    // 2. Enviar el mensaje a cada destinatario en paralelo
+    // 3. Enviar el mensaje a cada destinatario en paralelo
     const resultados = await Promise.all(
       filas.map(async (f) => {
         const res = await fetch(
@@ -68,7 +82,7 @@ Deno.serve(async (req) => {
             },
             body: new URLSearchParams({
               From: FROM,
-              To: `whatsapp:${f.usuarios.telefono}`,
+              To: `whatsapp:${f.usuarios.telefono!.trim()}`,
               Body: mensaje,
             }),
           }
