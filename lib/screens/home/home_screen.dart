@@ -24,6 +24,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
+  bool _indexInicializado = false;
 
   List<_NavItem> _buildNavItemsCliente(Usuario usuario) {
     final items = <_NavItem>[];
@@ -111,6 +112,17 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
   }
 
+  /// Devuelve el índice inicial según el rol del usuario.
+  /// Admin de empresa → busca el tab Dashboard si tiene permiso.
+  /// Resto → 0 (primer tab disponible).
+  int _calcularIndexInicial(List<_NavItem> navItems, Usuario usuario) {
+    if (usuario.esAdmin) {
+      final idx = navItems.indexWhere((item) => item.label == 'Dashboard');
+      if (idx != -1) return idx;
+    }
+    return 0;
+  }
+
   Future<void> _logout(BuildContext context) async {
     await context.read<AuthProvider>().logout();
     if (!context.mounted) return;
@@ -196,7 +208,7 @@ class _HomeScreenState extends State<HomeScreen> {
         appBar: AppBar(
           backgroundColor: const Color(0xFF1F4E79),
           foregroundColor: Colors.white,
-          title: const Text('Indovex'),
+          title: const Text('IndovexApp'),
           actions: [
             IconButton(icon: const Icon(Icons.logout), onPressed: () => _logout(context)),
           ],
@@ -221,6 +233,12 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
+    // Inicializar índice una sola vez por sesión
+    if (!_indexInicializado) {
+      _selectedIndex = _calcularIndexInicial(navItems, usuario);
+      _indexInicializado = true;
+    }
+
     if (_selectedIndex >= navItems.length) _selectedIndex = 0;
 
     final isDesktop = Responsive.isTabletOrDesktop(context);
@@ -231,7 +249,7 @@ class _HomeScreenState extends State<HomeScreen> {
           : AppBar(
               backgroundColor: const Color(0xFF1F4E79),
               foregroundColor: Colors.white,
-              title: const Text('Indovex', style: TextStyle(fontWeight: FontWeight.bold)),
+              title: const Text('IndovexApp', style: TextStyle(fontWeight: FontWeight.bold)),
               actions: [
                 if (usuario.esSuperAdmin)
                   Tooltip(
@@ -245,7 +263,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       onPressed: () {
                         context.read<AuthProvider>().toggleModoAdmin();
-                        setState(() => _selectedIndex = 0);
+                        setState(() {
+                          _selectedIndex = 0;
+                          _indexInicializado = false;
+                        });
                       },
                     ),
                   ),
@@ -296,7 +317,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   const Text(
-                                    'Indovex',
+                                    'IndovexApp',
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontSize: 24,
@@ -358,7 +379,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                     GestureDetector(
                                       onTap: () {
                                         context.read<AuthProvider>().toggleModoAdmin();
-                                        setState(() => _selectedIndex = 0);
+                                        setState(() {
+                                          _selectedIndex = 0;
+                                          _indexInicializado = false;
+                                        });
                                       },
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(

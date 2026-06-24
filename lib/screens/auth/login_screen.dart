@@ -64,7 +64,7 @@ class _LoginScreenState extends State<LoginScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Text(
-                'Indovex',
+                'IndovexApp',
                 style: TextStyle(
                   fontSize: 40,
                   fontWeight: FontWeight.bold,

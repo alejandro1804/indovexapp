@@ -41,8 +41,8 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
   Future<void> _cargarDatos() async {
     setState(() => _cargando = true);
     try {
-      final maquinasData = await _supabase.from('maquinas').select().order('nombre');
-      final sectoresData = await _supabase.from('sectores').select().order('nombre');
+      final maquinasData = await _supabase.from('maquinas').select().order('nombre', ascending: true);
+      final sectoresData = await _supabase.from('sectores').select().order('nombre', ascending: true);
       setState(() {
         _maquinas = (maquinasData as List).map((e) => Maquina.fromMap(e)).toList();
         _sectores = (sectoresData as List).map((e) => Sector.fromMap(e)).toList();
@@ -66,7 +66,7 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
 
   List<Maquina> get _maquinasFiltradas {
     final q = _busqueda.trim().toLowerCase();
-    return _maquinas.where((m) {
+    final resultado = _maquinas.where((m) {
       if (_filtroEstado != 'todos' && m.estado != _filtroEstado) return false;
       if (_filtroSector != 'todos' && m.sectorId != _filtroSector) return false;
       if (q.isNotEmpty) {
@@ -76,6 +76,8 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
       }
       return true;
     }).toList();
+    resultado.sort((a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase()));
+    return resultado;
   }
 
   bool get _hayFiltrosActivos =>
@@ -143,7 +145,6 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
     );
     if (maquinaId == null || !mounted) return;
 
-    // Buscar la máquina en la lista ya cargada
     Maquina? maquina;
     for (final m in _maquinas) {
       if (m.id == maquinaId) {
@@ -152,7 +153,6 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
       }
     }
 
-    // Si no está en la lista (otro filtro, o recién creada), traerla de la BD
     if (maquina == null) {
       try {
         final data =

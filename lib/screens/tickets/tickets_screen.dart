@@ -198,6 +198,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
       case 'abierto':    return Colors.blue;
       case 'asignado':   return Colors.orange;
       case 'en_proceso': return Colors.purple;
+      case 'pausado':    return Colors.amber[700]!;
       case 'resuelto':   return Colors.green;
       case 'cerrado':    return Colors.grey;
       case 'rechazado':  return Colors.red;
@@ -210,6 +211,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
       case 'abierto':    return 'Abierto';
       case 'asignado':   return 'Asignado';
       case 'en_proceso': return 'En proceso';
+      case 'pausado':    return 'Pausado';
       case 'resuelto':   return 'Resuelto';
       case 'cerrado':    return 'Cerrado';
       case 'rechazado':  return 'Rechazado';
@@ -222,6 +224,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
       case 'abierto':    return Icons.fiber_new_outlined;
       case 'asignado':   return Icons.assignment_ind_outlined;
       case 'en_proceso': return Icons.build_outlined;
+      case 'pausado':    return Icons.pause_circle_outline;
       case 'resuelto':   return Icons.check_circle_outline;
       case 'cerrado':    return Icons.lock_outline;
       case 'rechazado':  return Icons.cancel_outlined;
@@ -370,6 +373,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
                         _item('abierto', 'Abierto'),
                         _item('asignado', 'Asignado'),
                         _item('en_proceso', 'En proceso'),
+                        _item('pausado', 'Pausado'),
                         _item('resuelto', 'Resuelto'),
                         _item('cerrado', 'Cerrado'),
                         _item('rechazado', 'Rechazado'),

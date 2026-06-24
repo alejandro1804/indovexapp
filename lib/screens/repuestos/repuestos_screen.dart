@@ -36,8 +36,8 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
   Future<void> _cargarDatos() async {
     setState(() => _cargando = true);
     try {
-      final repuestosData = await _supabase.from('repuestos').select().eq('activo', true).order('descripcion');
-      final categoriasData = await _supabase.from('categorias_repuestos').select().order('nombre');
+      final repuestosData = await _supabase.from('repuestos').select().eq('activo', true).order('descripcion', ascending: true);
+      final categoriasData = await _supabase.from('categorias_repuestos').select().order('nombre', ascending: true);
       setState(() {
         _repuestos = (repuestosData as List).map((e) => Repuesto.fromMap(e)).toList();
         _categorias = (categoriasData as List).map((e) => CategoriaRepuesto.fromMap(e)).toList();
@@ -47,7 +47,7 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
   }
 
   List<Repuesto> get _repuestosFiltrados {
-    return _repuestos.where((r) {
+    final resultado = _repuestos.where((r) {
       final coincideBusqueda = _textoBusqueda.isEmpty ||
           r.descripcion.toLowerCase().contains(_textoBusqueda.toLowerCase()) ||
           r.codigo.toLowerCase().contains(_textoBusqueda.toLowerCase());
@@ -55,6 +55,8 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
       final coincideStock = !_soloStockBajo || r.stockBajo;
       return coincideBusqueda && coincideCategoria && coincideStock;
     }).toList();
+    resultado.sort((a, b) => a.descripcion.toLowerCase().compareTo(b.descripcion.toLowerCase()));
+    return resultado;
   }
 
   bool get _hayFiltrosActivos =>

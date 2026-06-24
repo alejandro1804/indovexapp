@@ -126,6 +126,10 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
         mensaje = 'Ticket $numero está en proceso';
         paraUsuarioId = _ticket!['creado_por'];
         break;
+      case 'pausado':
+        mensaje = 'Ticket $numero fue pausado${comentario != null ? ': $comentario' : ''}';
+        paraUsuarioId = _ticket!['creado_por'];
+        break;
       case 'resuelto':
         mensaje = 'Ticket $numero fue resuelto por ${usuario.nombre}';
         paraUsuarioId = _ticket!['creado_por'];
@@ -239,6 +243,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
       case 'abierto': return Colors.blue;
       case 'asignado': return Colors.orange;
       case 'en_proceso': return Colors.purple;
+      case 'pausado': return Colors.amber[700]!;
       case 'resuelto': return Colors.green;
       case 'cerrado': return Colors.grey;
       case 'rechazado': return Colors.red;
@@ -251,6 +256,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
       case 'abierto': return 'Abierto';
       case 'asignado': return 'Asignado';
       case 'en_proceso': return 'En proceso';
+      case 'pausado': return 'Pausado';
       case 'resuelto': return 'Resuelto';
       case 'cerrado': return 'Cerrado';
       case 'rechazado': return 'Rechazado';
@@ -480,29 +486,67 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     final esTecnico = usuario.esTecnico;
     final botones = <Widget>[];
 
+    // ── Admin / Encargado ──────────────────────────────────────
     if (esAdminOEncargado) {
       if (estado == 'abierto') {
-        botones.add(_botonAccion('Asignar técnico', Icons.assignment_ind_outlined, Colors.orange,
-            () => _mostrarDialogoAccion('Asignar técnico', 'Asignar', 'asignado', seleccionarTecnico: true)));
-        botones.add(_botonAccion('Rechazar', Icons.cancel_outlined, Colors.red,
-            () => _mostrarDialogoAccion('Rechazar ticket', 'Rechazar', 'rechazado', comentarioObligatorio: true)));
+        botones.add(_botonAccion(
+          'Asignar técnico', Icons.assignment_ind_outlined, Colors.orange,
+          () => _mostrarDialogoAccion('Asignar técnico', 'Asignar', 'asignado',
+              seleccionarTecnico: true),
+        ));
+        botones.add(_botonAccion(
+          'Rechazar', Icons.cancel_outlined, Colors.red,
+          () => _mostrarDialogoAccion('Rechazar ticket', 'Rechazar', 'rechazado',
+              comentarioObligatorio: true),
+        ));
       }
       if (estado == 'resuelto') {
-        botones.add(_botonAccion('Cerrar ticket', Icons.lock_outline, Colors.grey,
-            () => _mostrarDialogoAccion('Cerrar ticket', 'Cerrar', 'cerrado')));
-        botones.add(_botonAccion('Reabrir', Icons.restart_alt, Colors.blue,
-            () => _mostrarDialogoAccion('Reabrir ticket', 'Reabrir', 'abierto', comentarioObligatorio: true)));
+        botones.add(_botonAccion(
+          'Cerrar ticket', Icons.lock_outline, Colors.grey,
+          () => _mostrarDialogoAccion('Cerrar ticket', 'Cerrar', 'cerrado'),
+        ));
+        botones.add(_botonAccion(
+          'Reabrir', Icons.restart_alt, Colors.blue,
+          () => _mostrarDialogoAccion('Reabrir ticket', 'Reabrir', 'abierto',
+              comentarioObligatorio: true),
+        ));
       }
     }
 
+    // ── Técnico ───────────────────────────────────────────────
     if (esTecnico) {
       if (estado == 'asignado') {
-        botones.add(_botonAccion('Iniciar trabajo', Icons.build_outlined, Colors.purple,
-            () => _mostrarDialogoAccion('Iniciar trabajo', 'Iniciar', 'en_proceso')));
+        botones.add(_botonAccion(
+          'Iniciar trabajo', Icons.build_outlined, Colors.purple,
+          () => _mostrarDialogoAccion('Iniciar trabajo', 'Iniciar', 'en_proceso'),
+        ));
       }
       if (estado == 'en_proceso') {
-        botones.add(_botonAccion('Marcar resuelto', Icons.check_circle_outline, Colors.green,
-            () => _mostrarDialogoAccion('Marcar como resuelto', 'Resolver', 'resuelto', comentarioObligatorio: true)));
+        botones.add(_botonAccion(
+          'Pausar', Icons.pause_circle_outline, Colors.amber[700]!,
+          () => _mostrarDialogoAccion(
+            'Pausar trabajo',
+            'Pausar',
+            'pausado',
+            comentarioObligatorio: true,
+          ),
+        ));
+        botones.add(_botonAccion(
+          'Marcar resuelto', Icons.check_circle_outline, Colors.green,
+          () => _mostrarDialogoAccion('Marcar como resuelto', 'Resolver', 'resuelto',
+              comentarioObligatorio: true),
+        ));
+      }
+      if (estado == 'pausado') {
+        botones.add(_botonAccion(
+          'Reanudar', Icons.play_circle_outline, Colors.purple,
+          () => _mostrarDialogoAccion('Reanudar trabajo', 'Reanudar', 'en_proceso'),
+        ));
+        botones.add(_botonAccion(
+          'Marcar resuelto', Icons.check_circle_outline, Colors.green,
+          () => _mostrarDialogoAccion('Marcar como resuelto', 'Resolver', 'resuelto',
+              comentarioObligatorio: true),
+        ));
       }
     }
 
