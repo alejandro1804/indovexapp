@@ -55,7 +55,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Indovex',
+      title: 'IndovexApp',
       debugShowCheckedModeBanner: false,
       navigatorKey: navigatorKey,
       theme: ThemeData(
@@ -84,11 +84,46 @@ class _AuthGateState extends State<AuthGate> {
   // Indica que el home ya está montado y se pueden procesar deep links.
   bool _listoParaDeepLinks = false;
 
+  // Evita que el flujo normal de _checkSession redirija cuando estamos
+  // en medio de un recovery de contraseña.
+  bool _enRecovery = false;
+
   @override
   void initState() {
     super.initState();
+    _initAuthListener();
     _initDeepLinks();
     _checkSession();
+  }
+
+  // Escucha los cambios de estado de auth. El evento passwordRecovery se
+  // dispara cuando el usuario vuelve desde el link del mail de "olvidé
+  // mi contraseña" (Supabase procesa el token automáticamente).
+  void _initAuthListener() {
+    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      if (data.event == AuthChangeEvent.passwordRecovery) {
+        _enRecovery = true;
+        // Cargar el usuario (la sesión de recovery ya está activa) y abrir
+        // la pantalla para definir la nueva contraseña.
+        _abrirPantallaNuevaPassword();
+      }
+    });
+  }
+
+  Future<void> _abrirPantallaNuevaPassword() async {
+    // Aseguramos que el provider tenga el usuario cargado para que, tras
+    // guardar la nueva contraseña, HomeScreen tenga los datos.
+    try {
+      await context.read<AuthProvider>().cargarUsuario();
+    } catch (_) {
+      // Si falla la carga seguimos igual: la pantalla solo necesita la sesión.
+    }
+    navigatorKey.currentState?.pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => const CambiarPasswordScreen(esRecovery: true),
+      ),
+      (route) => false,
+    );
   }
 
   void _initDeepLinks() {
@@ -160,10 +195,19 @@ class _AuthGateState extends State<AuthGate> {
   Future<void> _checkSession() async {
     await Future.delayed(const Duration(milliseconds: 500));
     if (!mounted) return;
+
+    // Si estamos en recovery, el listener de auth se encarga de la navegación.
+    // No redirigimos a Home/Login para no pisar la pantalla de nueva contraseña.
+    if (_enRecovery) return;
+
     final session = Supabase.instance.client.auth.currentSession;
     if (session != null) {
       await context.read<AuthProvider>().cargarUsuario();
       if (!mounted) return;
+
+      // Re-chequeo: el listener pudo haber marcado recovery mientras cargábamos.
+      if (_enRecovery) return;
+
       final usuario = context.read<AuthProvider>().usuario;
 
       final destino = (usuario != null && usuario.primerLogin)

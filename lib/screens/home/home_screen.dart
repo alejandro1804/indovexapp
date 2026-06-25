@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/usuario.dart';
 import '../../core/responsive.dart';
@@ -25,6 +26,25 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   bool _indexInicializado = false;
+
+  String _version = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarVersion();
+  }
+
+  Future<void> _cargarVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (mounted) {
+        setState(() => _version = 'v${info.version}');
+      }
+    } catch (_) {
+      // Si falla, simplemente no se muestra la versión.
+    }
+  }
 
   List<_NavItem> _buildNavItemsCliente(Usuario usuario) {
     final items = <_NavItem>[];
@@ -468,6 +488,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                     borderRadius: BorderRadius.circular(8)),
                               ),
                             ),
+                            if (_version.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: Text(
+                                  _version,
+                                  style: const TextStyle(color: Colors.white38, fontSize: 11),
+                                ),
+                              ),
                           ],
                         ),
                       ),
@@ -480,6 +508,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   )
                 : navItems[_selectedIndex].screen,
           ),
+          // Versión en mobile: barra delgada al pie
+          if (!isDesktop && _version.isNotEmpty)
+            Container(
+              width: double.infinity,
+              color: Colors.grey[100],
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Text(
+                _version,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey[500], fontSize: 10),
+              ),
+            ),
         ],
       ),
       bottomNavigationBar: (isDesktop || navItems.length < 2)

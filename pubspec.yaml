@@ -1,5 +1,5 @@
 name: indovexapp
-description: "Indovex - Gestión Industrial y Mantenimiento"
+description: "IndovexApp - Gestión Industrial y Mantenimiento"
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -29,6 +29,7 @@ dependencies:
   mobile_scanner: ^5.2.3
   barcode: ^2.2.9
   fl_chart: ^0.69.0
+  package_info_plus: ^8.0.0
 
 dev_dependencies:
   flutter_test:

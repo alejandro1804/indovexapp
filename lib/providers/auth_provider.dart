@@ -108,6 +108,25 @@ class AuthProvider extends ChangeNotifier {
         password: password,
       );
 
+      // 1. Validar que el usuario esté activo.
+      //    Supabase Auth valida credenciales, pero no conoce nuestro campo
+      //    'estado'. Un usuario desactivado por su admin tiene credenciales
+      //    válidas, así que debemos bloquearlo explícitamente acá.
+      final authUserId = _supabase.auth.currentUser!.id;
+      final datosUsuario = await _supabase
+          .from('usuarios')
+          .select('estado')
+          .eq('id', authUserId)
+          .single();
+
+      final estadoUsuario = datosUsuario['estado'] as String?;
+      if (estadoUsuario != 'activo') {
+        await _supabase.auth.signOut();
+        _errorLogin = 'Tu usuario está desactivado. Contactá al administrador de tu empresa.';
+        return false;
+      }
+
+      // 2. Validar que la empresa esté activa.
       final estadoEmpresa = await _supabase.rpc('estado_mi_empresa');
 
       if (estadoEmpresa != 'activa') {
