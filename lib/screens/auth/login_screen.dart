@@ -115,7 +115,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     // Link "¿Olvidaste tu contraseña?" entre contraseña e Ingresar
                     Align(
-                      alignment: Alignment.centerRight,
+                      alignment: Alignment.center,
                       child: TextButton(
                         onPressed: _loading
                             ? null

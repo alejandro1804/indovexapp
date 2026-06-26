@@ -117,26 +117,32 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
     }
   }
 
-  Future<void> _exportarPdf() async {
-    final usuario = context.read<AuthProvider>().usuario;
-    if (usuario == null) return;
-    setState(() => _exportando = true);
-    try {
-      final sectoresMap = { for (final s in _sectores) s.id: s.nombre };
-      await MaquinasPdfService.generarYCompartir(
-        maquinas: _maquinasFiltradas,
-        nombreEmpresa: usuario.empresaId,
-        sectores: sectoresMap,
-        filtroEstado: _filtroEstado,
-        filtroSector: _filtroSector,
-        busqueda: _busqueda,
-      );
-    } catch (e) {
-      _mostrarError('Error al generar PDF: $e');
-    } finally {
-      if (mounted) setState(() => _exportando = false);
+    Future<void> _exportarPdf() async {
+      final usuario = context.read<AuthProvider>().usuario;
+      if (usuario == null) return;
+      setState(() => _exportando = true);
+      try {
+        final empresa = await _supabase
+            .from('empresas')
+            .select('nombre')
+            .eq('id', usuario.empresaId)
+            .single();
+        final nombreEmpresa = empresa['nombre'] as String? ?? '';
+        final sectoresMap = { for (final s in _sectores) s.id: s.nombre };
+        await MaquinasPdfService.generarYCompartir(
+          maquinas: _maquinasFiltradas,
+          nombreEmpresa: nombreEmpresa,
+          sectores: sectoresMap,
+          filtroEstado: _filtroEstado,
+          filtroSector: _filtroSector,
+          busqueda: _busqueda,
+        );
+      } catch (e) {
+        _mostrarError('Error al generar PDF: $e');
+      } finally {
+        if (mounted) setState(() => _exportando = false);
+      }
     }
-  }
 
   Future<void> _escanearQr() async {
     final maquinaId = await Navigator.push<String>(

@@ -46,7 +46,6 @@ class TicketsPdfService {
       }
     }
 
-    // Resumen de filtros
     final filtros = <String>[];
     if (filtroEstado != null && filtroEstado != 'todos') filtros.add('Estado: ${labelEstado(filtroEstado)}');
     if (filtroTipo != null && filtroTipo != 'todos') filtros.add('Tipo: ${labelTipo(filtroTipo)}');
@@ -71,15 +70,18 @@ class TicketsPdfService {
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Text('INDOVEXAPP', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1F4E79'))),
-                  pw.Text('Listado de Tickets', style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey700)),
+                  pw.Text(nombreEmpresa,
+                      style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1F4E79'))),
+                  pw.Text('Listado de Tickets',
+                      style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey700)),
+
                 ],
               ),
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.end,
                 children: [
-                  pw.Text(nombreEmpresa, style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
-                  pw.Text('Generado: ${fmtCorto(ahora)}', style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
+                  pw.Text('Generado: ${fmtCorto(ahora)}',
+                      style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
                 ],
               ),
             ],
@@ -94,7 +96,6 @@ class TicketsPdfService {
           ),
         ),
         build: (context) => [
-          // Resumen de filtros
           pw.Container(
             padding: const pw.EdgeInsets.all(8),
             margin: const pw.EdgeInsets.only(bottom: 12),
@@ -113,19 +114,18 @@ class TicketsPdfService {
               ],
             ),
           ),
-          // Tabla
           pw.Table(
             border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
             columnWidths: {
-              0: const pw.FlexColumnWidth(1.0), // Número
-              1: const pw.FlexColumnWidth(2.2), // Máquina
-              2: const pw.FlexColumnWidth(1.2), // Sector
-              3: const pw.FlexColumnWidth(3.0), // Descripción
-              4: const pw.FlexColumnWidth(1.0), // Tipo
-              5: const pw.FlexColumnWidth(1.0), // Prioridad
-              6: const pw.FlexColumnWidth(1.2), // Estado
-              7: const pw.FlexColumnWidth(1.5), // Técnico
-              8: const pw.FlexColumnWidth(1.8), // Fecha
+              0: const pw.FlexColumnWidth(1.0),
+              1: const pw.FlexColumnWidth(2.2),
+              2: const pw.FlexColumnWidth(1.2),
+              3: const pw.FlexColumnWidth(3.0),
+              4: const pw.FlexColumnWidth(1.0),
+              5: const pw.FlexColumnWidth(1.0),
+              6: const pw.FlexColumnWidth(1.2),
+              7: const pw.FlexColumnWidth(1.5),
+              8: const pw.FlexColumnWidth(1.8),
             },
             children: [
               pw.TableRow(
@@ -150,7 +150,6 @@ class TicketsPdfService {
                 final tipo = t['tipo'] as String? ?? 'correctivo';
                 final prioridad = t['prioridad'] as String? ?? 'media';
                 final estado = t['estado'] as String? ?? '';
-
                 return pw.TableRow(
                   children: [
                     _celda(t['numero'] ?? '-'),
@@ -167,6 +166,8 @@ class TicketsPdfService {
               }),
             ],
           ),
+          pw.SizedBox(height: 16),
+          _notaPie(),
         ],
       ),
     );
@@ -189,6 +190,20 @@ class TicketsPdfService {
           color: header ? PdfColors.white : PdfColors.black,
         ),
         maxLines: 2,
+      ),
+    );
+  }
+
+  static pw.Widget _notaPie() {
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(8),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.grey300),
+        borderRadius: pw.BorderRadius.circular(4),
+      ),
+      child: pw.Text(
+        'Documento generado por IndovexApp. La distribución de este reporte es responsabilidad del Cliente como titular de los datos.',
+        style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
       ),
     );
   }

@@ -8,7 +8,7 @@ class RepuestosPdfService {
   static Future<void> generarYCompartir({
     required List<Repuesto> repuestos,
     required String nombreEmpresa,
-    required Map<String, String> categorias, // categoriaId -> nombre
+    required Map<String, String> categorias,
     String? filtroCategoria,
     bool soloStockBajo = false,
     String? busqueda,
@@ -22,13 +22,11 @@ class RepuestosPdfService {
       return '${d(l.day)}/${d(l.month)}/${l.year} ${d(l.hour)}:${d(l.minute)}';
     }
 
-    // Resumen de filtros
     final filtros = <String>[];
     if (filtroCategoria != null && filtroCategoria != 'todos') filtros.add('Categoría: ${categorias[filtroCategoria] ?? filtroCategoria}');
     if (soloStockBajo) filtros.add('Solo stock bajo');
     if (busqueda != null && busqueda.trim().isNotEmpty) filtros.add('Búsqueda: "${busqueda.trim()}"');
     final filtrosTexto = filtros.isEmpty ? 'Sin filtros (todos los repuestos)' : filtros.join('  |  ');
-
     final stockBajoCount = repuestos.where((r) => r.stockBajo).length;
 
     pdf.addPage(
@@ -47,15 +45,18 @@ class RepuestosPdfService {
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Text('INDOVEXAPP', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1F4E79'))),
-                  pw.Text('Listado de Repuestos', style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey700)),
+                  pw.Text(nombreEmpresa,
+                      style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1F4E79'))),
+                  pw.Text('Listado de Repuestos',
+                      style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey700)),
+
                 ],
               ),
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.end,
                 children: [
-                  pw.Text(nombreEmpresa, style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
-                  pw.Text('Generado: ${fmtCorto(ahora)}', style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
+                  pw.Text('Generado: ${fmtCorto(ahora)}',
+                      style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
                 ],
               ),
             ],
@@ -70,7 +71,6 @@ class RepuestosPdfService {
           ),
         ),
         build: (context) => [
-          // Resumen de filtros
           pw.Container(
             padding: const pw.EdgeInsets.all(8),
             margin: const pw.EdgeInsets.only(bottom: 12),
@@ -92,16 +92,15 @@ class RepuestosPdfService {
               ],
             ),
           ),
-          // Tabla
           pw.Table(
             border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
             columnWidths: {
-              0: const pw.FlexColumnWidth(1.2), // Código
-              1: const pw.FlexColumnWidth(2.8), // Descripción
-              2: const pw.FlexColumnWidth(1.8), // Categoría
-              3: const pw.FlexColumnWidth(1.0), // Stock actual
-              4: const pw.FlexColumnWidth(1.0), // Stock mínimo
-              5: const pw.FlexColumnWidth(1.2), // Unidad
+              0: const pw.FlexColumnWidth(1.2),
+              1: const pw.FlexColumnWidth(2.8),
+              2: const pw.FlexColumnWidth(1.8),
+              3: const pw.FlexColumnWidth(1.0),
+              4: const pw.FlexColumnWidth(1.0),
+              5: const pw.FlexColumnWidth(1.2),
             },
             children: [
               pw.TableRow(
@@ -119,7 +118,7 @@ class RepuestosPdfService {
                 final stockBajo = r.stockBajo;
                 return pw.TableRow(
                   decoration: stockBajo
-                      ? const pw.BoxDecoration(color: PdfColor.fromInt(0xFFFFF3E0)) // naranja muy suave
+                      ? const pw.BoxDecoration(color: PdfColor.fromInt(0xFFFFF3E0))
                       : null,
                   children: [
                     _celda(r.codigo, stockBajo: stockBajo),
@@ -141,6 +140,8 @@ class RepuestosPdfService {
                 style: const pw.TextStyle(fontSize: 8, color: PdfColors.orange),
               ),
             ),
+          pw.SizedBox(height: 16),
+          _notaPie(),
         ],
       ),
     );
@@ -160,12 +161,22 @@ class RepuestosPdfService {
         style: pw.TextStyle(
           fontSize: header ? 9 : 8,
           fontWeight: header ? pw.FontWeight.bold : pw.FontWeight.normal,
-          color: header
-              ? PdfColors.white
-              : stockBajo
-                  ? PdfColors.orange
-                  : PdfColors.black,
+          color: header ? PdfColors.white : stockBajo ? PdfColors.orange : PdfColors.black,
         ),
+      ),
+    );
+  }
+
+  static pw.Widget _notaPie() {
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(8),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.grey300),
+        borderRadius: pw.BorderRadius.circular(4),
+      ),
+      child: pw.Text(
+        'Documento generado por IndovexApp. La distribución de este reporte es responsabilidad del Cliente como titular de los datos.',
+        style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
       ),
     );
   }

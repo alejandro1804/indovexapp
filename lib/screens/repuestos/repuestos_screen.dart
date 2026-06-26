@@ -84,26 +84,32 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
     return usuario?.tienePermiso('exportar_pdf_repuestos') ?? false;
   }
 
-  Future<void> _exportarPdf() async {
-    final usuario = context.read<AuthProvider>().usuario;
-    if (usuario == null) return;
-    setState(() => _exportando = true);
-    try {
-      final categoriasMap = { for (final c in _categorias) c.id: c.nombre };
-      await RepuestosPdfService.generarYCompartir(
-        repuestos: _repuestosFiltrados,
-        nombreEmpresa: usuario.empresaId,
-        categorias: categoriasMap,
-        filtroCategoria: _filtroCategoriaId,
-        soloStockBajo: _soloStockBajo,
-        busqueda: _textoBusqueda,
-      );
-    } catch (e) {
-      _mostrarError('Error al generar PDF: $e');
-    } finally {
-      if (mounted) setState(() => _exportando = false);
-    }
+Future<void> _exportarPdf() async {
+  final usuario = context.read<AuthProvider>().usuario;
+  if (usuario == null) return;
+  setState(() => _exportando = true);
+  try {
+    final empresa = await _supabase
+        .from('empresas')
+        .select('nombre')
+        .eq('id', usuario.empresaId)
+        .single();
+    final nombreEmpresa = empresa['nombre'] as String? ?? '';
+    final categoriasMap = { for (final c in _categorias) c.id: c.nombre };
+    await RepuestosPdfService.generarYCompartir(
+      repuestos: _repuestosFiltrados,
+      nombreEmpresa: nombreEmpresa,
+      categorias: categoriasMap,
+      filtroCategoria: _filtroCategoriaId,
+      soloStockBajo: _soloStockBajo,
+      busqueda: _textoBusqueda,
+    );
+  } catch (e) {
+    _mostrarError('Error al generar PDF: $e');
+  } finally {
+    if (mounted) setState(() => _exportando = false);
   }
+}
 
   Future<void> _mostrarFormulario({Repuesto? repuesto}) async {
     final codigoController = TextEditingController(text: repuesto?.codigo ?? '');

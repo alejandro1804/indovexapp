@@ -30,15 +30,10 @@ class AuditoriaPdfService {
       return '${d(l.day)}/${d(l.month)}/${l.year} ${d(l.hour)}:${d(l.minute)}';
     }
 
-    // Resumen de filtros aplicados
     final filtros = <String>[];
     if (filtroTabla != null && filtroTabla != 'todos') filtros.add('Tabla: $filtroTabla');
-    if (filtroOperacion != null && filtroOperacion != 'todos') {
-      filtros.add('Operación: $filtroOperacion');
-    }
-    if (desde != null && hasta != null) {
-      filtros.add('Período: ${fmtCorto(desde)} a ${fmtCorto(hasta)}');
-    }
+    if (filtroOperacion != null && filtroOperacion != 'todos') filtros.add('Operación: $filtroOperacion');
+    if (desde != null && hasta != null) filtros.add('Período: ${fmtCorto(desde)} a ${fmtCorto(hasta)}');
     final filtrosTexto = filtros.isEmpty ? 'Sin filtros (todos los eventos)' : filtros.join('  |  ');
 
     pdf.addPage(
@@ -57,15 +52,18 @@ class AuditoriaPdfService {
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Text('INDOVEX', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1F4E79'))),
-                  pw.Text('Reporte de Auditoría', style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey700)),
+                  pw.Text(nombreEmpresa,
+                      style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1F4E79'))),
+                  pw.Text('Reporte de Auditoría',
+                      style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey700)),
+
                 ],
               ),
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.end,
                 children: [
-                  pw.Text(nombreEmpresa, style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
-                  pw.Text('Generado: ${fmtCorto(ahora)}', style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
+                  pw.Text('Generado: ${fmtCorto(ahora)}',
+                      style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
                 ],
               ),
             ],
@@ -103,11 +101,10 @@ class AuditoriaPdfService {
             columnWidths: {
               0: const pw.FlexColumnWidth(2.2),
               1: const pw.FlexColumnWidth(1.3),
-              2: const pw.FlexColumnWidth(2),
-              3: const pw.FlexColumnWidth(2),
+              2: const pw.FlexColumnWidth(2.0),
+              3: const pw.FlexColumnWidth(2.0),
             },
             children: [
-              // Encabezado
               pw.TableRow(
                 decoration: pw.BoxDecoration(color: PdfColor.fromHex('#1F4E79')),
                 children: [
@@ -117,17 +114,18 @@ class AuditoriaPdfService {
                   _celda('Usuario', header: true),
                 ],
               ),
-              // Filas
               ...logs.map((log) => pw.TableRow(
-                    children: [
-                      _celda(fmt(log.createdAt)),
-                      _celda(log.operacionLabel),
-                      _celda(log.tablaLabel),
-                      _celda(log.nombreUsuario ?? 'Sistema'),
-                    ],
-                  )),
+                children: [
+                  _celda(fmt(log.createdAt)),
+                  _celda(log.operacionLabel),
+                  _celda(log.tablaLabel),
+                  _celda(log.nombreUsuario ?? 'Sistema'),
+                ],
+              )),
             ],
           ),
+          pw.SizedBox(height: 16),
+          _notaPie(),
         ],
       ),
     );
@@ -149,6 +147,20 @@ class AuditoriaPdfService {
           fontWeight: header ? pw.FontWeight.bold : pw.FontWeight.normal,
           color: header ? PdfColors.white : PdfColors.black,
         ),
+      ),
+    );
+  }
+
+  static pw.Widget _notaPie() {
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(8),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.grey300),
+        borderRadius: pw.BorderRadius.circular(4),
+      ),
+      child: pw.Text(
+        'Documento generado por IndovexApp. La distribución de este reporte es responsabilidad del Cliente como titular de los datos.',
+        style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
       ),
     );
   }

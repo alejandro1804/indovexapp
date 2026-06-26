@@ -44,7 +44,6 @@ class PlanesPdfService {
       return '$valor ${p.unidadIntervalo}';
     }
 
-    // Resumen de filtros
     final filtros = <String>[];
     if (busqueda != null && busqueda.trim().isNotEmpty) filtros.add('Búsqueda: "${busqueda.trim()}"');
     final filtrosTexto = filtros.isEmpty ? 'Sin filtros (todos los planes activos)' : filtros.join('  |  ');
@@ -65,15 +64,19 @@ class PlanesPdfService {
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Text('INDOVEXAPP', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1F4E79'))),
-                  pw.Text('Planes de Mantenimiento', style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey700)),
+                  pw.Text(nombreEmpresa,
+                      style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1F4E79'))),
+                  pw.Text('Planes de Mantenimiento',
+                      style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey700)),
+                  pw.Text('Generado con IndovexApp',
+                      style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey500)),
                 ],
               ),
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.end,
                 children: [
-                  pw.Text(nombreEmpresa, style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
-                  pw.Text('Generado: ${fmtCorto(ahora)}', style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
+                  pw.Text('Generado: ${fmtCorto(ahora)}',
+                      style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
                 ],
               ),
             ],
@@ -88,7 +91,6 @@ class PlanesPdfService {
           ),
         ),
         build: (context) => [
-          // Resumen
           pw.Container(
             padding: const pw.EdgeInsets.all(8),
             margin: const pw.EdgeInsets.only(bottom: 12),
@@ -107,16 +109,15 @@ class PlanesPdfService {
               ],
             ),
           ),
-          // Tabla
           pw.Table(
             border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
             columnWidths: {
-              0: const pw.FlexColumnWidth(2.0), // Máquina
-              1: const pw.FlexColumnWidth(3.0), // Tarea
-              2: const pw.FlexColumnWidth(1.2), // Tipo intervalo
-              3: const pw.FlexColumnWidth(1.5), // Frecuencia
-              4: const pw.FlexColumnWidth(1.5), // Próximo
-              5: const pw.FlexColumnWidth(1.2), // Creado
+              0: const pw.FlexColumnWidth(2.0),
+              1: const pw.FlexColumnWidth(3.0),
+              2: const pw.FlexColumnWidth(1.2),
+              3: const pw.FlexColumnWidth(1.5),
+              4: const pw.FlexColumnWidth(1.5),
+              5: const pw.FlexColumnWidth(1.2),
             },
             children: [
               pw.TableRow(
@@ -144,6 +145,8 @@ class PlanesPdfService {
               )),
             ],
           ),
+          pw.SizedBox(height: 16),
+          _notaPie(),
         ],
       ),
     );
@@ -166,6 +169,20 @@ class PlanesPdfService {
           color: header ? PdfColors.white : PdfColors.black,
         ),
         maxLines: 3,
+      ),
+    );
+  }
+
+  static pw.Widget _notaPie() {
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(8),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.grey300),
+        borderRadius: pw.BorderRadius.circular(4),
+      ),
+      child: pw.Text(
+        'Documento generado por IndovexApp. La distribución de este reporte es responsabilidad del Cliente como titular de los datos.',
+        style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
       ),
     );
   }

@@ -159,26 +159,32 @@ class _TicketsScreenState extends State<TicketsScreen> {
     return usuario?.tienePermiso('exportar_pdf_tickets') ?? false;
   }
 
-  Future<void> _exportarPdf() async {
-    final usuario = context.read<AuthProvider>().usuario;
-    if (usuario == null) return;
-    setState(() => _exportando = true);
-    try {
-      await TicketsPdfService.generarYCompartir(
-        tickets: _ticketsFiltrados,
-        nombreEmpresa: usuario.empresaId,
-        filtroEstado: _filtroEstado,
-        filtroTipo: _filtroTipo,
-        filtroPrioridad: _filtroPrioridad,
-        filtroSector: _filtroSector,
-        busqueda: _textoBusqueda,
-      );
-    } catch (e) {
-      _mostrarError('Error al generar PDF: $e');
-    } finally {
-      if (mounted) setState(() => _exportando = false);
-    }
+Future<void> _exportarPdf() async {
+  final usuario = context.read<AuthProvider>().usuario;
+  if (usuario == null) return;
+  setState(() => _exportando = true);
+  try {
+    final empresa = await _supabase
+        .from('empresas')
+        .select('nombre')
+        .eq('id', usuario.empresaId)
+        .single();
+    final nombreEmpresa = empresa['nombre'] as String? ?? '';
+    await TicketsPdfService.generarYCompartir(
+      tickets: _ticketsFiltrados,
+      nombreEmpresa: nombreEmpresa,
+      filtroEstado: _filtroEstado,
+      filtroTipo: _filtroTipo,
+      filtroPrioridad: _filtroPrioridad,
+      filtroSector: _filtroSector,
+      busqueda: _textoBusqueda,
+    );
+  } catch (e) {
+    _mostrarError('Error al generar PDF: $e');
+  } finally {
+    if (mounted) setState(() => _exportando = false);
   }
+}
 
   String _formatoAuditoria(DateTime? fechaUtc) {
     if (fechaUtc == null) return '';

@@ -8,7 +8,7 @@ class MaquinasPdfService {
   static Future<void> generarYCompartir({
     required List<Maquina> maquinas,
     required String nombreEmpresa,
-    required Map<String, String> sectores, // sectorId -> nombre
+    required Map<String, String> sectores,
     String? filtroEstado,
     String? filtroSector,
     String? busqueda,
@@ -24,14 +24,13 @@ class MaquinasPdfService {
 
     String labelEstado(String estado) {
       switch (estado) {
-        case 'operativa': return 'Operativa';
-        case 'en_mantenimiento': return 'En mantenimiento';
+        case 'operativa':         return 'Operativa';
+        case 'en_mantenimiento':  return 'En mantenimiento';
         case 'fuera_de_servicio': return 'Fuera de servicio';
-        default: return estado;
+        default:                  return estado;
       }
     }
 
-    // Resumen de filtros
     final filtros = <String>[];
     if (filtroEstado != null && filtroEstado != 'todos') filtros.add('Estado: ${labelEstado(filtroEstado)}');
     if (filtroSector != null && filtroSector != 'todos') filtros.add('Sector: ${sectores[filtroSector] ?? filtroSector}');
@@ -54,15 +53,17 @@ class MaquinasPdfService {
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Text('INDOVEXAPP', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1F4E79'))),
-                  pw.Text('Listado de Máquinas', style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey700)),
-                ],
+                  pw.Text(nombreEmpresa,
+                      style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1F4E79'))),
+                  pw.Text('Listado de Máquinas',
+                      style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey700)),
+                  ],
               ),
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.end,
                 children: [
-                  pw.Text(nombreEmpresa, style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
-                  pw.Text('Generado: ${fmtCorto(ahora)}', style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
+                  pw.Text('Generado: ${fmtCorto(ahora)}',
+                      style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
                 ],
               ),
             ],
@@ -77,7 +78,6 @@ class MaquinasPdfService {
           ),
         ),
         build: (context) => [
-          // Resumen de filtros
           pw.Container(
             padding: const pw.EdgeInsets.all(8),
             margin: const pw.EdgeInsets.only(bottom: 12),
@@ -96,14 +96,13 @@ class MaquinasPdfService {
               ],
             ),
           ),
-          // Tabla
           pw.Table(
             border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
             columnWidths: {
-              0: const pw.FlexColumnWidth(2.5), // Nombre
-              1: const pw.FlexColumnWidth(1.5), // Código
-              2: const pw.FlexColumnWidth(2.0), // Sector
-              3: const pw.FlexColumnWidth(1.8), // Estado
+              0: const pw.FlexColumnWidth(2.5),
+              1: const pw.FlexColumnWidth(1.5),
+              2: const pw.FlexColumnWidth(2.0),
+              3: const pw.FlexColumnWidth(1.8),
             },
             children: [
               pw.TableRow(
@@ -125,6 +124,8 @@ class MaquinasPdfService {
               )),
             ],
           ),
+          pw.SizedBox(height: 16),
+          _notaPie(),
         ],
       ),
     );
@@ -146,6 +147,20 @@ class MaquinasPdfService {
           fontWeight: header ? pw.FontWeight.bold : pw.FontWeight.normal,
           color: header ? PdfColors.white : PdfColors.black,
         ),
+      ),
+    );
+  }
+
+  static pw.Widget _notaPie() {
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(8),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.grey300),
+        borderRadius: pw.BorderRadius.circular(4),
+      ),
+      child: pw.Text(
+        'Documento generado por IndovexApp. La distribución de este reporte es responsabilidad del Cliente como titular de los datos.',
+        style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
       ),
     );
   }

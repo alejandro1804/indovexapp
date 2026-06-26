@@ -5,6 +5,7 @@ import '../../providers/auth_provider.dart';
 import '../../core/responsive.dart';
 import '../../widgets/adjuntos_section.dart';
 import '../../widgets/repuestos_ticket_section.dart';
+import '../../services/ticket_detalle_pdf_service.dart';
 
 class TicketDetailScreen extends StatefulWidget {
   final String ticketId;
@@ -238,6 +239,31 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     );
   }
 
+  Future<void> _exportarPdf() async {
+    if (_ticket == null) return;
+    try {
+      final usuario = context.read<AuthProvider>().usuario;
+      String nombreEmpresa = '';
+      if (usuario != null) {
+        final empresa = await _supabase
+            .from('empresas')
+            .select('nombre')
+            .eq('id', usuario.empresaId)
+            .single();
+        nombreEmpresa = empresa['nombre'] ?? '';
+      }
+      await TicketDetallePdfService.generarYCompartir(
+        ticket: _ticket!,
+        historial: _historial,
+        nombreEmpresa: nombreEmpresa,
+        nombreCreadoPor: _nombreCreadoPor,
+        nombreTecnico: _nombreTecnico,
+      );
+    } catch (e) {
+      _mostrarError('Error al exportar PDF: $e');
+    }
+  }
+
   Color _colorEstado(String estado) {
     switch (estado) {
       case 'abierto': return Colors.blue;
@@ -317,6 +343,14 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
         title: Text(_ticket!['numero'] ?? 'Ticket'),
         backgroundColor: const Color(0xFF1F4E79),
         foregroundColor: Colors.white,
+        actions: [
+          if (usuario?.tienePermiso('exportar_pdf_ticket') == true)
+            IconButton(
+              icon: const Icon(Icons.picture_as_pdf_outlined),
+              tooltip: 'Exportar PDF',
+              onPressed: _exportarPdf,
+            ),
+        ],
       ),
       body: ListView(
         padding: padding,
@@ -486,7 +520,6 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     final esTecnico = usuario.esTecnico;
     final botones = <Widget>[];
 
-    // ── Admin / Encargado ──────────────────────────────────────
     if (esAdminOEncargado) {
       if (estado == 'abierto') {
         botones.add(_botonAccion(
@@ -513,7 +546,6 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
       }
     }
 
-    // ── Técnico ───────────────────────────────────────────────
     if (esTecnico) {
       if (estado == 'asignado') {
         botones.add(_botonAccion(
@@ -524,12 +556,8 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
       if (estado == 'en_proceso') {
         botones.add(_botonAccion(
           'Pausar', Icons.pause_circle_outline, Colors.amber[700]!,
-          () => _mostrarDialogoAccion(
-            'Pausar trabajo',
-            'Pausar',
-            'pausado',
-            comentarioObligatorio: true,
-          ),
+          () => _mostrarDialogoAccion('Pausar trabajo', 'Pausar', 'pausado',
+              comentarioObligatorio: true),
         ));
         botones.add(_botonAccion(
           'Marcar resuelto', Icons.check_circle_outline, Colors.green,
