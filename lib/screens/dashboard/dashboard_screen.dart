@@ -20,6 +20,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _cargando = true;
   String? _error;
   Map<String, dynamic>? _data;
+  List<Map<String, dynamic>> _mtbf = [];
 
   @override
   void initState() {
@@ -33,8 +34,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _error = null;
     });
     try {
-      final res = await _supabase.rpc('dashboard_kpis');
-      final map = Map<String, dynamic>.from(res as Map);
+      // Carga en paralelo: KPIs existentes + MTBF
+      final results = await Future.wait([
+        _supabase.rpc('dashboard_kpis'),
+        _supabase.rpc('get_mtbf_empresa'),
+      ]);
+
+      final map = Map<String, dynamic>.from(results[0] as Map);
       if (map['error'] != null) {
         setState(() {
           _error = 'No se pudo determinar la empresa.';
@@ -42,8 +48,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
         });
         return;
       }
+
+      final mtbfRaw = results[1] as List? ?? [];
+      final mtbf = mtbfRaw
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+
       setState(() {
         _data = map;
+        _mtbf = mtbf;
         _cargando = false;
       });
     } catch (e) {
@@ -64,6 +77,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final puedeRatio = usuario.tienePermiso('ver_kpi_ratio_mantenimiento');
     final puedeMttr = usuario.tienePermiso('ver_kpi_mttr');
     final puedeBacklog = usuario.tienePermiso('ver_kpi_backlog_tickets');
+    final puedeMtbf = usuario.tienePermiso('ver_kpi_mtbf');
 
     final isDesktop = Responsive.isTabletOrDesktop(context);
 
@@ -83,11 +97,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ],
             ),
-      body: _buildBody(puedeRatio, puedeMttr, puedeBacklog),
+      body: _buildBody(puedeRatio, puedeMttr, puedeBacklog, puedeMtbf),
     );
   }
 
-  Widget _buildBody(bool puedeRatio, bool puedeMttr, bool puedeBacklog) {
+  Widget _buildBody(
+      bool puedeRatio, bool puedeMttr, bool puedeBacklog, bool puedeMtbf) {
     if (_cargando) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -95,8 +110,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return _estadoVacio(Icons.error_outline, _error!, accion: _cargar);
     }
 
-    // Si no tiene permiso para ningún KPI
-    if (!puedeRatio && !puedeMttr && !puedeBacklog) {
+    if (!puedeRatio && !puedeMttr && !puedeBacklog && !puedeMtbf) {
       return _estadoVacio(
         Icons.lock_outline,
         'No tenés KPIs habilitados. Contactá al administrador de tu empresa.',
@@ -106,7 +120,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final ratio = _data?['ratio'] as Map<String, dynamic>?;
     final mttr = _data?['mttr'] as Map<String, dynamic>?;
     final backlog = (_data?['backlog'] as List?) ?? [];
-
     final padding = Responsive.pagePadding(context);
 
     return RefreshIndicator(
@@ -142,6 +155,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               titulo: 'Backlog de tickets pendientes',
               icono: Icons.layers_outlined,
               child: _buildBacklog(backlog),
+            ),
+            const SizedBox(height: 16),
+          ],
+          if (puedeMtbf) ...[
+            _CardKpi(
+              titulo: 'MTBF — Tiempo medio entre fallas',
+              icono: Icons.pending_actions_outlined,
+              child: _buildMtbf(_mtbf),
             ),
             const SizedBox(height: 16),
           ],
@@ -271,16 +292,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.baseline,
-          textBaseline: TextBaseline.alphabetic,
-          children: [
-            Text(
-              texto,
-              style: const TextStyle(
-                  fontSize: 28, fontWeight: FontWeight.bold, color: _azul),
-            ),
-          ],
+        Text(
+          texto,
+          style: const TextStyle(
+              fontSize: 28, fontWeight: FontWeight.bold, color: _azul),
         ),
         const SizedBox(height: 4),
         Text(
@@ -293,9 +308,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   String _formatoDuracion(double horas) {
-    if (horas < 24) {
-      return '${horas.toStringAsFixed(1)} h';
-    }
+    if (horas < 24) return '${horas.toStringAsFixed(1)} h';
     final dias = (horas / 24);
     return '${dias.toStringAsFixed(1)} días';
   }
@@ -310,7 +323,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Column(
       children: [
-        // Encabezado
         Container(
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
           decoration: BoxDecoration(
@@ -322,11 +334,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Expanded(
                   flex: 3,
                   child: Text('Prioridad',
-                      style: _thStyle, maxLines: 1, overflow: TextOverflow.ellipsis)),
-              Expanded(flex: 2, child: Text('0-3 d', style: _thStyle, textAlign: TextAlign.center)),
-              Expanded(flex: 2, child: Text('4-7 d', style: _thStyle, textAlign: TextAlign.center)),
-              Expanded(flex: 2, child: Text('+7 d', style: _thStyle, textAlign: TextAlign.center)),
-              Expanded(flex: 2, child: Text('Total', style: _thStyle, textAlign: TextAlign.center)),
+                      style: _thStyle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis)),
+              Expanded(
+                  flex: 2,
+                  child: Text('0-3 d',
+                      style: _thStyle, textAlign: TextAlign.center)),
+              Expanded(
+                  flex: 2,
+                  child: Text('4-7 d',
+                      style: _thStyle, textAlign: TextAlign.center)),
+              Expanded(
+                  flex: 2,
+                  child: Text('+7 d',
+                      style: _thStyle, textAlign: TextAlign.center)),
+              Expanded(
+                  flex: 2,
+                  child: Text('Total',
+                      style: _thStyle, textAlign: TextAlign.center)),
             ],
           ),
         ),
@@ -385,20 +411,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Celda con mapa de calor: el color se intensifica según el rango de antigüedad
   Widget _celda(int valor, {required int intensidad}) {
     if (valor == 0) {
       return Center(
-        child: Text('0',
-            style: TextStyle(color: Colors.grey[300], fontSize: 13)),
+        child: Text('0', style: TextStyle(color: Colors.grey[300], fontSize: 13)),
       );
     }
-    // intensidad 0 = verde suave, 1 = ámbar, 2 = rojo
-    final colores = [
-      Colors.green,
-      Colors.orange,
-      Colors.red,
-    ];
+    final colores = [Colors.green, Colors.orange, Colors.red];
     final color = colores[intensidad];
     return Center(
       child: Container(
@@ -430,6 +449,178 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return false;
   }
 
+  // ============================================
+  // KPI 4: MTBF
+  // ============================================
+  Widget _buildMtbf(List<Map<String, dynamic>> mtbf) {
+    if (mtbf.isEmpty) {
+      return _sinDatos(
+        'El MTBF se calculará automáticamente cuando una máquina '
+        'acumule su segundo ticket correctivo cerrado.',
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Encabezado
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+          decoration: BoxDecoration(
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Row(
+            children: const [
+              Expanded(flex: 4, child: Text('Máquina', style: _thStyle)),
+              Expanded(
+                  flex: 3,
+                  child: Text('MTBF',
+                      style: _thStyle, textAlign: TextAlign.center)),
+              Expanded(
+                  flex: 3,
+                  child: Text('Fallas',
+                      style: _thStyle, textAlign: TextAlign.center)),
+              Expanded(
+                  flex: 3,
+                  child: Text('Confiab.',
+                      style: _thStyle, textAlign: TextAlign.center)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 4),
+        ...mtbf.map((fila) {
+          final nombre = fila['maquina_nombre'] as String? ?? '-';
+          final sector = fila['sector_nombre'] as String? ?? '';
+          final mtbfDias = (fila['mtbf_dias'] as num?)?.toDouble() ?? 0;
+          final totalTickets = (fila['total_tickets_correctivos'] as int?) ?? 0;
+          final confiabilidad = fila['confiabilidad'] as String? ?? 'baja';
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                // Máquina + sector
+                Expanded(
+                  flex: 4,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        nombre,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w500, fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (sector.isNotEmpty)
+                        Text(
+                          sector,
+                          style: TextStyle(
+                              color: Colors.grey[500], fontSize: 10),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
+                  ),
+                ),
+                // MTBF en días
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    '${mtbfDias.toStringAsFixed(1)} d',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: _colorMtbf(mtbfDias),
+                    ),
+                  ),
+                ),
+                // Cantidad de fallas
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    '$totalTickets',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        fontSize: 12, color: Colors.grey[700]),
+                  ),
+                ),
+                // Badge de confiabilidad
+                Expanded(
+                  flex: 3,
+                  child: Center(child: _badgeConfiabilidad(confiabilidad)),
+                ),
+              ],
+            ),
+          );
+        }),
+        const SizedBox(height: 8),
+        // Nota aclaratoria
+        Text(
+          '* Confiab. indica cuántos datos hay para el cálculo: '
+          'Baja (<3 fallas), Media (3-5), Alta (6+).',
+          style: TextStyle(color: Colors.grey[400], fontSize: 10),
+        ),
+        // Alerta si hay máquinas con MTBF muy bajo
+        if (_tieneMtbfCritico(mtbf)) ...[
+          const SizedBox(height: 8),
+          _alerta(
+            'Hay máquinas con MTBF menor a 30 días. '
+            'Revisá su plan de mantenimiento preventivo.',
+          ),
+        ],
+      ],
+    );
+  }
+
+  Color _colorMtbf(double dias) {
+    if (dias < 30) return Colors.red;
+    if (dias < 60) return Colors.orange;
+    return Colors.green;
+  }
+
+  Widget _badgeConfiabilidad(String confiabilidad) {
+    final colores = {
+      'baja': Colors.grey,
+      'media': Colors.orange,
+      'alta': Colors.green,
+    };
+    final labels = {
+      'baja': 'Baja',
+      'media': 'Media',
+      'alta': 'Alta',
+    };
+    final color = colores[confiabilidad] ?? Colors.grey;
+    final label = labels[confiabilidad] ?? confiabilidad;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.4)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+            color: color.withOpacity(0.9),
+            fontSize: 10,
+            fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+
+  bool _tieneMtbfCritico(List<Map<String, dynamic>> mtbf) {
+    for (final fila in mtbf) {
+      final dias = (fila['mtbf_dias'] as num?)?.toDouble() ?? 0;
+      if (dias < 30) return true;
+    }
+    return false;
+  }
+
+  // ============================================
+  // Helpers de UI
+  // ============================================
   Color _colorPrioridad(String p) {
     switch (p) {
       case 'baja':
@@ -450,9 +641,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return p[0].toUpperCase() + p.substring(1);
   }
 
-  // ============================================
-  // Helpers de UI
-  // ============================================
   Widget _sinDatos(String mensaje) {
     return Container(
       width: double.infinity,
@@ -528,7 +716,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 const _thStyle = TextStyle(
     fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black54);
 
-// Tarjeta contenedora de cada KPI
 class _CardKpi extends StatelessWidget {
   final String titulo;
   final IconData icono;
