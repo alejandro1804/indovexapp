@@ -87,6 +87,17 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
     return vence.difference(DateTime.now()).inDays;
   }
 
+  // Días que faltan para que la purga quede habilitada. Negativo = ya vencido.
+  int? _diasParaPurga(dynamic fechaPurga) {
+    if (fechaPurga == null) return null;
+    final fecha = DateTime.tryParse(fechaPurga.toString());
+    if (fecha == null) return null;
+    final hoy = DateTime.now();
+    return DateTime(fecha.year, fecha.month, fecha.day)
+        .difference(DateTime(hoy.year, hoy.month, hoy.day))
+        .inDays;
+  }
+
   Future<void> _aprobarEmpresa(Map<String, dynamic> empresa) async {
     final confirmar = await showDialog<bool>(
       context: context,
@@ -108,7 +119,6 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
     );
     if (confirmar != true) return;
     try {
-      // Llama a la Edge Function que aprueba Y envía el email de bienvenida
       await _supabase.functions.invoke(
         'aprobar-empresa',
         body: {'empresa_id': empresa['empresa_id']},
@@ -120,12 +130,17 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
     }
   }
 
+  // ── SITUACIÓN 2: suspender por falta de pago (vía RPC, activa plazos) ──
   Future<void> _suspenderEmpresa(Map<String, dynamic> empresa) async {
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Suspender empresa'),
-        content: Text('¿Suspender "${empresa['empresa_nombre']}"? El acceso quedará bloqueado.'),
+        content: Text(
+          '¿Suspender "${empresa['empresa_nombre']}"?\n\n'
+          'El acceso quedará bloqueado, pero los datos se conservan. '
+          'Si no se reactiva, quedará habilitada para purga al vencer el plazo de conservación.',
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
           ElevatedButton(
@@ -138,7 +153,8 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
     );
     if (confirmar != true) return;
     try {
-      await _supabase.from('empresas').update({'estado': 'suspendida'}).eq('id', empresa['empresa_id']);
+      await _supabase.rpc('sa_suspender_empresa',
+          params: {'p_empresa_id': empresa['empresa_id']});
       _mostrarExito('Empresa suspendida');
       await _cargar();
     } catch (e) {
@@ -146,12 +162,45 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
     }
   }
 
+  // ── SITUACIÓN 1: baja voluntaria (vía RPC) ──
+  Future<void> _darDeBajaEmpresa(Map<String, dynamic> empresa) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Dar de baja (voluntaria)'),
+        content: Text(
+          '¿Iniciar la baja voluntaria de "${empresa['empresa_nombre']}"?\n\n'
+          'El acceso se bloquea y comienza el plazo para exportar sus datos. '
+          'Recordá generar y entregar el backup antes de purgar.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6A4C93)),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Dar de baja', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (confirmar != true) return;
+    try {
+      await _supabase.rpc('sa_solicitar_baja',
+          params: {'p_empresa_id': empresa['empresa_id']});
+      _mostrarExito('Baja iniciada');
+      await _cargar();
+    } catch (e) {
+      _mostrarError('Error al dar de baja: $e');
+    }
+  }
+
+  // ── Reactivar (vía RPC, limpia plazos) ──
   Future<void> _reactivarEmpresa(Map<String, dynamic> empresa) async {
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Reactivar empresa'),
-        content: Text('¿Reactivar "${empresa['empresa_nombre']}"?'),
+        content: Text('¿Reactivar "${empresa['empresa_nombre']}"? Se restablece el acceso y se cancelan los plazos de purga.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
           ElevatedButton(
@@ -164,11 +213,81 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
     );
     if (confirmar != true) return;
     try {
-      await _supabase.from('empresas').update({'estado': 'activa'}).eq('id', empresa['empresa_id']);
+      await _supabase.rpc('sa_reactivar_empresa',
+          params: {'p_empresa_id': empresa['empresa_id']});
       _mostrarExito('Empresa reactivada');
       await _cargar();
     } catch (e) {
       _mostrarError('Error al reactivar: $e');
+    }
+  }
+
+  // ── Gestión de plazos configurables ──
+  Future<void> _gestionarPlazos() async {
+    List<Map<String, dynamic>> plazos = [];
+    try {
+      final data = await _supabase.rpc('get_config_plazos');
+      plazos = List<Map<String, dynamic>>.from(data);
+    } catch (e) {
+      _mostrarError('Error al cargar plazos: $e');
+      return;
+    }
+
+    final controllers = {
+      for (final p in plazos)
+        p['clave'].toString(): TextEditingController(text: p['dias'].toString())
+    };
+
+    final guardar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Plazos de conservación'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final p in plazos) ...[
+              Text(p['descripcion'] ?? p['clave'],
+                  style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              const SizedBox(height: 4),
+              TextField(
+                controller: controllers[p['clave'].toString()],
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  suffixText: 'días',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F4E79)),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Guardar', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (guardar != true) return;
+    try {
+      for (final p in plazos) {
+        final clave = p['clave'].toString();
+        final nuevo = int.tryParse(controllers[clave]!.text.trim());
+        if (nuevo == null || nuevo < 0) continue;
+        if (nuevo != p['dias']) {
+          await _supabase.rpc('set_config_plazo',
+              params: {'p_clave': clave, 'p_dias': nuevo});
+        }
+      }
+      _mostrarExito('Plazos actualizados');
+    } catch (e) {
+      _mostrarError('Error al guardar plazos: $e');
     }
   }
 
@@ -236,6 +355,13 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
         title: const Text('Empresas'),
         backgroundColor: const Color(0xFF1F4E79),
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.timer_outlined),
+            tooltip: 'Plazos de conservación',
+            onPressed: _gestionarPlazos,
+          ),
+        ],
       ),
       body: _cargando
           ? const Center(child: CircularProgressIndicator())
@@ -278,6 +404,8 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
       'activa': 'Activas',
       'pendiente': 'Pendientes',
       'suspendida': 'Suspendidas',
+      'en_baja': 'En baja',
+      'a_purgar': 'A purgar',
     };
     return Container(
       color: Colors.white,
@@ -310,6 +438,8 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
     final estado = (e['estado'] ?? '').toString();
     final empresaId = e['empresa_id'].toString();
     final esMiEmpresa = empresaId == _miEmpresaId;
+    final puedeVerDetalle =
+        estado == 'activa' || estado == 'suspendida' || estado == 'en_baja' || estado == 'a_purgar';
 
     return Card(
       elevation: 1,
@@ -366,12 +496,16 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
             _dato('Email', e['email_contacto']),
           _dato('Registrada', _fechaCorta(e['created_at'])),
 
+          // Aviso de plazo de purga (suspendida o en_baja)
+          if (estado == 'suspendida' || estado == 'en_baja' || estado == 'a_purgar')
+            _avisoPurga(e, estado),
+
           const SizedBox(height: 10),
           _seccionStorage(empresaId, e),
           const SizedBox(height: 10),
 
-          // ── Ver empresa (siempre visible si está activa o suspendida) ──
-          if (estado == 'activa' || estado == 'suspendida') ...[
+          // ── Ver empresa ──
+          if (puedeVerDetalle) ...[
             _botonAccion(
               'Ver empresa',
               Icons.open_in_new,
@@ -394,11 +528,14 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
             _botonAccion('Aprobar empresa', Icons.check_circle_outline, Colors.green,
                 () => _aprobarEmpresa(e)),
 
-          // ── Suspender (no disponible para mi empresa) ──
+          // ── Acciones para empresa ACTIVA (no mi empresa) ──
           if (estado == 'activa' && !esMiEmpresa) ...[
             const SizedBox(height: 6),
             _botonAccion('Suspender', Icons.block, Colors.red,
                 () => _suspenderEmpresa(e), outlined: true),
+            const SizedBox(height: 6),
+            _botonAccion('Dar de baja', Icons.logout, const Color(0xFF6A4C93),
+                () => _darDeBajaEmpresa(e), outlined: true),
           ],
 
           if (estado == 'activa' && esMiEmpresa) ...[
@@ -413,20 +550,72 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
                 Icon(Icons.info_outline, size: 13, color: Colors.grey[500]),
                 const SizedBox(width: 6),
                 Expanded(
-                  child: Text('Esta es tu empresa — no puede suspenderse',
+                  child: Text('Esta es tu empresa — no puede suspenderse ni darse de baja',
                       style: TextStyle(fontSize: 11, color: Colors.grey[500])),
                 ),
               ]),
             ),
           ],
 
-          // ── Reactivar ──
-          if (estado == 'suspendida') ...[
+          // ── Reactivar (desde suspendida, en_baja o a_purgar) ──
+          if (estado == 'suspendida' || estado == 'en_baja' || estado == 'a_purgar') ...[
             const SizedBox(height: 6),
             _botonAccion('Reactivar', Icons.restart_alt, Colors.green,
                 () => _reactivarEmpresa(e)),
           ],
+
+          // ── Purgar (placeholder deshabilitado — se activa en Fase 3) ──
+          if (estado == 'suspendida' || estado == 'en_baja' || estado == 'a_purgar') ...[
+            const SizedBox(height: 6),
+            _botonPurgaDeshabilitado(e),
+          ],
         ],
+      ),
+    );
+  }
+
+  Widget _avisoPurga(Map<String, dynamic> e, String estado) {
+    final dias = _diasParaPurga(e['fecha_purga_programada']);
+    if (dias == null) return const SizedBox.shrink();
+
+    final vencido = dias <= 0;
+    final color = vencido ? const Color(0xFFB71C1C) : Colors.orange[800]!;
+    final texto = vencido
+        ? '⚠ Plazo cumplido — purga habilitada'
+        : 'Purga disponible en $dias día${dias != 1 ? 's' : ''}';
+
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(children: [
+        Icon(vencido ? Icons.warning_amber : Icons.schedule, size: 14, color: color),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(texto,
+              style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
+        ),
+      ]),
+    );
+  }
+
+  // Botón de purga deshabilitado por ahora. En Fase 3 pasa a estar activo.
+  Widget _botonPurgaDeshabilitado(Map<String, dynamic> e) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        icon: Icon(Icons.delete_forever, size: 16, color: Colors.grey[400]),
+        label: Text('Purgar definitivamente (próximamente)',
+            style: TextStyle(fontSize: 12, color: Colors.grey[400])),
+        style: OutlinedButton.styleFrom(
+          side: BorderSide(color: Colors.grey[300]!),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        onPressed: null,
       ),
     );
   }
@@ -564,24 +753,39 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
     final e = (estado ?? '').toString();
     late Color color;
     late IconData icono;
+    late String label;
     switch (e) {
       case 'activa':
         color = Colors.green;
         icono = Icons.check_circle;
+        label = 'activa';
         break;
       case 'pendiente':
         color = Colors.orange;
         icono = Icons.hourglass_empty;
+        label = 'pendiente';
         break;
       case 'suspendida':
         color = Colors.red;
         icono = Icons.block;
+        label = 'suspendida';
+        break;
+      case 'en_baja':
+        color = const Color(0xFF6A4C93);
+        icono = Icons.logout;
+        label = 'en baja';
+        break;
+      case 'a_purgar':
+        color = const Color(0xFFB71C1C);
+        icono = Icons.warning_amber;
+        label = 'a purgar';
         break;
       default:
         color = Colors.grey;
         icono = Icons.help_outline;
+        label = e.isEmpty ? '—' : e;
     }
-    return _chip(e.isEmpty ? '—' : e, color, icono);
+    return _chip(label, color, icono);
   }
 
   Widget _chipPago(Map<String, dynamic> e) {
