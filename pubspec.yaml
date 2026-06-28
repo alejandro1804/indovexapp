@@ -30,6 +30,8 @@ dependencies:
   barcode: ^2.2.9
   fl_chart: ^0.69.0
   package_info_plus: ^8.0.0
+  archive: ^4.0.9
+  csv: ^6.0.0
 
 dev_dependencies:
   flutter_test:

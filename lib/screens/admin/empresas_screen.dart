@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/export_empresa_service.dart';
 import 'empresa_detalle_admin_screen.dart';
 
 class EmpresasScreen extends StatefulWidget {
@@ -291,6 +292,50 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
     }
   }
 
+  // ── Export de datos (portabilidad / baja voluntaria) ──
+  Future<void> _exportarDatos(Map<String, dynamic> empresa) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Exportar datos'),
+        content: Text(
+          'Se generará un archivo ZIP con todos los registros de '
+          '"${empresa['empresa_nombre']}" (tickets, máquinas, repuestos, '
+          'auditoría, etc.) en formato CSV, más los enlaces de descarga de '
+          'sus archivos adjuntos (válidos 5 días).',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F4E79)),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Exportar', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (confirmar != true) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final servicio = ExportEmpresaService(_supabase);
+      final archivos = await servicio.exportar(
+        empresaId: empresa['empresa_id'].toString(),
+        empresaNombre: empresa['empresa_nombre'] ?? 'empresa',
+      );
+      if (mounted) Navigator.pop(context); // cerrar spinner
+      _mostrarExito('Export generado — $archivos archivo(s) incluido(s)');
+    } catch (e) {
+      if (mounted) Navigator.pop(context); // cerrar spinner
+      _mostrarError('Error al exportar: $e');
+    }
+  }
+
   Future<void> _editarLimiteStorage(Map<String, dynamic> empresa) async {
     final limite = empresa['storage_mb_limit'] ?? 500;
     final controller = TextEditingController(text: limite.toString());
@@ -536,6 +581,9 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
             const SizedBox(height: 6),
             _botonAccion('Dar de baja', Icons.logout, const Color(0xFF6A4C93),
                 () => _darDeBajaEmpresa(e), outlined: true),
+            const SizedBox(height: 6),
+            _botonAccion('Exportar datos', Icons.download, const Color(0xFF1F4E79),
+                () => _exportarDatos(e), outlined: true),
           ],
 
           if (estado == 'activa' && esMiEmpresa) ...[
@@ -555,6 +603,13 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
                 ),
               ]),
             ),
+          ],
+
+          // ── Exportar disponible en suspendida / en_baja / a_purgar ──
+          if (estado == 'suspendida' || estado == 'en_baja' || estado == 'a_purgar') ...[
+            const SizedBox(height: 6),
+            _botonAccion('Exportar datos', Icons.download, const Color(0xFF1F4E79),
+                () => _exportarDatos(e), outlined: true),
           ],
 
           // ── Reactivar (desde suspendida, en_baja o a_purgar) ──
