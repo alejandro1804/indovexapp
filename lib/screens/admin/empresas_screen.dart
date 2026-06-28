@@ -336,6 +336,96 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
     }
   }
 
+  // ── Purga definitiva (IRREVERSIBLE) — doble confirmación por nombre ──
+  Future<void> _purgarEmpresa(Map<String, dynamic> empresa) async {
+    final nombre = (empresa['empresa_nombre'] ?? '').toString();
+    final controller = TextEditingController();
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) {
+          final coincide = controller.text.trim() == nombre;
+          return AlertDialog(
+            title: Row(children: const [
+              Icon(Icons.warning_amber, color: Color(0xFFB71C1C)),
+              SizedBox(width: 8),
+              Text('Purga definitiva'),
+            ]),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Vas a ELIMINAR de forma permanente e irreversible todos los '
+                  'datos y archivos de "$nombre".\n\n'
+                  'Los registros de auditoría se conservarán anonimizados. '
+                  'Esta acción NO se puede deshacer.',
+                  style: const TextStyle(fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                Text('Para confirmar, escribí el nombre exacto de la empresa:',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: controller,
+                  onChanged: (_) => setLocal(() {}),
+                  decoration: InputDecoration(
+                    hintText: nombre,
+                    border: const OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancelar')),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFB71C1C),
+                  disabledBackgroundColor: Colors.grey[300],
+                ),
+                onPressed: coincide ? () => Navigator.pop(ctx, true) : null,
+                child: const Text('Purgar definitivamente',
+                    style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (confirmar != true) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final res = await _supabase.functions.invoke(
+        'purgar-empresa',
+        body: {'empresa_id': empresa['empresa_id']},
+      );
+      if (mounted) Navigator.pop(context); // cerrar spinner
+
+      final data = res.data as Map<String, dynamic>?;
+      if (data != null && data['ok'] == true) {
+        _mostrarExito('Empresa "$nombre" purgada definitivamente');
+        await _cargar();
+      } else {
+        final err = data?['error'] ?? 'Respuesta inesperada';
+        _mostrarError('Error al purgar: $err');
+      }
+    } catch (e) {
+      if (mounted) Navigator.pop(context); // cerrar spinner
+      _mostrarError('Error al purgar: $e');
+    }
+  }
+
   Future<void> _editarLimiteStorage(Map<String, dynamic> empresa) async {
     final limite = empresa['storage_mb_limit'] ?? 500;
     final controller = TextEditingController(text: limite.toString());
@@ -619,10 +709,11 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
                 () => _reactivarEmpresa(e)),
           ],
 
-          // ── Purgar (placeholder deshabilitado — se activa en Fase 3) ──
+          // ── Purgar definitivamente (IRREVERSIBLE) ──
           if (estado == 'suspendida' || estado == 'en_baja' || estado == 'a_purgar') ...[
             const SizedBox(height: 6),
-            _botonPurgaDeshabilitado(e),
+            _botonAccion('Purgar definitivamente', Icons.delete_forever,
+                const Color(0xFFB71C1C), () => _purgarEmpresa(e), outlined: true),
           ],
         ],
       ),
@@ -655,23 +746,6 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
               style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
         ),
       ]),
-    );
-  }
-
-  // Botón de purga deshabilitado por ahora. En Fase 3 pasa a estar activo.
-  Widget _botonPurgaDeshabilitado(Map<String, dynamic> e) {
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        icon: Icon(Icons.delete_forever, size: 16, color: Colors.grey[400]),
-        label: Text('Purgar definitivamente (próximamente)',
-            style: TextStyle(fontSize: 12, color: Colors.grey[400])),
-        style: OutlinedButton.styleFrom(
-          side: BorderSide(color: Colors.grey[300]!),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-        onPressed: null,
-      ),
     );
   }
 

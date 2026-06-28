@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:csv/csv.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -93,6 +95,10 @@ class ExportEmpresaService {
     final readme = _readme(empresaNombre, archivosOk);
     final readmeBytes = _utf8ConBom(readme);
     archive.addFile(ArchiveFile('LEEME.txt', readmeBytes.length, readmeBytes));
+
+    // 4b. PDF resumen (constancia presentable).
+    final pdfBytes = await _generarPdfResumen(json, empresaNombre, archivosOk);
+    archive.addFile(ArchiveFile('resumen.pdf', pdfBytes.length, pdfBytes));
 
     // 5. Comprimir y descargar.
     final zipData = ZipEncoder().encode(archive);
@@ -200,6 +206,187 @@ class ExportEmpresaService {
     return Uint8List.fromList([...bom, ...bytes]);
   }
 
+  /// Genera un PDF resumen (constancia de exportación) con el estilo de IndovexApp.
+  Future<Uint8List> _generarPdfResumen(
+      Map<String, dynamic> json, String empresaNombre, int archivosOk) async {
+    final pdf = pw.Document();
+    final ahora = DateTime.now();
+    final azul = PdfColor.fromHex('#1F4E79');
+
+    String fmtCorto(DateTime f) {
+      final l = f.toLocal();
+      String d(int n) => n.toString().padLeft(2, '0');
+      return '${d(l.day)}/${d(l.month)}/${l.year} ${d(l.hour)}:${d(l.minute)}';
+    }
+
+    int contar(String seccion) => _normalizarSeccion(json[seccion]).length;
+
+    final empresa = _normalizarSeccion(json['empresa']);
+    final emp = empresa.isNotEmpty ? empresa.first : <String, dynamic>{};
+
+    // Filas de datos de la empresa.
+    final datosEmpresa = <List<String>>[
+      ['Nombre', (emp['nombre'] ?? empresaNombre).toString()],
+      ['RUT', (emp['rut'] ?? '-').toString()],
+      ['Email de contacto', (emp['email_contacto'] ?? '-').toString()],
+      ['Estado', (emp['estado'] ?? '-').toString()],
+      ['Registrada', _fechaSolo(emp['created_at'])],
+    ];
+
+    // Conteos del contenido exportado.
+    final conteos = <List<String>>[
+      ['Sectores', contar('sectores').toString()],
+      ['Máquinas', contar('maquinas').toString()],
+      ['Repuestos', contar('repuestos').toString()],
+      ['Categorías de repuestos', contar('categorias_repuestos').toString()],
+      ['Proveedores', contar('proveedores').toString()],
+      ['Planes de mantenimiento', contar('planes_mantenimiento').toString()],
+      ['Tickets', contar('tickets').toString()],
+      ['Historial de tickets', contar('ticket_historial').toString()],
+      ['Usuarios', contar('usuarios').toString()],
+      ['Registros de auditoría', contar('audit_log').toString()],
+      ['Archivos adjuntos (enlaces)', archivosOk.toString()],
+    ];
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(32),
+        header: (context) => pw.Container(
+          padding: const pw.EdgeInsets.only(bottom: 12),
+          margin: const pw.EdgeInsets.only(bottom: 16),
+          decoration: const pw.BoxDecoration(
+            border: pw.Border(bottom: pw.BorderSide(color: PdfColors.grey400, width: 1)),
+          ),
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(empresaNombre,
+                      style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: azul)),
+                  pw.Text('Constancia de Exportación de Datos',
+                      style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey700)),
+                ],
+              ),
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.end,
+                children: [
+                  pw.Text('Generado: ${fmtCorto(ahora)}',
+                      style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
+                ],
+              ),
+            ],
+          ),
+        ),
+        footer: (context) => pw.Container(
+          alignment: pw.Alignment.centerRight,
+          margin: const pw.EdgeInsets.only(top: 12),
+          child: pw.Text(
+            'Página ${context.pageNumber} de ${context.pagesCount}  —  IndovexApp',
+            style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey500),
+          ),
+        ),
+        build: (context) => [
+          pw.Text('Datos de la empresa',
+              style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: azul)),
+          pw.SizedBox(height: 6),
+          _tablaDatos(datosEmpresa),
+          pw.SizedBox(height: 18),
+          pw.Text('Contenido exportado',
+              style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: azul)),
+          pw.SizedBox(height: 6),
+          _tablaConteos(conteos, azul),
+          pw.SizedBox(height: 18),
+          _notaPie(),
+        ],
+      ),
+    );
+
+    final bytes = await pdf.save();
+    return Uint8List.fromList(bytes);
+  }
+
+  pw.Widget _tablaDatos(List<List<String>> filas) {
+    return pw.Table(
+      border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+      columnWidths: {
+        0: const pw.FlexColumnWidth(1.2),
+        1: const pw.FlexColumnWidth(2.5),
+      },
+      children: filas
+          .map((f) => pw.TableRow(children: [
+                _celdaPdf(f[0], bold: true),
+                _celdaPdf(f[1]),
+              ]))
+          .toList(),
+    );
+  }
+
+  pw.Widget _tablaConteos(List<List<String>> filas, PdfColor azul) {
+    return pw.Table(
+      border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+      columnWidths: {
+        0: const pw.FlexColumnWidth(3),
+        1: const pw.FlexColumnWidth(1),
+      },
+      children: [
+        pw.TableRow(
+          decoration: pw.BoxDecoration(color: azul),
+          children: [
+            _celdaPdf('Tipo de registro', header: true),
+            _celdaPdf('Cantidad', header: true),
+          ],
+        ),
+        ...filas.map((f) => pw.TableRow(children: [
+              _celdaPdf(f[0]),
+              _celdaPdf(f[1]),
+            ])),
+      ],
+    );
+  }
+
+  pw.Widget _celdaPdf(String texto, {bool header = false, bool bold = false}) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.all(5),
+      child: pw.Text(
+        texto,
+        style: pw.TextStyle(
+          fontSize: header ? 9 : 8,
+          fontWeight: (header || bold) ? pw.FontWeight.bold : pw.FontWeight.normal,
+          color: header ? PdfColors.white : PdfColors.black,
+        ),
+      ),
+    );
+  }
+
+  pw.Widget _notaPie() {
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(8),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.grey300),
+        borderRadius: pw.BorderRadius.circular(4),
+      ),
+      child: pw.Text(
+        'Documento generado por IndovexApp. El detalle completo de cada registro se '
+        'encuentra en los archivos CSV de este paquete. Los enlaces de descarga de '
+        'archivos adjuntos son válidos por 5 días. La distribución de esta información '
+        'es responsabilidad del Cliente como titular de los datos.',
+        style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
+      ),
+    );
+  }
+
+  String _fechaSolo(dynamic fecha) {
+    if (fecha == null) return '-';
+    final d = DateTime.tryParse(fecha.toString());
+    if (d == null) return '-';
+    final l = d.toLocal();
+    String dd(int n) => n.toString().padLeft(2, '0');
+    return '${dd(l.day)}/${dd(l.month)}/${l.year}';
+  }
+
   String _readme(String empresa, int archivos) {
     final ahora = DateTime.now().toString().split('.').first;
     return 'EXPORTACIÓN DE DATOS — IndovexApp\r\n'
@@ -208,6 +395,8 @@ class ExportEmpresaService {
         'Generado: $ahora\r\n\r\n'
         'Este paquete contiene todos los registros de tu empresa en formato CSV,\r\n'
         'abribles con Excel, Google Sheets o cualquier herramienta de planillas.\r\n\r\n'
+        'resumen.pdf — Constancia de exportación con los datos de la empresa y\r\n'
+        '              el conteo de registros incluidos.\r\n\r\n'
         'ARCHIVOS DE REGISTROS:\r\n'
         ' - empresa.csv, sectores.csv, maquinas.csv, repuestos.csv,\r\n'
         '   categorias_repuestos.csv, proveedores.csv, planes_mantenimiento.csv,\r\n'
