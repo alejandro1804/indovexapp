@@ -21,61 +21,6 @@ function emailValido(email: string): boolean {
   return /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(email)
 }
 
-async function enviarEmailNotificacion(datos: {
-  empresa_nombre: string
-  rut: string | null
-  admin_nombre: string
-  admin_email: string
-  fecha: string
-}) {
-  const smtpHost = Deno.env.get('ZOHO_SMTP_HOST')!
-  const smtpPort = parseInt(Deno.env.get('ZOHO_SMTP_PORT') ?? '465')
-  const smtpUser = Deno.env.get('ZOHO_SMTP_USER')!
-  const smtpPass = Deno.env.get('ZOHO_SMTP_PASS')!
-
-  const asunto = `Nueva solicitud de registro — ${datos.empresa_nombre}`
-  const cuerpo = `
-Nueva empresa pendiente de aprobación en IndovexApp.
-
-Empresa:     ${datos.empresa_nombre}
-RUT:         ${datos.rut ?? 'No ingresado'}
-Administrador: ${datos.admin_nombre}
-Email:       ${datos.admin_email}
-Fecha:       ${datos.fecha}
-
-Ingresá a la app para aprobar o rechazar la solicitud.
-  `.trim()
-
-  // Encode credentials for Basic Auth
-  const credentials = btoa(`${smtpUser}:${smtpPass}`)
-
-  // Usar Zoho Mail API REST como alternativa a SMTP directo en Deno
-  // Zoho SMTP via fetch con nodemailer no está disponible en Deno edge
-  // Usamos el endpoint SMTP de Zoho via TCP con la librería smtp de deno
-  const { SMTPClient } = await import('https://deno.land/x/denomailer@1.6.0/mod.ts')
-
-  const client = new SMTPClient({
-    connection: {
-      hostname: smtpHost,
-      port: smtpPort,
-      tls: true,
-      auth: {
-        username: smtpUser,
-        password: smtpPass,
-      },
-    },
-  })
-
-  await client.send({
-    from: `IndovexApp <${smtpUser}>`,
-    to: smtpUser, // se envía a soporte@indovexapp.com (o sea, a vos)
-    subject: asunto,
-    content: cuerpo,
-  })
-
-  await client.close()
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -220,20 +165,11 @@ Deno.serve(async (req) => {
       })
     }
 
-    // ── Enviar email de notificación a soporte (no bloquea el registro si falla) ──
-    try {
-      const fecha = new Date().toLocaleString('es-UY', { timeZone: 'America/Montevideo' })
-      await enviarEmailNotificacion({
-        empresa_nombre: empresaNombre,
-        rut: rutNormalizado,
-        admin_nombre: adminNombre,
-        admin_email: adminEmail,
-        fecha,
-      })
-    } catch (emailErr) {
-      console.error('Error al enviar email de notificación:', emailErr)
-      // No se interrumpe el registro por fallo de email
-    }
+    // ── Notificación a soporte: PENDIENTE de migrar a ZeptoMail API REST ──
+    // El SMTP de Zoho vía denomailer agota los recursos del worker
+    // (WORKER_RESOURCE_LIMIT) y mata la función completa, incluido este return.
+    // Por ahora la nueva empresa queda en estado 'pendiente' y se revisa
+    // manualmente desde la pantalla de Empresas (filtro "Pendientes").
 
     return new Response(JSON.stringify({ success: true, empresa_id: nuevaEmpresa.id }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
