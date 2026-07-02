@@ -16,7 +16,7 @@ class EmpresaDetalleAdminScreen extends StatelessWidget {
     // DefaultTabController provee el controller a TabBar y TabBarView
     // automáticamente, evitando el error "No TabController for TabBar".
     return DefaultTabController(
-      length: 4,
+      length: 5,
       child: Scaffold(
         appBar: AppBar(
           backgroundColor: const Color(0xFF1F4E79),
@@ -40,6 +40,7 @@ class EmpresaDetalleAdminScreen extends StatelessWidget {
               Tab(icon: Icon(Icons.precision_manufacturing_outlined, size: 20), text: 'Máquinas'),
               Tab(icon: Icon(Icons.inventory_2_outlined, size: 20), text: 'Repuestos'),
               Tab(icon: Icon(Icons.people_outline, size: 20), text: 'Usuarios'),
+              Tab(icon: Icon(Icons.storage_outlined, size: 20), text: 'Storage'),
             ],
           ),
         ),
@@ -49,6 +50,7 @@ class EmpresaDetalleAdminScreen extends StatelessWidget {
             _TabMaquinas(empresaId: empresaId),
             _TabRepuestos(empresaId: empresaId),
             _TabUsuarios(empresaId: empresaId),
+            _TabAlmacenamiento(empresaId: empresaId),
           ],
         ),
       ),
@@ -746,6 +748,218 @@ class _TabUsuariosState extends State<_TabUsuarios> with AutomaticKeepAliveClien
                 ),
         ),
       ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// TAB ALMACENAMIENTO
+// ─────────────────────────────────────────────
+// Usa el mismo RPC que el listado de empresas (uso_storage_empresa),
+// de modo que el uso y el porcentaje mostrados acá coinciden exactamente
+// con los del listado. La cuota sale de empresas.storage_mb_limit.
+
+class _TabAlmacenamiento extends StatefulWidget {
+  final String empresaId;
+  const _TabAlmacenamiento({required this.empresaId});
+
+  @override
+  State<_TabAlmacenamiento> createState() => _TabAlmacenamientoState();
+}
+
+class _TabAlmacenamientoState extends State<_TabAlmacenamiento>
+    with AutomaticKeepAliveClientMixin {
+  final _supabase = Supabase.instance.client;
+  Map<String, dynamic>? _datos;
+  bool _cargando = true;
+  String? _error;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargar();
+  }
+
+  Future<void> _cargar() async {
+    if (mounted) setState(() { _cargando = true; _error = null; });
+    try {
+      final data = await _supabase.rpc('uso_storage_empresa',
+          params: {'p_empresa_id': widget.empresaId});
+      if (!mounted) return;
+      setState(() => _datos = Map<String, dynamic>.from(data));
+    } catch (e) {
+      if (mounted) setState(() => _error = 'Error al cargar storage: $e');
+    } finally {
+      if (mounted) setState(() => _cargando = false);
+    }
+  }
+
+  String _formatMb(num mb) {
+    if (mb >= 1024) return '${(mb / 1024).toStringAsFixed(2)} GB';
+    return '${mb.toStringAsFixed(1)} MB';
+  }
+
+  IconData _iconoCategoria(String categoria) {
+    switch (categoria) {
+      case 'maquina': return Icons.precision_manufacturing_outlined;
+      case 'repuesto': return Icons.inventory_2_outlined;
+      case 'ticket': return Icons.confirmation_number_outlined;
+      case 'usuario': return Icons.person_outline;
+      default: return Icons.insert_drive_file_outlined;
+    }
+  }
+
+  String _labelCategoria(String categoria) {
+    switch (categoria) {
+      case 'maquina': return 'Máquinas';
+      case 'repuesto': return 'Repuestos';
+      case 'ticket': return 'Tickets';
+      case 'usuario': return 'Usuarios (avatares)';
+      default: return categoria;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    if (_cargando) return const Center(child: CircularProgressIndicator());
+
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+            const SizedBox(height: 12),
+            Text(_error!, textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+            const SizedBox(height: 12),
+            TextButton(onPressed: _cargar, child: const Text('Reintentar')),
+          ]),
+        ),
+      );
+    }
+
+    final datos = _datos ?? {};
+    final usadoMb = (datos['usado_mb'] as num? ?? 0).toDouble();
+    final limiteMb = (datos['limite_mb'] as num? ?? 0).toDouble();
+    final porcentaje = (datos['porcentaje'] as num? ?? 0).toDouble();
+    final desglose = (datos['desglose'] as Map?)?.cast<String, dynamic>() ?? {};
+
+    final progreso = (porcentaje / 100).clamp(0.0, 1.0);
+    final colorBarra = porcentaje >= 90
+        ? Colors.red
+        : porcentaje >= 70
+            ? Colors.orange
+            : const Color(0xFF1F4E79);
+
+    // Ordenar el desglose de mayor a menor uso.
+    final categorias = desglose.entries.toList()
+      ..sort((a, b) =>
+          (b.value as num? ?? 0).compareTo(a.value as num? ?? 0));
+
+    return RefreshIndicator(
+      onRefresh: _cargar,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _bannerSoloLectura(),
+          const SizedBox(height: 16),
+
+          // ── Resumen + barra de cuota ──────────────────────────────────
+          Card(
+            elevation: 1,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Icon(Icons.storage_outlined, color: colorBarra, size: 20),
+                  const SizedBox(width: 8),
+                  const Text('Uso de almacenamiento',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                ]),
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: LinearProgressIndicator(
+                    value: progreso,
+                    minHeight: 10,
+                    backgroundColor: Colors.grey[200],
+                    color: colorBarra,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('${_formatMb(usadoMb)} de ${_formatMb(limiteMb)}',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    Text('${porcentaje.toStringAsFixed(1)}%',
+                        style: TextStyle(fontSize: 12, color: colorBarra, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ]),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // ── Desglose por categoría ──────────────────────────────────────
+          Text('Desglose por tipo',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey[700])),
+          const SizedBox(height: 8),
+
+          if (categorias.isEmpty || usadoMb == 0)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Center(
+                child: Text('Sin archivos en Storage',
+                    style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+              ),
+            )
+          else
+            ...categorias.map((entry) {
+              final categoria = entry.key;
+              final mb = (entry.value as num? ?? 0).toDouble();
+              final pctCategoria = usadoMb == 0 ? 0.0 : mb / usadoMb;
+
+              return Card(
+                elevation: 0,
+                color: Colors.grey[50],
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: BorderSide(color: Colors.grey[200]!),
+                ),
+                margin: const EdgeInsets.only(bottom: 8),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(children: [
+                    CircleAvatar(
+                      radius: 18,
+                      backgroundColor: const Color(0xFF1F4E79).withOpacity(0.1),
+                      child: Icon(_iconoCategoria(categoria),
+                          color: const Color(0xFF1F4E79), size: 18),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(_labelCategoria(categoria),
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    ),
+                    Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                      Text(_formatMb(mb),
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      Text('${(pctCategoria * 100).toStringAsFixed(0)}% del total',
+                          style: TextStyle(fontSize: 10, color: Colors.grey[400])),
+                    ]),
+                  ]),
+                ),
+              );
+            }),
+        ],
+      ),
     );
   }
 }

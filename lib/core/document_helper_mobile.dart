@@ -1,7 +1,18 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:mime/mime.dart';
+import 'package:path/path.dart' as p;
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+// Límites de compresión para ADJUNTOS (más generosos que las portadas:
+// un adjunto puede ser una foto de detalle que el técnico necesita leer,
+// no un simple thumbnail).
+const int _adjImgMaxLado = 1600;   // px máximo del lado mayor
+const int _adjImgQuality = 85;     // calidad WebP inicial
+const int _adjImgMaxBytes = 800000; // ~800 KB; si supera, recomprime a menor calidad
+const int _adjImgQualityBaja = 65;  // segunda pasada si sigue muy grande
 
 Future<Map<String, dynamic>?> pickAndUpload({
   required String entidadTipo,
@@ -19,9 +30,24 @@ Future<Map<String, dynamic>?> pickAndUpload({
   final picked = result.files.first;
   if (picked.path == null) return null;
 
-  final bytes = await File(picked.path!).readAsBytes();
-  final nombreArchivo = picked.name;
-  final mime = lookupMimeType(picked.path!) ?? 'application/octet-stream';
+  Uint8List bytes = await File(picked.path!).readAsBytes();
+  String nombreArchivo = picked.name;
+  String mime = lookupMimeType(picked.path!) ?? 'application/octet-stream';
+
+  // Si es imagen, comprimir a WebP antes de subir. Otros tipos (PDF, doc,
+  // planilla) se suben tal cual, sin tocarlos.
+  if (mime.startsWith('image/')) {
+    final comprimido = await _comprimirImagen(bytes);
+    if (comprimido != null) {
+      bytes = comprimido;
+      mime = 'image/webp';
+      // Cambiar la extensión del nombre visible a .webp, conservando el resto.
+      final sinExt = p.basenameWithoutExtension(nombreArchivo);
+      nombreArchivo = '$sinExt.webp';
+    }
+    // Si la compresión falla (comprimido == null), se sube el original intacto.
+  }
+
   final tamanio = bytes.length;
   final timestamp = DateTime.now().millisecondsSinceEpoch;
   final storagePath = '$empresaId/$entidadTipo/$entidadId/${timestamp}_$nombreArchivo';
@@ -50,4 +76,37 @@ Future<Map<String, dynamic>?> pickAndUpload({
       .single();
 
   return inserted;
+}
+
+/// Comprime una imagen a WebP. Devuelve null si la compresión falla,
+/// para que el caller suba el original sin romperse.
+Future<Uint8List?> _comprimirImagen(Uint8List original) async {
+  try {
+    Uint8List? result = await FlutterImageCompress.compressWithList(
+      original,
+      minWidth: _adjImgMaxLado,
+      minHeight: _adjImgMaxLado,
+      quality: _adjImgQuality,
+      format: CompressFormat.webp,
+    );
+
+    if (result != null && result.length > _adjImgMaxBytes) {
+      result = await FlutterImageCompress.compressWithList(
+        result,
+        minWidth: _adjImgMaxLado,
+        minHeight: _adjImgMaxLado,
+        quality: _adjImgQualityBaja,
+        format: CompressFormat.webp,
+      );
+    }
+
+    // Seguridad: si por lo que sea el "comprimido" salió más grande que el
+    // original (imágenes ya muy optimizadas), quedarse con el original.
+    if (result != null && result.length < original.length) {
+      return result;
+    }
+    return null;
+  } catch (_) {
+    return null;
+  }
 }

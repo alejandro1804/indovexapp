@@ -100,15 +100,18 @@ class ImageUploadHelper {
     return result ?? bytes;
   }
 
-  /// Path determinista: siempre el mismo por entidad → upsert reemplaza sin acumular huérfanos.
-  static String _buildPath(String tipo, String empresaId, String entidadId) {
-    return switch (tipo) {
-      'maquina'  => 'imagenes/maquinas/$empresaId/$entidadId.webp',
-      'repuesto' => 'imagenes/repuestos/$empresaId/$entidadId.webp',
-      'avatar'   => 'imagenes/avatares/$entidadId.webp',
-      _          => throw ArgumentError('tipo inválido: $tipo'),
-    };
-  }
+    /// Path determinista: siempre el mismo por entidad → upsert reemplaza sin acumular huérfanos.
+      ///
+      /// Patrón unificado (empresa_id siempre primer segmento, igual que adjuntos):
+      ///   {empresaId}/{maquina|repuesto|usuario}/{entidadId}/portada/{entidadId}.webp
+      static String _buildPath(String tipo, String empresaId, String entidadId) {
+        return switch (tipo) {
+          'maquina'  => '$empresaId/maquina/$entidadId/portada/$entidadId.webp',
+          'repuesto' => '$empresaId/repuesto/$entidadId/portada/$entidadId.webp',
+          'avatar'   => '$empresaId/usuario/$entidadId/portada/$entidadId.webp',
+          _          => throw ArgumentError('tipo inválido: $tipo'),
+        };
+      }
 
   /// Genera una signed URL con 1 hora de vigencia.
   static Future<String> signedUrl(String storagePath) async {
