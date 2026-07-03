@@ -9,8 +9,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 // Límites de compresión para ADJUNTOS (más generosos que las portadas:
 // un adjunto puede ser una foto de detalle que el técnico necesita leer,
 // no un simple thumbnail).
-const int _adjImgMaxLado = 1600;   // px máximo del lado mayor
-const int _adjImgQuality = 85;     // calidad WebP inicial
+//
+// Se usa JPEG (no WebP) a propósito: el encoder WebP nativo de Android se
+// cuelga con imágenes grandes de galería. JPEG comprime casi igual de bien
+// para fotos y su encoder es rápido y estable.
+const int _adjImgMaxLado = 1600;    // px máximo del lado mayor
+const int _adjImgQuality = 85;      // calidad JPEG inicial
 const int _adjImgMaxBytes = 800000; // ~800 KB; si supera, recomprime a menor calidad
 const int _adjImgQualityBaja = 65;  // segunda pasada si sigue muy grande
 
@@ -34,16 +38,16 @@ Future<Map<String, dynamic>?> pickAndUpload({
   String nombreArchivo = picked.name;
   String mime = lookupMimeType(picked.path!) ?? 'application/octet-stream';
 
-  // Si es imagen, comprimir a WebP antes de subir. Otros tipos (PDF, doc,
+  // Si es imagen, comprimir a JPEG antes de subir. Otros tipos (PDF, doc,
   // planilla) se suben tal cual, sin tocarlos.
   if (mime.startsWith('image/')) {
     final comprimido = await _comprimirImagen(bytes);
     if (comprimido != null) {
       bytes = comprimido;
-      mime = 'image/webp';
-      // Cambiar la extensión del nombre visible a .webp, conservando el resto.
+      mime = 'image/jpeg';
+      // Cambiar la extensión del nombre visible a .jpg, conservando el resto.
       final sinExt = p.basenameWithoutExtension(nombreArchivo);
-      nombreArchivo = '$sinExt.webp';
+      nombreArchivo = '$sinExt.jpg';
     }
     // Si la compresión falla (comprimido == null), se sube el original intacto.
   }
@@ -78,8 +82,8 @@ Future<Map<String, dynamic>?> pickAndUpload({
   return inserted;
 }
 
-/// Comprime una imagen a WebP. Devuelve null si la compresión falla,
-/// para que el caller suba el original sin romperse.
+/// Comprime una imagen a JPEG. Devuelve null si la compresión falla o tarda
+/// demasiado, para que el caller suba el original sin romperse ni colgarse.
 Future<Uint8List?> _comprimirImagen(Uint8List original) async {
   try {
     Uint8List? result = await FlutterImageCompress.compressWithList(
@@ -87,16 +91,23 @@ Future<Uint8List?> _comprimirImagen(Uint8List original) async {
       minWidth: _adjImgMaxLado,
       minHeight: _adjImgMaxLado,
       quality: _adjImgQuality,
-      format: CompressFormat.webp,
+      format: CompressFormat.jpeg,
+    ).timeout(
+      const Duration(seconds: 15),
+      onTimeout: () => original, // si se cuelga, seguimos con el original
     );
 
     if (result != null && result.length > _adjImgMaxBytes) {
+      final previa = result; // no-nullable para el onTimeout de abajo
       result = await FlutterImageCompress.compressWithList(
-        result,
+        previa,
         minWidth: _adjImgMaxLado,
         minHeight: _adjImgMaxLado,
         quality: _adjImgQualityBaja,
-        format: CompressFormat.webp,
+        format: CompressFormat.jpeg,
+      ).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => previa,
       );
     }
 

@@ -710,7 +710,11 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
           ],
 
           // ── Purgar definitivamente (IRREVERSIBLE) ──
-          if (estado == 'suspendida' || estado == 'en_baja' || estado == 'a_purgar') ...[
+          // Solo disponible cuando el plazo de conservación venció y el cron
+          // (fn_marcar_empresas_a_purgar) pasó la empresa a estado 'a_purgar'.
+          // El RPC sa_purgar_datos_empresa además valida este estado del lado
+          // del servidor, así que aunque el botón no aparezca, la regla es firme.
+          if (estado == 'a_purgar') ...[
             const SizedBox(height: 6),
             _botonAccion('Purgar definitivamente', Icons.delete_forever,
                 const Color(0xFFB71C1C), () => _purgarEmpresa(e), outlined: true),
