@@ -159,32 +159,41 @@ class _TicketsScreenState extends State<TicketsScreen> {
     return usuario?.tienePermiso('exportar_pdf_tickets') ?? false;
   }
 
-Future<void> _exportarPdf() async {
-  final usuario = context.read<AuthProvider>().usuario;
-  if (usuario == null) return;
-  setState(() => _exportando = true);
-  try {
-    final empresa = await _supabase
-        .from('empresas')
-        .select('nombre')
-        .eq('id', usuario.empresaId)
-        .single();
-    final nombreEmpresa = empresa['nombre'] as String? ?? '';
-    await TicketsPdfService.generarYCompartir(
-      tickets: _ticketsFiltrados,
-      nombreEmpresa: nombreEmpresa,
-      filtroEstado: _filtroEstado,
-      filtroTipo: _filtroTipo,
-      filtroPrioridad: _filtroPrioridad,
-      filtroSector: _filtroSector,
-      busqueda: _textoBusqueda,
-    );
-  } catch (e) {
-    _mostrarError('Error al generar PDF: $e');
-  } finally {
-    if (mounted) setState(() => _exportando = false);
+  Future<void> _exportarPdf() async {
+    final usuario = context.read<AuthProvider>().usuario;
+    if (usuario == null) return;
+    setState(() => _exportando = true);
+    try {
+      final empresa = await _supabase
+          .from('empresas')
+          .select('nombre')
+          .eq('id', usuario.empresaId)
+          .single();
+      final nombreEmpresa = empresa['nombre'] as String? ?? '';
+
+      // Para el PDF ordenamos descendente por número de ticket (más nuevo primero).
+      // El formato TK-000N con padding permite ordenar como texto sin parsear.
+      final ticketsOrdenados =
+          List<Map<String, dynamic>>.from(_ticketsFiltrados)
+            ..sort((a, b) => (b['numero'] ?? '')
+                .toString()
+                .compareTo((a['numero'] ?? '').toString()));
+
+      await TicketsPdfService.generarYCompartir(
+        tickets: ticketsOrdenados,
+        nombreEmpresa: nombreEmpresa,
+        filtroEstado: _filtroEstado,
+        filtroTipo: _filtroTipo,
+        filtroPrioridad: _filtroPrioridad,
+        filtroSector: _filtroSector,
+        busqueda: _textoBusqueda,
+      );
+    } catch (e) {
+      _mostrarError('Error al generar PDF: $e');
+    } finally {
+      if (mounted) setState(() => _exportando = false);
+    }
   }
-}
 
   String _formatoAuditoria(DateTime? fechaUtc) {
     if (fechaUtc == null) return '';
@@ -262,7 +271,7 @@ Future<void> _exportarPdf() async {
   }) {
     final activo = value != 'todos';
     return DropdownButtonFormField<String>(
-      value: value,
+      initialValue: value,
       isExpanded: true,
       isDense: true,
       style: const TextStyle(fontSize: 12, color: Colors.black87),

@@ -27,14 +27,20 @@ class _RolesScreenState extends State<RolesScreen> {
   Future<void> _cargar() async {
     setState(() => _cargando = true);
     try {
-      final roles = await _supabase.from('roles').select('id, nombre').order('nombre');
+      final roles = await _supabase
+          .from('roles')
+          .select('id, nombre, restringe_por_sector')
+          .order('nombre');
       final lista = <Map<String, dynamic>>[];
       for (final r in roles) {
-        final permisos = await _supabase.from('rol_permisos').select('id').eq('rol_id', r['id']);
-        final usuarios = await _supabase.from('usuarios').select('id').eq('rol_id', r['id']);
+        final permisos =
+            await _supabase.from('rol_permisos').select('id').eq('rol_id', r['id']);
+        final usuarios =
+            await _supabase.from('usuarios').select('id').eq('rol_id', r['id']);
         lista.add({
           'id': r['id'],
           'nombre': r['nombre'],
+          'restringe_por_sector': r['restringe_por_sector'] ?? false,
           'permisos': (permisos as List).length,
           'usuarios': (usuarios as List).length,
         });
@@ -56,14 +62,20 @@ class _RolesScreenState extends State<RolesScreen> {
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(labelText: 'Nombre del rol', border: OutlineInputBorder()),
+          decoration: const InputDecoration(
+              labelText: 'Nombre del rol', border: OutlineInputBorder()),
           maxLength: 100,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar')),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context, normalizarTexto(controller.text)),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white),
+            onPressed: () =>
+                Navigator.pop(context, normalizarTexto(controller.text)),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1F4E79),
+                foregroundColor: Colors.white),
             child: const Text('Crear'),
           ),
         ],
@@ -88,14 +100,20 @@ class _RolesScreenState extends State<RolesScreen> {
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(labelText: 'Nombre del rol', border: OutlineInputBorder()),
+          decoration: const InputDecoration(
+              labelText: 'Nombre del rol', border: OutlineInputBorder()),
           maxLength: 100,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar')),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context, normalizarTexto(controller.text)),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white),
+            onPressed: () =>
+                Navigator.pop(context, normalizarTexto(controller.text)),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1F4E79),
+                foregroundColor: Colors.white),
             child: const Text('Guardar'),
           ),
         ],
@@ -103,7 +121,8 @@ class _RolesScreenState extends State<RolesScreen> {
     );
     if (nombre == null || nombre.isEmpty) return;
     try {
-      await _supabase.rpc('renombrar_rol', params: {'p_rol_id': rol['id'], 'p_nombre': nombre});
+      await _supabase.rpc('renombrar_rol',
+          params: {'p_rol_id': rol['id'], 'p_nombre': nombre});
       _mostrarExito('Rol renombrado');
       await _cargar();
     } catch (e) {
@@ -116,12 +135,16 @@ class _RolesScreenState extends State<RolesScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Eliminar rol'),
-        content: Text('¿Eliminar el rol "${rol['nombre']}"? Esta acción no se puede deshacer.'),
+        content: Text(
+            '¿Eliminar el rol "${rol['nombre']}"? Esta acción no se puede deshacer.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar')),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red, foregroundColor: Colors.white),
             child: const Text('Eliminar'),
           ),
         ],
@@ -137,14 +160,36 @@ class _RolesScreenState extends State<RolesScreen> {
     }
   }
 
+  Future<void> _toggleRestriccion(Map<String, dynamic> rol, bool valor) async {
+    // Optimista: actualizamos la UI de inmediato y revertimos si falla.
+    setState(() => rol['restringe_por_sector'] = valor);
+    try {
+      await _supabase
+          .from('roles')
+          .update({'restringe_por_sector': valor}).eq('id', rol['id']);
+      _mostrarExito(valor
+          ? 'Los usuarios con rol "${rol['nombre']}" verán solo sus sectores asignados'
+          : 'El rol "${rol['nombre']}" vuelve a ver todos los sectores');
+    } catch (e) {
+      setState(() => rol['restringe_por_sector'] = !valor); // revertir
+      _mostrarError(mensajeAmigableDb(e, entidad: 'rol'));
+    }
+  }
+
   void _mostrarExito(String m) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(m),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating));
   }
 
   void _mostrarError(String m) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(m),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating));
   }
 
   @override
@@ -167,61 +212,149 @@ class _RolesScreenState extends State<RolesScreen> {
                 itemBuilder: (context, index) {
                   final rol = _roles[index];
                   final esProtegido = _rolesProtegidos.contains(rol['nombre']);
+                  final esAdmin = rol['nombre'] == 'admin';
+                  final restringido = rol['restringe_por_sector'] == true;
                   return Card(
                     elevation: 1,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                      leading: CircleAvatar(
-                        radius: 18,
-                        backgroundColor: const Color(0xFF1F4E79).withOpacity(0.1),
-                        child: Icon(
-                          esProtegido ? Icons.shield_outlined : Icons.badge_outlined,
-                          color: const Color(0xFF1F4E79),
-                          size: 18,
-                        ),
-                      ),
-                      title: Row(
-                        children: [
-                          // ✅ Fix overflow: nombre en Flexible con ellipsis
-                          Flexible(
-                            child: Text(
-                              rol['nombre'],
-                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-                              overflow: TextOverflow.ellipsis,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    child: Column(
+                      children: [
+                        ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 4),
+                          leading: CircleAvatar(
+                            radius: 18,
+                            backgroundColor:
+                                const Color(0xFF1F4E79).withOpacity(0.1),
+                            child: Icon(
+                              esProtegido
+                                  ? Icons.shield_outlined
+                                  : Icons.badge_outlined,
+                              color: const Color(0xFF1F4E79),
+                              size: 18,
                             ),
                           ),
-                          if (esProtegido) ...[
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(8)),
-                              child: const Text('sistema', style: TextStyle(fontSize: 8, color: Colors.grey)),
+                          title: Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  rol['nombre'],
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600, fontSize: 12),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (esProtegido) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                      color: Colors.grey[200],
+                                      borderRadius: BorderRadius.circular(8)),
+                                  child: const Text('sistema',
+                                      style: TextStyle(
+                                          fontSize: 8, color: Colors.grey)),
+                                ),
+                              ],
+                            ],
+                          ),
+                          subtitle: Text(
+                            '${rol['permisos']} permisos · ${rol['usuarios']} usuarios',
+                            style: const TextStyle(fontSize: 10),
+                          ),
+                          trailing: PopupMenuButton<String>(
+                            itemBuilder: (_) => [
+                              const PopupMenuItem(
+                                  value: 'permisos',
+                                  child: Row(children: [
+                                    Icon(Icons.tune, size: 18),
+                                    SizedBox(width: 8),
+                                    Text('Permisos')
+                                  ])),
+                              if (!esProtegido)
+                                const PopupMenuItem(
+                                    value: 'renombrar',
+                                    child: Row(children: [
+                                      Icon(Icons.edit_outlined, size: 18),
+                                      SizedBox(width: 8),
+                                      Text('Renombrar')
+                                    ])),
+                              if (!esProtegido)
+                                const PopupMenuItem(
+                                    value: 'eliminar',
+                                    child: Row(children: [
+                                      Icon(Icons.delete_outline,
+                                          size: 18, color: Colors.red),
+                                      SizedBox(width: 8),
+                                      Text('Eliminar',
+                                          style: TextStyle(color: Colors.red))
+                                    ])),
+                            ],
+                            onSelected: (v) {
+                              if (v == 'permisos') {
+                                Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) => PermisosRolScreen(
+                                            rolId: rol['id'],
+                                            rolNombre: rol['nombre']))).then(
+                                    (_) => _cargar());
+                              }
+                              if (v == 'renombrar') _renombrarRol(rol);
+                              if (v == 'eliminar') _eliminarRol(rol);
+                            },
+                          ),
+                          onTap: () {
+                            Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => PermisosRolScreen(
+                                        rolId: rol['id'],
+                                        rolNombre: rol['nombre']))).then(
+                                (_) => _cargar());
+                          },
+                        ),
+                        // Toggle de restricción por sector.
+                        // El rol admin nunca se restringe (protegido además por CHECK en la BD).
+                        if (!esAdmin)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 0, 8, 4),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  restringido
+                                      ? Icons.location_on_outlined
+                                      : Icons.public,
+                                  size: 16,
+                                  color: restringido
+                                      ? const Color(0xFF1F4E79)
+                                      : Colors.grey,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    restringido
+                                        ? 'Ve solo los sectores asignados'
+                                        : 'Ve todos los sectores',
+                                    style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.grey[700]),
+                                  ),
+                                ),
+                                Transform.scale(
+                                  scale: 0.8,
+                                  child: Switch(
+                                    value: restringido,
+                                    activeThumbColor: const Color(0xFF1F4E79),
+                                    onChanged: (v) => _toggleRestriccion(rol, v),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ],
-                      ),
-                      subtitle: Text(
-                        '${rol['permisos']} permisos · ${rol['usuarios']} usuarios',
-                        style: const TextStyle(fontSize: 10),
-                      ),
-                      trailing: PopupMenuButton<String>(
-                        itemBuilder: (_) => [
-                          const PopupMenuItem(value: 'permisos', child: Row(children: [Icon(Icons.tune, size: 18), SizedBox(width: 8), Text('Permisos')])),
-                          if (!esProtegido) const PopupMenuItem(value: 'renombrar', child: Row(children: [Icon(Icons.edit_outlined, size: 18), SizedBox(width: 8), Text('Renombrar')])),
-                          if (!esProtegido) const PopupMenuItem(value: 'eliminar', child: Row(children: [Icon(Icons.delete_outline, size: 18, color: Colors.red), SizedBox(width: 8), Text('Eliminar', style: TextStyle(color: Colors.red))])),
-                        ],
-                        onSelected: (v) {
-                          if (v == 'permisos') {
-                            Navigator.push(context, MaterialPageRoute(builder: (_) => PermisosRolScreen(rolId: rol['id'], rolNombre: rol['nombre']))).then((_) => _cargar());
-                          }
-                          if (v == 'renombrar') _renombrarRol(rol);
-                          if (v == 'eliminar') _eliminarRol(rol);
-                        },
-                      ),
-                      onTap: () {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => PermisosRolScreen(rolId: rol['id'], rolNombre: rol['nombre']))).then((_) => _cargar());
-                      },
+                          ),
+                      ],
                     ),
                   );
                 },

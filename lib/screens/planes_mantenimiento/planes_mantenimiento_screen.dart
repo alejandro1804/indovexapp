@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/plan_mantenimiento_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/plan_mantenimiento.dart';
 import '../../core/responsive.dart';
+import '../../services/planes_pdf_service.dart';
 import 'plan_mantenimiento_nuevo_screen.dart';
 import 'plan_mantenimiento_detail_screen.dart';
 
@@ -17,6 +19,7 @@ class PlanesMantenimientoScreen extends StatefulWidget {
 class _PlanesMantenimientoScreenState extends State<PlanesMantenimientoScreen> {
   final _busquedaController = TextEditingController();
   String _busqueda = '';
+  bool _exportando = false;
 
   @override
   void initState() {
@@ -42,6 +45,47 @@ class _PlanesMantenimientoScreenState extends State<PlanesMantenimientoScreen> {
       final tarea = p.descripcionTarea.toLowerCase();
       return maquina.contains(q) || codigo.contains(q) || tarea.contains(q);
     }).toList();
+  }
+
+  bool get _puedeExportarPdf {
+    final usuario = context.read<AuthProvider>().usuario;
+    return usuario?.tienePermiso('exportar_pdf_planes') ?? false;
+  }
+
+  Future<void> _exportarPdf(PlanMantenimientoProvider provider) async {
+    final usuario = context.read<AuthProvider>().usuario;
+    if (usuario == null) return;
+    setState(() => _exportando = true);
+    try {
+      final supabase = Supabase.instance.client;
+      final empresa = await supabase
+          .from('empresas')
+          .select('nombre')
+          .eq('id', usuario.empresaId)
+          .single();
+      final nombreEmpresa = empresa['nombre'] as String? ?? '';
+
+      // Exportamos exactamente lo que se ve: búsqueda + toggle activos/inactivos.
+      final planesFiltrados = _filtrar(provider.planes);
+
+      await PlanesPdfService.generarYCompartir(
+        planes: planesFiltrados,
+        nombreEmpresa: nombreEmpresa,
+        busqueda: _busqueda,
+      );
+    } catch (e) {
+      _mostrarError('Error al generar PDF: $e');
+    } finally {
+      if (mounted) setState(() => _exportando = false);
+    }
+  }
+
+  void _mostrarError(String m) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(m),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating));
   }
 
   Color _colorIntervalo(String tipo) {
@@ -87,6 +131,24 @@ class _PlanesMantenimientoScreenState extends State<PlanesMantenimientoScreen> {
         toolbarHeight: 48,
         backgroundColor: const Color(0xFF1F4E79),
         foregroundColor: Colors.white,
+        actions: [
+          if (_puedeExportarPdf)
+            _exportando
+                ? const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white)),
+                  )
+                : IconButton(
+                    icon: const Icon(Icons.picture_as_pdf_outlined),
+                    tooltip: 'Exportar PDF',
+                    onPressed:
+                        provider.planes.isEmpty ? null : () => _exportarPdf(provider),
+                  ),
+        ],
       ),
       floatingActionButton: (esAdminOEncargado && provider.mostrandoActivos)
           ? FloatingActionButton.extended(
