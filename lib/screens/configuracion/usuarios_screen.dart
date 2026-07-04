@@ -364,7 +364,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
       final sectoresData = await _supabase.from('sectores').select('id, nombre').order('nombre');
       sectores = List<Map<String, dynamic>>.from(sectoresData);
       final asignadosData = await _supabase
-          .from('encargado_sector')
+          .from('usuario_sector')
           .select('sector_id')
           .eq('usuario_id', usuario['id']);
       for (final a in asignadosData) {
@@ -425,13 +425,13 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
     if (confirmar != true) return;
 
     try {
-      await _supabase.from('encargado_sector').delete().eq('usuario_id', usuario['id']);
+      await _supabase.from('usuario_sector').delete().eq('usuario_id', usuario['id']);
       if (seleccion.isNotEmpty) {
         final filas = seleccion.map((sectorId) => {
           'usuario_id': usuario['id'],
           'sector_id': sectorId,
         }).toList();
-        await _supabase.from('encargado_sector').insert(filas);
+        await _supabase.from('usuario_sector').insert(filas);
       }
       _mostrarExito('Sectores actualizados');
     } catch (e) {

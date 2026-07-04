@@ -66,7 +66,7 @@ class AuditLog {
       case 'categorias_repuestos': return 'Categorías de repuestos';
       case 'proveedores': return 'Proveedores';
       case 'repuestos_maquinas': return 'Vínculos repuesto-máquina';
-      case 'encargado_sector': return 'Asignación de sectores';
+      case 'usuario_sector': return 'Asignación de sectores';
       case 'empresas': return 'Empresa';
       default: return tabla;
     }

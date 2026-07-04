@@ -49,7 +49,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
         tickets = List<Map<String, dynamic>>.from(result);
       } else if (usuario.esEncargado) {
         final sectoresData = await _supabase
-            .from('encargado_sector')
+            .from('usuario_sector')
             .select('sector_id')
             .eq('usuario_id', usuario.id);
         final sectorIds = (sectoresData as List).map((e) => e['sector_id'] as String).toList();

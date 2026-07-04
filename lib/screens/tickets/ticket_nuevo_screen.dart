@@ -33,7 +33,7 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
 
       if (usuario.esEncargado) {
         final sectoresData = await _supabase
-            .from('encargado_sector')
+            .from('usuario_sector')
             .select('sector_id')
             .eq('usuario_id', usuario.id);
         final sectorIds = (sectoresData as List).map((e) => e['sector_id'] as String).toList();
@@ -117,7 +117,7 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
           .single();
 
       final encargados = await _supabase
-          .from('encargado_sector')
+          .from('usuario_sector')
           .select('usuario_id')
           .eq('sector_id', maquina['sector_id']);
 

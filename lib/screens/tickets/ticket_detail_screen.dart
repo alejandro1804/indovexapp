@@ -137,7 +137,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
         final maquina = _ticket!['maquinas'] as Map?;
         if (maquina != null) {
           final encargados = await _supabase
-              .from('encargado_sector')
+              .from('usuario_sector')
               .select('usuario_id')
               .eq('sector_id', maquina['sector_id']);
           for (final enc in encargados as List) {
