@@ -32,7 +32,7 @@
         <circle cx="0" cy="0" r="12" class="gear-inner"/>
     </g>
     <polygon points="355,188 330,248 348,248 323,312 372,240 350,240 375,188" class="accent2" opacity="0.9"/>
-    <text x="340" y="530" text-anchor="middle" font-size="52" class="logo-text">INDOVEX</text>
+    <text x="340" y="530" text-anchor="middle" font-size="52" class="logo-text">INDOVEXAPP</text>
     <text x="340" y="558" text-anchor="middle" font-size="13" class="logo-sub">GESTIÓN INDUSTRIAL</text>
     <rect x="220" y="568" width="240" height="2" rx="1" class="accent" opacity="0.6"/>
 </svg>
