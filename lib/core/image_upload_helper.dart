@@ -26,13 +26,83 @@ const _configs = {
   'avatar': _ImageConfig(maxWidth: 400, maxHeight: 400, quality: 78, maxBytes: 80000),
 };
 
+/// Resultado del chequeo de cuota de almacenamiento.
+class EstadoCuota {
+  final double usadoMb;
+  final double limiteMb;
+  final double porcentaje;
+  final bool tieneEspacio;
+
+  const EstadoCuota({
+    required this.usadoMb,
+    required this.limiteMb,
+    required this.porcentaje,
+    required this.tieneEspacio,
+  });
+}
+
+/// Excepción lanzada cuando la empresa alcanzó el 100% de su cuota.
+/// La UI puede atraparla para mostrar un mensaje amigable en lugar del
+/// error crudo de RLS que devolvería el backend.
+class StorageQuotaExcedidaException implements Exception {
+  final EstadoCuota estado;
+  StorageQuotaExcedidaException(this.estado);
+
+  @override
+  String toString() =>
+      'Almacenamiento lleno (${estado.usadoMb.toStringAsFixed(0)} MB '
+      'de ${estado.limiteMb.toStringAsFixed(0)} MB).';
+}
+
 class ImageUploadHelper {
   static final _supabase = Supabase.instance.client;
   static const _bucket = 'documentos';
   static final _picker = ImagePicker();
 
+  /// Consulta el uso de almacenamiento de la empresa vía RPC.
+  ///
+  /// Espejo de la lógica de backend (fn_empresa_tiene_espacio): compara
+  /// usado vs límite directamente en vez de confiar en el campo 'porcentaje'
+  /// (que puede venir null si el límite es 0). Si la consulta falla, asume
+  /// que hay espacio (fail-safe) para no bloquear al usuario por un error
+  /// de red; el backend sigue siendo la barrera real.
+  static Future<EstadoCuota> verificarEspacio(String empresaId) async {
+    try {
+      final res = await _supabase.rpc(
+        'uso_storage_empresa',
+        params: {'p_empresa_id': empresaId},
+      );
+
+      final map = (res as Map).cast<String, dynamic>();
+      final usado = (map['usado_mb'] as num?)?.toDouble() ?? 0;
+      final limite = (map['limite_mb'] as num?)?.toDouble() ?? 0;
+      final pctRaw = (map['porcentaje'] as num?)?.toDouble();
+      // Recalcular el porcentaje localmente para no depender del backend
+      final pct = limite > 0 ? (usado / limite) * 100 : (pctRaw ?? 100);
+      final tieneEspacio = limite > 0 && usado < limite;
+
+      return EstadoCuota(
+        usadoMb: usado,
+        limiteMb: limite,
+        porcentaje: pct,
+        tieneEspacio: tieneEspacio,
+      );
+    } catch (_) {
+      // Fail-safe: no bloquear en el cliente ante un error de consulta.
+      return const EstadoCuota(
+        usadoMb: 0,
+        limiteMb: 0,
+        porcentaje: 0,
+        tieneEspacio: true,
+      );
+    }
+  }
+
   /// Abre el selector de imagen (cámara o galería) y sube al bucket.
   /// Devuelve el path en Storage si tuvo éxito, null si se canceló.
+  ///
+  /// Lanza [StorageQuotaExcedidaException] si la empresa está al 100% de
+  /// su cuota (chequeo previo, para no comprimir/subir en vano).
   static Future<String?> pickAndUpload({
     required String tipo,        // 'maquina' | 'repuesto' | 'avatar'
     required String empresaId,
@@ -40,6 +110,12 @@ class ImageUploadHelper {
     ImageSource source = ImageSource.gallery,
   }) async {
     assert(_configs.containsKey(tipo), 'Tipo de imagen no soportado: $tipo');
+
+    // 0. Chequeo de cuota ANTES de abrir el picker (UX: evitar trabajo en vano)
+    final cuota = await verificarEspacio(empresaId);
+    if (!cuota.tieneEspacio) {
+      throw StorageQuotaExcedidaException(cuota);
+    }
 
     // 1. Seleccionar imagen
     final XFile? picked = await _picker.pickImage(
@@ -100,18 +176,18 @@ class ImageUploadHelper {
     return result ?? bytes;
   }
 
-    /// Path determinista: siempre el mismo por entidad → upsert reemplaza sin acumular huérfanos.
-      ///
-      /// Patrón unificado (empresa_id siempre primer segmento, igual que adjuntos):
-      ///   {empresaId}/{maquina|repuesto|usuario}/{entidadId}/portada/{entidadId}.webp
-      static String _buildPath(String tipo, String empresaId, String entidadId) {
-        return switch (tipo) {
-          'maquina'  => '$empresaId/maquina/$entidadId/portada/$entidadId.webp',
-          'repuesto' => '$empresaId/repuesto/$entidadId/portada/$entidadId.webp',
-          'avatar'   => '$empresaId/usuario/$entidadId/portada/$entidadId.webp',
-          _          => throw ArgumentError('tipo inválido: $tipo'),
-        };
-      }
+  /// Path determinista: siempre el mismo por entidad → upsert reemplaza sin acumular huérfanos.
+  ///
+  /// Patrón unificado (empresa_id siempre primer segmento, igual que adjuntos):
+  ///   {empresaId}/{maquina|repuesto|usuario}/{entidadId}/portada/{entidadId}.webp
+  static String _buildPath(String tipo, String empresaId, String entidadId) {
+    return switch (tipo) {
+      'maquina'  => '$empresaId/maquina/$entidadId/portada/$entidadId.webp',
+      'repuesto' => '$empresaId/repuesto/$entidadId/portada/$entidadId.webp',
+      'avatar'   => '$empresaId/usuario/$entidadId/portada/$entidadId.webp',
+      _          => throw ArgumentError('tipo inválido: $tipo'),
+    };
+  }
 
   /// Genera una signed URL con 1 hora de vigencia.
   static Future<String> signedUrl(String storagePath) async {

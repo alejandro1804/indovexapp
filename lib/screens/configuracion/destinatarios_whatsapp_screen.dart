@@ -73,10 +73,10 @@ class _DestinatariosWhatsappScreenState extends State<DestinatariosWhatsappScree
 
     setState(() => _procesando.add(usuarioId));
     try {
+      final empresaId = await _empresaIdActual();
       if (activar) {
         // upsert: si ya existe la fila (empresa+usuario por la constraint única),
-        // la reactiva; si no, la crea. empresa_id lo completa la policy/columna.
-        final empresaId = await _empresaIdActual();
+        // la reactiva; si no, la crea.
         await _supabase.from('whatsapp_destinatarios').upsert(
           {
             'empresa_id': empresaId,
@@ -88,10 +88,12 @@ class _DestinatariosWhatsappScreenState extends State<DestinatariosWhatsappScree
         setState(() => _destinatariosActivos.add(usuarioId));
       } else {
         // Desactivar: marcamos activo=false en vez de borrar, para mantener
-        // historial y auditoría
+        // historial y auditoría. Filtramos por empresa + usuario (defensa en
+        // profundidad, consistente con el upsert de activación).
         await _supabase
             .from('whatsapp_destinatarios')
             .update({'activo': false})
+            .eq('empresa_id', empresaId)
             .eq('usuario_id', usuarioId);
         setState(() => _destinatariosActivos.remove(usuarioId));
       }

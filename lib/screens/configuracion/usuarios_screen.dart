@@ -295,11 +295,17 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                               'El email ingresado no tiene un formato válido.');
                           return;
                         }
-                        if (telefono.isNotEmpty &&
-                            !_esTelefonoValido(telefono)) {
-                          _mostrarError(
-                              'El teléfono debe tener formato internacional, ej: +59899668216');
-                          return;
+                        // Normalización del teléfono (si se cargó): cualquier
+                        // formato uruguayo válido queda como +598XXXXXXXX.
+                        String? telefonoNormalizado;
+                        if (telefono.isNotEmpty) {
+                          telefonoNormalizado =
+                              _normalizarTelefonoUy(telefono);
+                          if (telefonoNormalizado == null) {
+                            _mostrarError(
+                                'Ingresá un móvil uruguayo válido, ej: 099 123 456 o +59899123456');
+                            return;
+                          }
                         }
                         Navigator.pop(context);
                         await _crearUsuario(
@@ -307,7 +313,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                           nombre: nombre,
                           password: password,
                           rolId: rolSeleccionado!,
-                          telefono: telefono.isEmpty ? null : telefono,
+                          telefono: telefonoNormalizado,
                           sectores: rolRestringe
                               ? sectoresElegidos.toList()
                               : const [],
@@ -325,10 +331,25 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
     );
   }
 
-  /// Valida formato internacional básico: + seguido de 8 a 15 dígitos.
+  /// Normaliza un móvil uruguayo al formato +598XXXXXXXX.
+  /// Acepta: +59899668216, 59899668216, 099668216, 99668216.
+  /// Devuelve null si no es un móvil uruguayo válido.
+  String? _normalizarTelefonoUy(String input) {
+    final d = input.replaceAll(RegExp(r'[^\d]'), ''); // solo dígitos
+
+    // Ya viene como 598 + 8 dígitos (11 total)
+    if (d.startsWith('598') && d.length == 11) return '+$d';
+    // Formato 09XXXXXXXX (móvil con 0 inicial, 9 dígitos)
+    if (d.startsWith('0') && d.length == 9) return '+598${d.substring(1)}';
+    // Formato 9XXXXXXXX (móvil sin 0 ni país, 8 dígitos)
+    if (d.startsWith('9') && d.length == 8) return '+598$d';
+    // No es un móvil uruguayo válido
+    return null;
+  }
+
+  /// Valida que el teléfono se pueda normalizar a un móvil uruguayo.
   bool _esTelefonoValido(String telefono) {
-    final regex = RegExp(r'^\+\d{8,15}$');
-    return regex.hasMatch(telefono);
+    return _normalizarTelefonoUy(telefono) != null;
   }
 
   Future<void> _crearUsuario({
@@ -354,7 +375,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
       if (data != null && data['success'] == true) {
         final nuevoId = data['usuario_id'] ?? data['id'];
 
-        // Teléfono (si se cargó).
+        // Teléfono (si se cargó). Ya viene normalizado a +598... desde el form.
         if (telefono != null && nuevoId != null) {
           try {
             await _supabase
@@ -499,16 +520,21 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
           ElevatedButton(
             onPressed: () async {
               final telefono = telefonoController.text.trim();
-              if (telefono.isNotEmpty && !_esTelefonoValido(telefono)) {
-                _mostrarError(
-                    'El teléfono debe tener formato internacional, ej: +59899668216');
-                return;
+              // Normalización del teléfono (si se cargó): cualquier formato
+              // uruguayo válido queda como +598XXXXXXXX. Vacío => quitar.
+              String? telefonoNormalizado;
+              if (telefono.isNotEmpty) {
+                telefonoNormalizado = _normalizarTelefonoUy(telefono);
+                if (telefonoNormalizado == null) {
+                  _mostrarError(
+                      'Ingresá un móvil uruguayo válido, ej: 099 123 456 o +59899123456');
+                  return;
+                }
               }
               Navigator.pop(context);
               try {
                 await _supabase.from('usuarios').update(
-                    {'telefono': telefono.isEmpty ? null : telefono}).eq(
-                    'id', usuario['id']);
+                    {'telefono': telefonoNormalizado}).eq('id', usuario['id']);
                 await _cargarDatos();
                 _mostrarExito('Teléfono actualizado correctamente');
               } catch (e) {
