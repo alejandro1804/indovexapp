@@ -876,12 +876,15 @@ class _TabAlmacenamientoState extends State<_TabAlmacenamiento>
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  Icon(Icons.storage_outlined, color: colorBarra, size: 20),
-                  const SizedBox(width: 8),
-                  const Text('Uso de almacenamiento',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                ]),
+              Row(children: [
+                                Icon(Icons.storage_outlined, color: colorBarra, size: 20),
+                                const SizedBox(width: 8),
+                                const Expanded(
+                                  child: Text('Uso de almacenamiento',
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                      overflow: TextOverflow.ellipsis),
+                                ),
+                              ]),
                 const SizedBox(height: 12),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(6),

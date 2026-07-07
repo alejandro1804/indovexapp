@@ -242,6 +242,7 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
     final guardar = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        scrollable: true,
         title: const Text('Plazos de conservación'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -347,6 +348,10 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
         builder: (ctx, setLocal) {
           final coincide = controller.text.trim() == nombre;
           return AlertDialog(
+            // FIX: sin esto, cuando el teclado se abre (por el TextField de
+            // confirmación) el contenido no puede achicarse ni scrollear y
+            // se desborda, superponiendo los botones con el texto.
+            scrollable: true,
             title: Row(children: const [
               Icon(Icons.warning_amber, color: Color(0xFFB71C1C)),
               SizedBox(width: 8),
@@ -433,6 +438,7 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        scrollable: true,
         title: const Text('Límite de almacenamiento'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
