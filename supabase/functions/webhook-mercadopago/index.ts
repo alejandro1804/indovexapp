@@ -6,7 +6,6 @@ const corsHeaders = {
 };
 
 // Valida la firma x-signature que envía MercadoPago.
-// Devuelve true si la firma es válida, false si no.
 async function validarFirma(
   req: Request,
   dataId: string,
@@ -15,9 +14,11 @@ async function validarFirma(
   const xSignature = req.headers.get("x-signature");
   const xRequestId = req.headers.get("x-request-id");
 
-  if (!xSignature || !xRequestId) return false;
+  if (!xSignature || !xRequestId) {
+    console.log(">>> FIRMA: faltan headers x-signature o x-request-id");
+    return false;
+  }
 
-  // x-signature viene como: "ts=1704908010,v1=hashhexadecimal"
   const partes = xSignature.split(",");
   let ts = "";
   let v1 = "";
@@ -27,12 +28,13 @@ async function validarFirma(
     if (clave === "v1") v1 = valor;
   }
 
-  if (!ts || !v1) return false;
+  if (!ts || !v1) {
+    console.log(">>> FIRMA: no se pudo parsear ts o v1");
+    return false;
+  }
 
-  // Plantilla que MercadoPago especifica para reconstruir la firma
   const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
 
-  // HMAC-SHA256 con la clave secreta
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
     "raw",
@@ -43,12 +45,13 @@ async function validarFirma(
   );
   const firma = await crypto.subtle.sign("HMAC", key, encoder.encode(manifest));
 
-  // Convertir a hexadecimal
   const firmaHex = Array.from(new Uint8Array(firma))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 
-  return firmaHex === v1;
+  const coincide = firmaHex === v1;
+  console.log(`>>> FIRMA: manifest="${manifest}" | coincide=${coincide}`);
+  return coincide;
 }
 
 Deno.serve(async (req) => {
@@ -58,34 +61,43 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({}));
+    console.log(">>> BODY RECIBIDO:", JSON.stringify(body));
 
     const url = new URL(req.url);
+    console.log(">>> URL:", req.url);
+
     const tipo = body?.type ?? url.searchParams.get("type");
     const dataId =
       body?.data?.id ?? url.searchParams.get("id") ?? body?.id ?? "";
 
-    // ── Validar la firma antes de procesar ──────────────────
+    console.log(`>>> tipo="${tipo}" | dataId="${dataId}"`);
+
+    // ── Validar la firma antes de procesar ──
     const secret = Deno.env.get("MP_WEBHOOK_SECRET");
     if (secret) {
       const firmaValida = await validarFirma(req, String(dataId), secret);
       if (!firmaValida) {
-        // Firma inválida → rechazar. Devolvemos 401.
+        console.log(">>> RESULTADO: firma inválida, devolviendo 401");
         return new Response(
           JSON.stringify({ error: "Firma inválida" }),
           { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+    } else {
+      console.log(">>> ADVERTENCIA: MP_WEBHOOK_SECRET no está configurado");
     }
 
     // Solo nos interesan eventos de suscripción
     if (tipo && tipo !== "subscription_preapproval" && tipo !== "preapproval") {
-      return new Response(JSON.stringify({ ignored: true }), {
+      console.log(`>>> RESULTADO: tipo "${tipo}" ignorado (no es suscripción)`);
+      return new Response(JSON.stringify({ ignored: true, tipo }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     if (!dataId) {
+      console.log(">>> RESULTADO: sin dataId, devolviendo 200");
       return new Response(JSON.stringify({ error: "Sin ID de suscripción" }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -93,6 +105,7 @@ Deno.serve(async (req) => {
     }
 
     // 1. Consultar a MercadoPago los detalles de la suscripción
+    console.log(`>>> Consultando MP: /preapproval/${dataId}`);
     const mpResp = await fetch(
       `https://api.mercadopago.com/preapproval/${dataId}`,
       {
@@ -102,8 +115,11 @@ Deno.serve(async (req) => {
       }
     );
 
+    console.log(`>>> MP respondió status: ${mpResp.status}`);
+
     if (!mpResp.ok) {
       const detalle = await mpResp.json().catch(() => ({}));
+      console.log(">>> RESULTADO: MP no pudo consultar suscripción:", JSON.stringify(detalle));
       return new Response(
         JSON.stringify({ error: "No se pudo consultar la suscripción", detalle }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -111,11 +127,16 @@ Deno.serve(async (req) => {
     }
 
     const sub = await mpResp.json();
+    console.log(">>> SUSCRIPCIÓN MP:", JSON.stringify(sub));
+
     const empresaId = sub.external_reference;
     const estadoSub = sub.status;
     const mpSubId = sub.id;
 
+    console.log(`>>> empresaId="${empresaId}" | estadoSub="${estadoSub}" | mpSubId="${mpSubId}"`);
+
     if (!empresaId) {
+      console.log(">>> RESULTADO: suscripción sin external_reference");
       return new Response(
         JSON.stringify({ error: "Suscripción sin external_reference" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -141,24 +162,29 @@ Deno.serve(async (req) => {
       updateData.estado = "suspendida";
     }
 
+    console.log(">>> Actualizando empresa con:", JSON.stringify(updateData));
+
     const { error: updateError } = await supabase
       .from("empresas")
       .update(updateData)
       .eq("id", empresaId);
 
     if (updateError) {
+      console.log(">>> RESULTADO: error al actualizar empresa:", updateError.message);
       return new Response(
         JSON.stringify({ error: "Error al actualizar empresa", detalle: updateError.message }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    console.log(`>>> RESULTADO: empresa ${empresaId} actualizada correctamente a estado ${estadoSub}`);
     return new Response(
       JSON.stringify({ ok: true, empresa_id: empresaId, estado: estadoSub }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
   } catch (error) {
+    console.log(">>> ERROR CAPTURADO:", error.message);
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

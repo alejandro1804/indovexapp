@@ -11,11 +11,25 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { empresa_id, plan } = await req.json();
+    const { empresa_id, plan, payer_email, card_token_id } = await req.json();
 
     if (!empresa_id || !plan) {
       return new Response(
         JSON.stringify({ error: "empresa_id y plan son requeridos" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!payer_email) {
+      return new Response(
+        JSON.stringify({ error: "payer_email es requerido" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!card_token_id) {
+      return new Response(
+        JSON.stringify({ error: "card_token_id es requerido" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -47,17 +61,47 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 2. Construir el link del checkout del plan, pasando el empresa_id
-    //    como external_reference vía query param. MercadoPago lo conserva
-    //    en la suscripción resultante, lo que permite identificar la empresa
-    //    en el webhook de confirmación.
-    const link =
-      `https://www.mercadopago.com.uy/subscriptions/checkout` +
-      `?preapproval_plan_id=${planData.mp_plan_id}` +
-      `&external_reference=${encodeURIComponent(empresa_id)}`;
+    // 2. Crear la suscripción (preapproval) vía API con la tarjeta tokenizada.
+    //    Con card_token_id + status "authorized", MercadoPago acepta la
+    //    creación por API y guarda el external_reference (empresa_id) de
+    //    forma garantizada. El webhook luego lo lee para activar la empresa.
+    const preapprovalBody = {
+      preapproval_plan_id: planData.mp_plan_id,
+      card_token_id: card_token_id,
+      payer_email: payer_email,
+      external_reference: empresa_id,
+      back_url: "https://indovexapp.com",
+      status: "authorized",
+    };
 
+    const mpResp = await fetch("https://api.mercadopago.com/preapproval", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${Deno.env.get("MP_ACCESS_TOKEN")}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(preapprovalBody),
+    });
+
+    const mpData = await mpResp.json();
+
+    if (!mpResp.ok) {
+      return new Response(
+        JSON.stringify({ error: "MercadoPago rechazó la creación de la suscripción", detalle: mpData }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // 3. Suscripción creada y autorizada. Devolvemos el id y el estado.
+    //    El webhook recibirá la notificación y actualizará la empresa,
+    //    pero también actualizamos acá de forma optimista por si el
+    //    webhook demora.
     return new Response(
-      JSON.stringify({ link }),
+      JSON.stringify({
+        ok: true,
+        preapproval_id: mpData.id,
+        status: mpData.status,
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
