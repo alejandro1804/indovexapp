@@ -54,6 +54,187 @@ async function validarFirma(
   return coincide;
 }
 
+// ─────────────────────────────────────────────────────────────
+// RAMA SUSCRIPCIÓN (preapproval): tu lógica original, sin cambios.
+// Actualiza el estado de la empresa según el estado de la suscripción.
+// ─────────────────────────────────────────────────────────────
+async function procesarSuscripcion(
+  dataId: string,
+  supabase: ReturnType<typeof createClient>,
+  accessToken: string
+): Promise<Response> {
+  console.log(`>>> [SUSCRIPCIÓN] Consultando MP: /preapproval/${dataId}`);
+  const mpResp = await fetch(
+    `https://api.mercadopago.com/preapproval/${dataId}`,
+    { headers: { "Authorization": `Bearer ${accessToken}` } }
+  );
+
+  console.log(`>>> [SUSCRIPCIÓN] MP respondió status: ${mpResp.status}`);
+
+  if (!mpResp.ok) {
+    const detalle = await mpResp.json().catch(() => ({}));
+    console.log(">>> [SUSCRIPCIÓN] MP no pudo consultar suscripción:", JSON.stringify(detalle));
+    return jsonResp({ error: "No se pudo consultar la suscripción", detalle }, 200);
+  }
+
+  const sub = await mpResp.json();
+  console.log(">>> [SUSCRIPCIÓN] SUSCRIPCIÓN MP:", JSON.stringify(sub));
+
+  const empresaId = sub.external_reference;
+  const estadoSub = sub.status;
+  const mpSubId = sub.id;
+
+  console.log(`>>> [SUSCRIPCIÓN] empresaId="${empresaId}" | estadoSub="${estadoSub}" | mpSubId="${mpSubId}"`);
+
+  if (!empresaId) {
+    console.log(">>> [SUSCRIPCIÓN] suscripción sin external_reference");
+    return jsonResp({ error: "Suscripción sin external_reference" }, 200);
+  }
+
+  const updateData: Record<string, unknown> = {
+    mp_suscripcion_id: mpSubId,
+    suscripcion_estado: estadoSub,
+    suscripcion_actualizada: new Date().toISOString(),
+  };
+
+  if (estadoSub === "authorized") {
+    updateData.estado = "activa";
+    updateData.plan = "pago";
+  } else if (estadoSub === "paused" || estadoSub === "cancelled") {
+    updateData.estado = "suspendida";
+  }
+
+  console.log(">>> [SUSCRIPCIÓN] Actualizando empresa con:", JSON.stringify(updateData));
+
+  const { error: updateError } = await supabase
+    .from("empresas")
+    .update(updateData)
+    .eq("id", empresaId);
+
+  if (updateError) {
+    console.log(">>> [SUSCRIPCIÓN] error al actualizar empresa:", updateError.message);
+    return jsonResp({ error: "Error al actualizar empresa", detalle: updateError.message }, 200);
+  }
+
+  console.log(`>>> [SUSCRIPCIÓN] empresa ${empresaId} actualizada a estado ${estadoSub}`);
+  return jsonResp({ ok: true, tipo: "suscripcion", empresa_id: empresaId, estado: estadoSub }, 200);
+}
+
+// ─────────────────────────────────────────────────────────────
+// RAMA PAGO (subscription_authorized_payment): NUEVA.
+// Consulta el pago, resuelve la empresa vía el preapproval
+// (external_reference = empresa_id) e inserta en pagos_suscripcion.
+// ─────────────────────────────────────────────────────────────
+async function procesarPago(
+  dataId: string,
+  supabase: ReturnType<typeof createClient>,
+  accessToken: string
+): Promise<Response> {
+  // 1. Consultar el pago autorizado de la suscripción
+  console.log(`>>> [PAGO] Consultando MP: /authorized_payments/${dataId}`);
+  const payResp = await fetch(
+    `https://api.mercadopago.com/authorized_payments/${dataId}`,
+    { headers: { "Authorization": `Bearer ${accessToken}` } }
+  );
+
+  console.log(`>>> [PAGO] MP respondió status: ${payResp.status}`);
+
+  if (!payResp.ok) {
+    const detalle = await payResp.json().catch(() => ({}));
+    console.log(">>> [PAGO] MP no pudo consultar el pago:", JSON.stringify(detalle));
+    return jsonResp({ error: "No se pudo consultar el pago", detalle }, 200);
+  }
+
+  const pago = await payResp.json();
+  console.log(">>> [PAGO] PAGO MP:", JSON.stringify(pago));
+
+  // Campos del authorized_payment de MercadoPago
+  const mpPaymentId = String(pago.id ?? dataId);
+  const preapprovalId = pago.preapproval_id;
+  // El monto/estado del cobro pueden venir en 'payment' anidado o en la raíz según el evento
+  const monto =
+    pago?.transaction_amount ??
+    pago?.payment?.transaction_amount ??
+    pago?.debit_amount ??
+    null;
+  const estadoPago =
+    pago?.status ??
+    pago?.payment?.status ??
+    "unknown";
+  const fechaPago =
+    pago?.payment?.date_approved ??
+    pago?.date_created ??
+    new Date().toISOString();
+  const moneda =
+    pago?.currency_id ??
+    pago?.payment?.currency_id ??
+    "UYU";
+
+  console.log(`>>> [PAGO] mpPaymentId="${mpPaymentId}" | preapprovalId="${preapprovalId}" | monto="${monto}" | estado="${estadoPago}"`);
+
+  if (!preapprovalId) {
+    console.log(">>> [PAGO] pago sin preapproval_id, no se puede resolver la empresa");
+    return jsonResp({ error: "Pago sin preapproval_id" }, 200);
+  }
+
+  // 2. Resolver empresa_id vía el preapproval (Opción 2: fuente de verdad = external_reference)
+  console.log(`>>> [PAGO] Consultando MP: /preapproval/${preapprovalId} para resolver empresa`);
+  const subResp = await fetch(
+    `https://api.mercadopago.com/preapproval/${preapprovalId}`,
+    { headers: { "Authorization": `Bearer ${accessToken}` } }
+  );
+
+  if (!subResp.ok) {
+    const detalle = await subResp.json().catch(() => ({}));
+    console.log(">>> [PAGO] no se pudo consultar el preapproval:", JSON.stringify(detalle));
+    return jsonResp({ error: "No se pudo resolver la empresa del pago", detalle }, 200);
+  }
+
+  const sub = await subResp.json();
+  const empresaId = sub.external_reference;
+  const mpPlanId = sub.preapproval_plan_id ?? null;
+
+  console.log(`>>> [PAGO] empresaId="${empresaId}" | mpPlanId="${mpPlanId}"`);
+
+  if (!empresaId) {
+    console.log(">>> [PAGO] preapproval sin external_reference, no se inserta (fila huérfana evitada)");
+    return jsonResp({ error: "No se pudo resolver empresa_id del pago" }, 200);
+  }
+
+  // 3. Insertar el pago (upsert por mp_payment_id para evitar duplicados por reintentos)
+  const registroPago = {
+    empresa_id: empresaId,
+    mp_payment_id: mpPaymentId,
+    mp_suscripcion_id: String(preapprovalId),
+    mp_plan_id: mpPlanId,
+    monto: monto,
+    moneda: moneda,
+    estado: estadoPago,
+    fecha_pago: fechaPago,
+  };
+
+  console.log(">>> [PAGO] Insertando en pagos_suscripcion:", JSON.stringify(registroPago));
+
+  const { error: insertError } = await supabase
+    .from("pagos_suscripcion")
+    .upsert(registroPago, { onConflict: "mp_payment_id", ignoreDuplicates: true });
+
+  if (insertError) {
+    console.log(">>> [PAGO] error al insertar pago:", insertError.message);
+    return jsonResp({ error: "Error al registrar el pago", detalle: insertError.message }, 200);
+  }
+
+  console.log(`>>> [PAGO] pago ${mpPaymentId} registrado para empresa ${empresaId}`);
+  return jsonResp({ ok: true, tipo: "pago", empresa_id: empresaId, mp_payment_id: mpPaymentId, estado: estadoPago }, 200);
+}
+
+function jsonResp(body: unknown, status: number): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -78,116 +259,37 @@ Deno.serve(async (req) => {
       const firmaValida = await validarFirma(req, String(dataId), secret);
       if (!firmaValida) {
         console.log(">>> RESULTADO: firma inválida, devolviendo 401");
-        return new Response(
-          JSON.stringify({ error: "Firma inválida" }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return jsonResp({ error: "Firma inválida" }, 401);
       }
     } else {
       console.log(">>> ADVERTENCIA: MP_WEBHOOK_SECRET no está configurado");
     }
 
-    // Solo nos interesan eventos de suscripción
-    if (tipo && tipo !== "subscription_preapproval" && tipo !== "preapproval") {
-      console.log(`>>> RESULTADO: tipo "${tipo}" ignorado (no es suscripción)`);
-      return new Response(JSON.stringify({ ignored: true, tipo }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     if (!dataId) {
       console.log(">>> RESULTADO: sin dataId, devolviendo 200");
-      return new Response(JSON.stringify({ error: "Sin ID de suscripción" }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResp({ error: "Sin ID en la notificación" }, 200);
     }
 
-    // 1. Consultar a MercadoPago los detalles de la suscripción
-    console.log(`>>> Consultando MP: /preapproval/${dataId}`);
-    const mpResp = await fetch(
-      `https://api.mercadopago.com/preapproval/${dataId}`,
-      {
-        headers: {
-          "Authorization": `Bearer ${Deno.env.get("MP_ACCESS_TOKEN")}`,
-        },
-      }
-    );
-
-    console.log(`>>> MP respondió status: ${mpResp.status}`);
-
-    if (!mpResp.ok) {
-      const detalle = await mpResp.json().catch(() => ({}));
-      console.log(">>> RESULTADO: MP no pudo consultar suscripción:", JSON.stringify(detalle));
-      return new Response(
-        JSON.stringify({ error: "No se pudo consultar la suscripción", detalle }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const sub = await mpResp.json();
-    console.log(">>> SUSCRIPCIÓN MP:", JSON.stringify(sub));
-
-    const empresaId = sub.external_reference;
-    const estadoSub = sub.status;
-    const mpSubId = sub.id;
-
-    console.log(`>>> empresaId="${empresaId}" | estadoSub="${estadoSub}" | mpSubId="${mpSubId}"`);
-
-    if (!empresaId) {
-      console.log(">>> RESULTADO: suscripción sin external_reference");
-      return new Response(
-        JSON.stringify({ error: "Suscripción sin external_reference" }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // 2. Actualizar la empresa según el estado
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
+    const accessToken = Deno.env.get("MP_ACCESS_TOKEN")!;
 
-    const updateData: Record<string, unknown> = {
-      mp_suscripcion_id: mpSubId,
-      suscripcion_estado: estadoSub,
-      suscripcion_actualizada: new Date().toISOString(),
-    };
-
-    if (estadoSub === "authorized") {
-      updateData.estado = "activa";
-      updateData.plan = "pago";
-    } else if (estadoSub === "paused" || estadoSub === "cancelled") {
-      updateData.estado = "suspendida";
+    // ── Ramificar según el tipo de evento ──
+    if (tipo === "subscription_preapproval" || tipo === "preapproval") {
+      return await procesarSuscripcion(String(dataId), supabase, accessToken);
     }
 
-    console.log(">>> Actualizando empresa con:", JSON.stringify(updateData));
-
-    const { error: updateError } = await supabase
-      .from("empresas")
-      .update(updateData)
-      .eq("id", empresaId);
-
-    if (updateError) {
-      console.log(">>> RESULTADO: error al actualizar empresa:", updateError.message);
-      return new Response(
-        JSON.stringify({ error: "Error al actualizar empresa", detalle: updateError.message }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (tipo === "subscription_authorized_payment") {
+      return await procesarPago(String(dataId), supabase, accessToken);
     }
 
-    console.log(`>>> RESULTADO: empresa ${empresaId} actualizada correctamente a estado ${estadoSub}`);
-    return new Response(
-      JSON.stringify({ ok: true, empresa_id: empresaId, estado: estadoSub }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    console.log(`>>> RESULTADO: tipo "${tipo}" ignorado (no es suscripción ni pago)`);
+    return jsonResp({ ignored: true, tipo }, 200);
 
   } catch (error) {
     console.log(">>> ERROR CAPTURADO:", error.message);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return jsonResp({ error: error.message }, 200);
   }
 });
