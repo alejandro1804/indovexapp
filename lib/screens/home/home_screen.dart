@@ -15,6 +15,7 @@ import '../planes_mantenimiento/planes_mantenimiento_screen.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../admin/empresas_screen.dart';
 import '../admin/gestion_planes_screen.dart';
+import '../admin/pagos_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -128,6 +129,12 @@ class _HomeScreenState extends State<HomeScreen> {
         icon: Icons.sell_outlined,
         iconActivo: Icons.sell,
         screen: const GestionPlanesScreen(),
+      ),
+      _NavItem(
+        label: 'Pagos',
+        icon: Icons.receipt_long_outlined,
+        iconActivo: Icons.receipt_long,
+        screen: const PagosScreen(),
       ),
     ];
   }

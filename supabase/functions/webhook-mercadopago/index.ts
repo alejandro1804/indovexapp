@@ -121,9 +121,19 @@ async function procesarSuscripcion(
 }
 
 // ─────────────────────────────────────────────────────────────
-// RAMA PAGO (subscription_authorized_payment): NUEVA.
+// RAMA PAGO (subscription_authorized_payment).
 // Consulta el pago, resuelve la empresa vía el preapproval
 // (external_reference = empresa_id) e inserta en pagos_suscripcion.
+//
+// IMPORTANTE sobre el estado (según doc oficial de MercadoPago):
+// El authorized_payment tiene DOS niveles de estado:
+//   • status (nivel cuota): scheduled | processed | recycling | pending.
+//     'processed' NO significa éxito: una cuota rechazada en el último
+//     reintento también queda 'processed'. No sirve para facturar.
+//   • payment.status (nivel pago real): approved | rejected | pending |
+//     in_process | refunded | cancelled. ESTE es el que dice si el dinero
+//     entró. Es el que guardamos como 'estado' para poder facturar.
+// Por eso priorizamos payment.status sobre el status de la cuota.
 // ─────────────────────────────────────────────────────────────
 async function procesarPago(
   dataId: string,
@@ -151,33 +161,39 @@ async function procesarPago(
   // Campos del authorized_payment de MercadoPago
   const mpPaymentId = String(pago.id ?? dataId);
   const preapprovalId = pago.preapproval_id;
-  // El monto/estado del cobro pueden venir en 'payment' anidado o en la raíz según el evento
+
   const monto =
     pago?.transaction_amount ??
     pago?.payment?.transaction_amount ??
     pago?.debit_amount ??
     null;
+
+  // ── ESTADO: priorizar payment.status (nivel pago real = "approved") ──
+  // sobre el status de la cuota (nivel authorized_payment = "processed").
   const estadoPago =
-    pago?.status ??
-    pago?.payment?.status ??
+    pago?.payment?.status ??   // approved | rejected | pending | ... (el que importa para facturar)
+    pago?.status ??            // fallback: status de la cuota (scheduled/processed/recycling/pending)
     "unknown";
+
+  // ── FECHA: priorizar la fecha de acreditación del pago real ──
   const fechaPago =
     pago?.payment?.date_approved ??
     pago?.date_created ??
     new Date().toISOString();
+
   const moneda =
     pago?.currency_id ??
     pago?.payment?.currency_id ??
     "UYU";
 
-  console.log(`>>> [PAGO] mpPaymentId="${mpPaymentId}" | preapprovalId="${preapprovalId}" | monto="${monto}" | estado="${estadoPago}"`);
+  console.log(`>>> [PAGO] mpPaymentId="${mpPaymentId}" | preapprovalId="${preapprovalId}" | monto="${monto}" | estado(payment.status)="${estadoPago}"`);
 
   if (!preapprovalId) {
     console.log(">>> [PAGO] pago sin preapproval_id, no se puede resolver la empresa");
     return jsonResp({ error: "Pago sin preapproval_id" }, 200);
   }
 
-  // 2. Resolver empresa_id vía el preapproval (Opción 2: fuente de verdad = external_reference)
+  // 2. Resolver empresa_id vía el preapproval (fuente de verdad = external_reference)
   console.log(`>>> [PAGO] Consultando MP: /preapproval/${preapprovalId} para resolver empresa`);
   const subResp = await fetch(
     `https://api.mercadopago.com/preapproval/${preapprovalId}`,
@@ -224,7 +240,7 @@ async function procesarPago(
     return jsonResp({ error: "Error al registrar el pago", detalle: insertError.message }, 200);
   }
 
-  console.log(`>>> [PAGO] pago ${mpPaymentId} registrado para empresa ${empresaId}`);
+  console.log(`>>> [PAGO] pago ${mpPaymentId} registrado para empresa ${empresaId} con estado ${estadoPago}`);
   return jsonResp({ ok: true, tipo: "pago", empresa_id: empresaId, mp_payment_id: mpPaymentId, estado: estadoPago }, 200);
 }
 
