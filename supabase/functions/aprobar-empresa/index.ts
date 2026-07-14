@@ -5,15 +5,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// --- Envío de email vía ZeptoMail REST API (reemplaza denomailer/SMTP) ---
+// Envía el email de bienvenida llamando a la función central enviar-email.
+// Toda la config de ZeptoMail (URL, token, formato) vive allá, no acá.
 async function enviarEmailBienvenida(
+  supabaseUrl: string,
   emailDestino: string,
   nombreEmpresa: string,
   nombreContacto: string | null,
 ) {
-  const token = Deno.env.get('ZEPTOMAIL_TOKEN')!
-  const url = Deno.env.get('ZEPTOMAIL_URL')!
-  const from = Deno.env.get('ZEPTOMAIL_FROM')!
+  const internalSecret = Deno.env.get('INTERNAL_FUNCTION_SECRET')!
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
 
   const saludo = nombreContacto ? `Hola <strong>${nombreContacto}</strong>,` : 'Hola,'
 
@@ -35,24 +36,24 @@ async function enviarEmailBienvenida(
     </div>
   `
 
-  const resp = await fetch(url, {
+  const resp = await fetch(`${supabaseUrl}/functions/v1/enviar-email`, {
     method: 'POST',
     headers: {
-      'Authorization': token,
       'Content-Type': 'application/json',
-      'Accept': 'application/json',
+      'Authorization': `Bearer ${anonKey}`,
+      'x-internal-secret': internalSecret,
     },
     body: JSON.stringify({
-      from: { address: from, name: 'IndovexApp' },
-      to: [{ email_address: { address: emailDestino, name: nombreContacto ?? nombreEmpresa } }],
+      to: emailDestino,
+      toName: nombreContacto ?? nombreEmpresa,
       subject: `Tu empresa ${nombreEmpresa} fue aprobada — IndovexApp`,
-      htmlbody: html,
+      html,
     }),
   })
 
   if (!resp.ok) {
     const txt = await resp.text()
-    throw new Error(`ZeptoMail respondió ${resp.status}: ${txt}`)
+    throw new Error(`enviar-email respondió ${resp.status}: ${txt}`)
   }
 }
 
@@ -119,6 +120,7 @@ Deno.serve(async (req) => {
 
       if (emailDestino) {
         await enviarEmailBienvenida(
+          Deno.env.get('SUPABASE_URL')!,
           emailDestino,
           empresa?.nombre ?? 'tu empresa',
           (admin as any)?.nombre ?? null,
