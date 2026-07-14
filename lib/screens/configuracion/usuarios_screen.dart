@@ -62,9 +62,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
     final emailController = TextEditingController();
     final nombreController = TextEditingController();
     final telefonoController = TextEditingController();
-    final passwordController = TextEditingController();
     String? rolSeleccionado = _roles.isNotEmpty ? _roles.first['id'] : null;
-    bool verPassword = false;
 
     // Sectores disponibles + selección para el alta.
     List<Map<String, dynamic>> sectores = [];
@@ -126,27 +124,6 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                       ),
                       keyboardType: TextInputType.phone,
                       maxLength: 20,
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: passwordController,
-                      style: const TextStyle(fontSize: 13),
-                      obscureText: !verPassword,
-                      decoration: InputDecoration(
-                        labelText: 'Contraseña temporal *',
-                        labelStyle: const TextStyle(fontSize: 13),
-                        border: const OutlineInputBorder(),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                              verPassword
-                                  ? Icons.visibility_off_outlined
-                                  : Icons.visibility_outlined,
-                              color: Colors.grey,
-                              size: 20),
-                          onPressed: () => setDialogState(
-                              () => verPassword = !verPassword),
-                        ),
-                      ),
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
@@ -259,7 +236,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                               child: Text(
-                                  'El usuario deberá cambiar su contraseña al primer ingreso.',
+                                  'Se enviará un email al usuario con su contraseña temporal. Deberá cambiarla al primer ingreso.',
                                   style: TextStyle(
                                       fontSize: 10,
                                       color: Colors.blue[700]))),
@@ -283,10 +260,8 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                             normalizarTexto(nombreController.text);
                         final email = normalizarEmail(emailController.text);
                         final telefono = telefonoController.text.trim();
-                        final password = passwordController.text.trim();
                         if (email.isEmpty ||
                             nombre.isEmpty ||
-                            password.isEmpty ||
                             rolSeleccionado == null) {
                           return;
                         }
@@ -311,7 +286,6 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                         await _crearUsuario(
                           email: email,
                           nombre: nombre,
-                          password: password,
                           rolId: rolSeleccionado!,
                           telefono: telefonoNormalizado,
                           sectores: rolRestringe
@@ -355,7 +329,6 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
   Future<void> _crearUsuario({
     required String email,
     required String nombre,
-    required String password,
     required String rolId,
     String? telefono,
     List<String> sectores = const [],
@@ -365,7 +338,6 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
         'crear_usuario',
         body: {
           'email': email,
-          'password': password,
           'nombre': nombre,
           'rol_id': rolId,
         },
@@ -373,7 +345,8 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
 
       final data = response.data;
       if (data != null && data['success'] == true) {
-        final nuevoId = data['usuario_id'] ?? data['id'];
+        // La Edge Function devuelve 'user_id'.
+        final nuevoId = data['user_id'];
 
         // Teléfono (si se cargó). Ya viene normalizado a +598... desde el form.
         if (telefono != null && nuevoId != null) {
@@ -404,7 +377,14 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
           }
         }
 
-        _mostrarExito('Usuario creado correctamente');
+        // Aviso según si el email con las credenciales salió o no.
+        if (data['email_enviado'] == true) {
+          _mostrarExito(
+              'Usuario creado. Se enviaron las credenciales a $email');
+        } else {
+          _mostrarError(
+              'Usuario creado, pero no se pudo enviar el email. Usá "Resetear contraseña" para obtener una temporal.');
+        }
         await _cargarDatos();
       } else {
         final mensaje =
