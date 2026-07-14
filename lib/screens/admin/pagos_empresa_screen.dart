@@ -1,18 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class PagosScreen extends StatefulWidget {
-  const PagosScreen({super.key});
+/// Vista 2 — Historial de pagos de una empresa (super admin).
+/// Se abre desde EmpresasScreen con el botón "Ver pagos".
+class PagosEmpresaScreen extends StatefulWidget {
+  final String empresaId;
+  final String empresaNombre;
+
+  const PagosEmpresaScreen({
+    super.key,
+    required this.empresaId,
+    required this.empresaNombre,
+  });
 
   @override
-  State<PagosScreen> createState() => _PagosScreenState();
+  State<PagosEmpresaScreen> createState() => _PagosEmpresaScreenState();
 }
 
-class _PagosScreenState extends State<PagosScreen> {
+class _PagosEmpresaScreenState extends State<PagosEmpresaScreen> {
   final _supabase = Supabase.instance.client;
   List<Map<String, dynamic>> _pagos = [];
   bool _cargando = true;
-  String _filtro = 'por_facturar';
+
+  // Resumen (se llena desde la primera fila de la RPC)
+  double _totalCobrado = 0;
+  int _cantAprobados = 0;
+  int _cantSinFacturar = 0;
 
   @override
   void initState() {
@@ -23,9 +36,21 @@ class _PagosScreenState extends State<PagosScreen> {
   Future<void> _cargar() async {
     setState(() => _cargando = true);
     try {
-      final data = await _supabase.rpc('sa_listar_pagos');
+      final data = await _supabase.rpc('sa_listar_pagos_empresa',
+          params: {'p_empresa_id': widget.empresaId});
+      final lista = List<Map<String, dynamic>>.from(data);
       setState(() {
-        _pagos = List<Map<String, dynamic>>.from(data);
+        _pagos = lista;
+        if (lista.isNotEmpty) {
+          final r = lista.first;
+          _totalCobrado = (r['total_cobrado'] as num?)?.toDouble() ?? 0;
+          _cantAprobados = (r['cant_aprobados'] as num?)?.toInt() ?? 0;
+          _cantSinFacturar = (r['cant_sin_facturar'] as num?)?.toInt() ?? 0;
+        } else {
+          _totalCobrado = 0;
+          _cantAprobados = 0;
+          _cantSinFacturar = 0;
+        }
       });
     } catch (e) {
       _mostrarError('Error al cargar pagos: $e');
@@ -48,23 +73,6 @@ class _PagosScreenState extends State<PagosScreen> {
     );
   }
 
-  List<Map<String, dynamic>> get _pagosFiltrados {
-    switch (_filtro) {
-      case 'por_facturar':
-        return _pagos
-            .where((p) => p['estado'] == 'approved' && p['facturado'] != true)
-            .toList();
-      case 'facturados':
-        return _pagos.where((p) => p['facturado'] == true).toList();
-      case 'rechazados':
-        return _pagos.where((p) => p['estado'] != 'approved').toList();
-      case 'todos':
-      default:
-        return _pagos;
-    }
-  }
-
-  // Deriva el tier a partir del monto cobrado (empresas.plan no lo distingue).
   String _tierPorMonto(dynamic monto) {
     final m = (monto as num?)?.toDouble() ?? 0;
     if (m >= 1100) return 'Pro';
@@ -119,18 +127,16 @@ class _PagosScreenState extends State<PagosScreen> {
       ),
     );
 
-    if (resultado == null) return; // canceló
+    if (resultado == null) return;
 
     try {
       if (resultado == false) {
-        // Desmarcar
         await _supabase.rpc('marcar_pago_facturado', params: {
           'p_pago_id': pago['pago_id'],
           'p_facturado': false,
         });
         _mostrarExito('Pago desmarcado');
       } else {
-        // Marcar (con número opcional)
         final numero = controller.text.trim();
         await _supabase.rpc('marcar_pago_facturado', params: {
           'p_pago_id': pago['pago_id'],
@@ -147,39 +153,21 @@ class _PagosScreenState extends State<PagosScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final pendientes = _pagos
-        .where((p) => p['estado'] == 'approved' && p['facturado'] != true)
-        .length;
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Pagos'),
+        title: Text('Pagos · ${widget.empresaNombre}',
+            overflow: TextOverflow.ellipsis),
         backgroundColor: const Color(0xFF1F4E79),
         foregroundColor: Colors.white,
-        actions: [
-          if (pendientes > 0)
-            Center(
-              child: Container(
-                margin: const EdgeInsets.only(right: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.amber[700],
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text('$pendientes por facturar',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-              ),
-            ),
-        ],
       ),
       body: _cargando
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                _barraFiltros(),
+                _resumen(),
                 const Divider(height: 1),
                 Expanded(
-                  child: _pagosFiltrados.isEmpty
+                  child: _pagos.isEmpty
                       ? Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -187,8 +175,8 @@ class _PagosScreenState extends State<PagosScreen> {
                               Icon(Icons.receipt_long_outlined,
                                   size: 80, color: Colors.grey[400]),
                               const SizedBox(height: 16),
-                              Text('No hay pagos en esta vista',
-                                  style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+                              Text('Esta empresa no tiene pagos registrados',
+                                  style: TextStyle(fontSize: 15, color: Colors.grey[600])),
                             ],
                           ),
                         )
@@ -196,10 +184,10 @@ class _PagosScreenState extends State<PagosScreen> {
                           onRefresh: _cargar,
                           child: ListView.separated(
                             padding: const EdgeInsets.all(12),
-                            itemCount: _pagosFiltrados.length,
+                            itemCount: _pagos.length,
                             separatorBuilder: (_, __) => const SizedBox(height: 10),
                             itemBuilder: (context, index) =>
-                                _cardPago(_pagosFiltrados[index]),
+                                _cardPago(_pagos[index]),
                           ),
                         ),
                 ),
@@ -208,35 +196,47 @@ class _PagosScreenState extends State<PagosScreen> {
     );
   }
 
-  Widget _barraFiltros() {
-    final filtros = {
-      'por_facturar': 'Por facturar',
-      'facturados': 'Facturados',
-      'rechazados': 'Rechazados',
-      'todos': 'Todos',
-    };
+  Widget _resumen() {
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: filtros.entries.map((f) {
-            final activo = _filtro == f.key;
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: ChoiceChip(
-                label: Text(f.value, style: const TextStyle(fontSize: 12)),
-                selected: activo,
-                onSelected: (_) => setState(() => _filtro = f.key),
-                selectedColor: const Color(0xFF1F4E79),
-                labelStyle: TextStyle(
-                  color: activo ? Colors.white : Colors.black87,
-                  fontSize: 12,
-                ),
-              ),
-            );
-          }).toList(),
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        children: [
+          _statResumen('Total cobrado', '${_montoFmt(_totalCobrado)} UYU',
+              Icons.payments, const Color(0xFF1F4E79)),
+          _statResumen('Pagos aprobados', '$_cantAprobados',
+              Icons.check_circle, Colors.green),
+          _statResumen('Sin facturar', '$_cantSinFacturar',
+              Icons.pending_actions,
+              _cantSinFacturar > 0 ? Colors.orange : Colors.grey),
+        ],
+      ),
+    );
+  }
+
+  Widget _statResumen(String label, String valor, IconData icono, Color color) {
+    return Expanded(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withOpacity(0.25)),
+        ),
+        child: Column(
+          children: [
+            Icon(icono, size: 18, color: color),
+            const SizedBox(height: 4),
+            Text(valor,
+                style: TextStyle(
+                    fontSize: 15, fontWeight: FontWeight.bold, color: color),
+                textAlign: TextAlign.center),
+            const SizedBox(height: 2),
+            Text(label,
+                style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                textAlign: TextAlign.center),
+          ],
         ),
       ),
     );
@@ -256,30 +256,21 @@ class _PagosScreenState extends State<PagosScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Encabezado: empresa + monto
             Row(
               children: [
-                const Icon(Icons.business, color: Color(0xFF1F4E79), size: 18),
+                const Icon(Icons.event, color: Color(0xFF1F4E79), size: 16),
                 const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    p['empresa_nombre'] ?? 'Sin nombre',
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                Text(
-                  '${_montoFmt(p['monto'])} ${p['moneda'] ?? ''}',
-                  style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1F4E79)),
-                ),
+                Text(_fechaCorta(p['fecha_pago']),
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                const Spacer(),
+                Text('${_montoFmt(p['monto'])} ${p['moneda'] ?? ''}',
+                    style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1F4E79))),
               ],
             ),
             const SizedBox(height: 8),
-
-            // Chips: estado del pago, tier, facturado
             Wrap(
               spacing: 6,
               runSpacing: 4,
@@ -293,8 +284,6 @@ class _PagosScreenState extends State<PagosScreen> {
               ],
             ),
             const SizedBox(height: 8),
-
-            _dato('Fecha del cobro', _fechaCorta(p['fecha_pago'])),
             if (facturado && p['factura_numero'] != null &&
                 p['factura_numero'].toString().isNotEmpty)
               _dato('Factura', p['factura_numero']),
@@ -302,7 +291,6 @@ class _PagosScreenState extends State<PagosScreen> {
               _dato('Facturado el', _fechaCorta(p['factura_fecha'])),
             _dato('ID pago MP', p['mp_payment_id']),
 
-            // Acción: solo para pagos aprobados (los rechazados no se facturan)
             if (aprobado) ...[
               const SizedBox(height: 10),
               _botonAccion(
