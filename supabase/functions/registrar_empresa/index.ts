@@ -21,6 +21,57 @@ function emailValido(email: string): boolean {
   return /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(email)
 }
 
+// Notifica a soporte que se registró una empresa nueva (pendiente de aprobar).
+// Llama a la función central enviar-email; si algo falla, no rompe el registro.
+async function notificarSoporte(
+  supabaseUrl: string,
+  empresaNombre: string,
+  adminNombre: string,
+  adminEmail: string,
+  rut: string | null,
+) {
+  const internalSecret = Deno.env.get('INTERNAL_FUNCTION_SECRET')!
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
+
+  const html = `
+    <div style="max-width:600px;margin:0 auto;font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;">
+      <div style="background:#1e3a5f;padding:20px;text-align:center;border-radius:8px 8px 0 0;">
+        <h2 style="color:#ffffff;margin:0;">Nueva empresa registrada</h2>
+      </div>
+      <div style="padding:24px;background:#ffffff;">
+        <p style="font-size:16px;">Se registró una empresa nueva que está <strong>pendiente de aprobación</strong>.</p>
+        <table style="font-size:15px;border-collapse:collapse;margin-top:12px;">
+          <tr><td style="padding:4px 12px 4px 0;color:#555;">Empresa:</td><td><strong>${empresaNombre}</strong></td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#555;">Administrador:</td><td>${adminNombre}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#555;">Email:</td><td>${adminEmail}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;color:#555;">RUT:</td><td>${rut ?? '(no informado)'}</td></tr>
+        </table>
+        <p style="font-size:15px;margin-top:20px;">Revisala en el panel de super admin, filtro <strong>"Pendientes"</strong>.</p>
+      </div>
+    </div>
+  `
+
+  const resp = await fetch(`${supabaseUrl}/functions/v1/enviar-email`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${anonKey}`,
+      'x-internal-secret': internalSecret,
+    },
+    body: JSON.stringify({
+      to: 'soporte@indovexapp.com',
+      toName: 'Soporte IndovexApp',
+      subject: `Nueva empresa pendiente: ${empresaNombre}`,
+      html,
+    }),
+  })
+
+  if (!resp.ok) {
+    const txt = await resp.text()
+    throw new Error(`enviar-email respondió ${resp.status}: ${txt}`)
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -165,13 +216,29 @@ Deno.serve(async (req) => {
       })
     }
 
-    // ── Notificación a soporte: PENDIENTE de migrar a ZeptoMail API REST ──
-    // El SMTP de Zoho vía denomailer agota los recursos del worker
-    // (WORKER_RESOURCE_LIMIT) y mata la función completa, incluido este return.
-    // Por ahora la nueva empresa queda en estado 'pendiente' y se revisa
-    // manualmente desde la pantalla de Empresas (filtro "Pendientes").
+    // ── Notificación a soporte vía ZeptoMail (no bloquea el registro si falla) ──
+    let notificado = false
+    let notifError: string | null = null
+    try {
+      await notificarSoporte(
+        Deno.env.get('SUPABASE_URL')!,
+        empresaNombre,
+        adminNombre,
+        adminEmail,
+        rutNormalizado,
+      )
+      notificado = true
+    } catch (e) {
+      notifError = String(e)
+      console.error('>>> [REGISTRAR-EMPRESA] Error notificando a soporte:', notifError)
+    }
 
-    return new Response(JSON.stringify({ success: true, empresa_id: nuevaEmpresa.id }), {
+    return new Response(JSON.stringify({
+      success: true,
+      empresa_id: nuevaEmpresa.id,
+      soporte_notificado: notificado,
+      notif_error: notifError,
+    }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
 
