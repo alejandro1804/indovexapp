@@ -19,6 +19,8 @@ function generarTemporal(): string {
 }
 
 // Envía las credenciales al usuario nuevo vía la función central enviar-email.
+// Solo arma el CONTENIDO; el marco responsive lo pone enviar-email.
+// Las clases (ix-datos, ix-label, ix-mono, ix-aviso) están definidas allá.
 async function enviarCredenciales(
   supabaseUrl: string,
   emailDestino: string,
@@ -29,30 +31,19 @@ async function enviarCredenciales(
   const internalSecret = Deno.env.get('INTERNAL_FUNCTION_SECRET')!
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
 
-  const html = `
-    <div style="max-width:600px;margin:0 auto;font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;">
-      <div style="background:#1e3a5f;padding:24px;text-align:center;border-radius:8px 8px 0 0;">
-        <h1 style="color:#ffffff;margin:0;font-size:32px;">IndovexApp</h1>
-      </div>
-      <div style="padding:24px;background:#ffffff;">
-        <p style="font-size:16px;">Hola <strong>${nombreUsuario}</strong>,</p>
-        <p style="font-size:16px;">Se creó tu cuenta en IndovexApp para <strong>${nombreEmpresa}</strong>.</p>
-        <p style="font-size:16px;">Ingresá en <a href="https://app.indovexapp.com" style="color:#2a6fb0;">app.indovexapp.com</a> con estos datos:</p>
-        <table style="font-size:15px;border-collapse:collapse;margin:16px 0;background:#f4f7fa;border-radius:6px;">
-          <tr><td style="padding:10px 16px;color:#555;">Usuario:</td><td style="padding:10px 16px;"><strong>${emailDestino}</strong></td></tr>
-          <tr><td style="padding:10px 16px;color:#555;">Contraseña temporal:</td><td style="padding:10px 16px;"><strong style="font-family:monospace;font-size:17px;letter-spacing:1px;">${temporal}</strong></td></tr>
-        </table>
-        <p style="font-size:15px;background:#fff4e5;padding:12px;border-radius:6px;border-left:4px solid #e69500;">
-          Por seguridad, el sistema te va a pedir que cambies esta contraseña la primera vez que ingreses.
-          No la compartas con nadie.
-        </p>
-        <p style="font-size:16px;">Ante cualquier duda, escribinos a <a href="mailto:soporte@indovexapp.com" style="color:#2a6fb0;">soporte@indovexapp.com</a>.</p>
-        <div style="background:#1e3a5f;color:#ffffff;padding:16px;border-radius:6px;margin-top:24px;text-align:center;">
-          <strong>IndovexApp — Victor Alejandro Rios | Uruguay</strong><br>
-          <span style="color:#b8cbe0;">indovexapp.com</span>
-        </div>
-      </div>
+  const contenido = `
+    <p>Hola <strong>${nombreUsuario}</strong>,</p>
+    <p>Se creó tu cuenta en IndovexApp para <strong>${nombreEmpresa}</strong>.</p>
+    <p>Ingresá en <a href="https://app.indovexapp.com">app.indovexapp.com</a> con estos datos:</p>
+    <table class="ix-datos">
+      <tr><td class="ix-label">Usuario:</td><td><strong>${emailDestino}</strong></td></tr>
+      <tr><td class="ix-label">Contraseña temporal:</td><td><strong class="ix-mono">${temporal}</strong></td></tr>
+    </table>
+    <div class="ix-aviso">
+      Por seguridad, el sistema te va a pedir que cambies esta contraseña la primera vez que ingreses.
+      No la compartas con nadie.
     </div>
+    <p>Ante cualquier duda, escribinos a <a href="mailto:soporte@indovexapp.com">soporte@indovexapp.com</a>.</p>
   `
 
   const resp = await fetch(`${supabaseUrl}/functions/v1/enviar-email`, {
@@ -66,7 +57,7 @@ async function enviarCredenciales(
       to: emailDestino,
       toName: nombreUsuario,
       subject: `Tu acceso a IndovexApp — ${nombreEmpresa}`,
-      html,
+      contenido,
     }),
   })
 

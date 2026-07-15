@@ -6,7 +6,8 @@ const corsHeaders = {
 }
 
 // Envía el email de bienvenida llamando a la función central enviar-email.
-// Toda la config de ZeptoMail (URL, token, formato) vive allá, no acá.
+// Solo arma el CONTENIDO: el marco (viewport responsive, header, firma) lo
+// pone enviar-email, que es la dueña del layout.
 async function enviarEmailBienvenida(
   supabaseUrl: string,
   emailDestino: string,
@@ -18,22 +19,11 @@ async function enviarEmailBienvenida(
 
   const saludo = nombreContacto ? `Hola <strong>${nombreContacto}</strong>,` : 'Hola,'
 
-  const html = `
-    <div style="max-width:600px;margin:0 auto;font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;">
-      <div style="background:#1e3a5f;padding:24px;text-align:center;border-radius:8px 8px 0 0;">
-        <h1 style="color:#ffffff;margin:0;font-size:32px;">IndovexApp</h1>
-      </div>
-      <div style="padding:24px;background:#ffffff;">
-        <p style="font-size:16px;">${saludo}</p>
-        <p style="font-size:16px;">Tu empresa <strong>${nombreEmpresa}</strong> fue aprobada y ya podés comenzar a usar IndovexApp.</p>
-        <p style="font-size:16px;">Ingresá con el email y la contraseña que usaste al registrarte en <a href="https://app.indovexapp.com" style="color:#2a6fb0;">app.indovexapp.com</a>.</p>
-        <p style="font-size:16px;">Ante cualquier duda, escribinos a <a href="mailto:soporte@indovexapp.com" style="color:#2a6fb0;">soporte@indovexapp.com</a>.</p>
-        <div style="background:#1e3a5f;color:#ffffff;padding:16px;border-radius:6px;margin-top:24px;text-align:center;">
-          <strong>IndovexApp — Victor Alejandro Rios | Uruguay</strong><br>
-          <span style="color:#b8cbe0;">indovexapp.com</span>
-        </div>
-      </div>
-    </div>
+  const contenido = `
+    <p>${saludo}</p>
+    <p>Tu empresa <strong>${nombreEmpresa}</strong> fue aprobada y ya podés comenzar a usar IndovexApp.</p>
+    <p>Ingresá con el email y la contraseña que usaste al registrarte en <a href="https://app.indovexapp.com">app.indovexapp.com</a>.</p>
+    <p>Ante cualquier duda, escribinos a <a href="mailto:soporte@indovexapp.com">soporte@indovexapp.com</a>.</p>
   `
 
   const resp = await fetch(`${supabaseUrl}/functions/v1/enviar-email`, {
@@ -47,7 +37,7 @@ async function enviarEmailBienvenida(
       to: emailDestino,
       toName: nombreContacto ?? nombreEmpresa,
       subject: `Tu empresa ${nombreEmpresa} fue aprobada — IndovexApp`,
-      html,
+      contenido,
     }),
   })
 

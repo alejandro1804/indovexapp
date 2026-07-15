@@ -22,7 +22,8 @@ function emailValido(email: string): boolean {
 }
 
 // Notifica a soporte que se registró una empresa nueva (pendiente de aprobar).
-// Llama a la función central enviar-email; si algo falla, no rompe el registro.
+// Solo arma el CONTENIDO; el marco responsive lo pone enviar-email.
+// Las clases (ix-datos, ix-label) están definidas allá.
 async function notificarSoporte(
   supabaseUrl: string,
   empresaNombre: string,
@@ -33,22 +34,15 @@ async function notificarSoporte(
   const internalSecret = Deno.env.get('INTERNAL_FUNCTION_SECRET')!
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
 
-  const html = `
-    <div style="max-width:600px;margin:0 auto;font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;">
-      <div style="background:#1e3a5f;padding:20px;text-align:center;border-radius:8px 8px 0 0;">
-        <h2 style="color:#ffffff;margin:0;">Nueva empresa registrada</h2>
-      </div>
-      <div style="padding:24px;background:#ffffff;">
-        <p style="font-size:16px;">Se registró una empresa nueva que está <strong>pendiente de aprobación</strong>.</p>
-        <table style="font-size:15px;border-collapse:collapse;margin-top:12px;">
-          <tr><td style="padding:4px 12px 4px 0;color:#555;">Empresa:</td><td><strong>${empresaNombre}</strong></td></tr>
-          <tr><td style="padding:4px 12px 4px 0;color:#555;">Administrador:</td><td>${adminNombre}</td></tr>
-          <tr><td style="padding:4px 12px 4px 0;color:#555;">Email:</td><td>${adminEmail}</td></tr>
-          <tr><td style="padding:4px 12px 4px 0;color:#555;">RUT:</td><td>${rut ?? '(no informado)'}</td></tr>
-        </table>
-        <p style="font-size:15px;margin-top:20px;">Revisala en el panel de super admin, filtro <strong>"Pendientes"</strong>.</p>
-      </div>
-    </div>
+  const contenido = `
+    <p>Se registró una empresa nueva que está <strong>pendiente de aprobación</strong>.</p>
+    <table class="ix-datos">
+      <tr><td class="ix-label">Empresa:</td><td><strong>${empresaNombre}</strong></td></tr>
+      <tr><td class="ix-label">Administrador:</td><td>${adminNombre}</td></tr>
+      <tr><td class="ix-label">Email:</td><td>${adminEmail}</td></tr>
+      <tr><td class="ix-label">RUT:</td><td>${rut ?? '(no informado)'}</td></tr>
+    </table>
+    <p>Revisala en el panel de super admin, filtro <strong>"Pendientes"</strong>.</p>
   `
 
   const resp = await fetch(`${supabaseUrl}/functions/v1/enviar-email`, {
@@ -62,7 +56,8 @@ async function notificarSoporte(
       to: 'soporte@indovexapp.com',
       toName: 'Soporte IndovexApp',
       subject: `Nueva empresa pendiente: ${empresaNombre}`,
-      html,
+      titulo: 'Nueva empresa registrada',
+      contenido,
     }),
   })
 
