@@ -57,4 +57,17 @@ class Usuario {
   bool get esOperario => rolNombre == 'operario';
   bool get esShopper => rolNombre == 'shopper';
   bool get esSupervisor => rolNombre == 'supervisor';
+
+  /// true si el usuario puede obligar contractualmente a su empresa
+  /// (T&C cl. 1: el Cliente es la persona jurídica).
+  ///
+  /// Espeja es_admin_empresa() en DB. A diferencia del resto de los
+  /// chequeos, NO usa tienePermiso() a propósito: el super admin tiene
+  /// todos los permisos, pero no acepta documentos legales en nombre
+  /// de un cliente.
+  bool get esAdminEmpresa {
+    if (esSuperAdmin) return false;
+    return permisos.contains('gestionar_usuarios') &&
+           permisos.contains('gestionar_roles');
+  }
 }

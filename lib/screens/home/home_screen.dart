@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/legal_provider.dart';
 import '../../models/usuario.dart';
 import '../../core/responsive.dart';
+import '../../widgets/legal_gate.dart';
 import '../tickets/tickets_screen.dart';
 import '../repuestos/repuestos_screen.dart';
 import '../maquinas/maquinas_screen.dart';
@@ -16,6 +18,7 @@ import '../dashboard/dashboard_screen.dart';
 import '../admin/empresas_screen.dart';
 import '../admin/gestion_planes_screen.dart';
 import '../admin/pagos_screen.dart';
+import '../admin/legal_cobertura_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -34,6 +37,10 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _cargarVersion();
+    // Estado de documentos legales pendientes de aceptar.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<LegalProvider>().cargar();
+    });
   }
 
   Future<void> _cargarVersion() async {
@@ -136,6 +143,12 @@ class _HomeScreenState extends State<HomeScreen> {
         iconActivo: Icons.receipt_long,
         screen: const PagosScreen(),
       ),
+      _NavItem(
+        label: 'Legal',
+        icon: Icons.gavel_outlined,
+        iconActivo: Icons.gavel,
+        screen: const LegalCoberturaScreen(),
+      ),
     ];
   }
 
@@ -151,6 +164,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _logout(BuildContext context) async {
+    context.read<LegalProvider>().limpiar();
     await context.read<AuthProvider>().logout();
     if (!context.mounted) return;
     Navigator.pushReplacement(
@@ -212,9 +226,32 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// Banner discreto cuando no se pudo verificar el estado legal.
+  /// No bloquea (fail-open), pero deja el error visible.
+  Widget _buildBannerErrorLegal(String mensaje) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      color: Colors.grey[700],
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline, color: Colors.white54, size: 14),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              mensaje,
+              style: const TextStyle(color: Colors.white70, fontSize: 11),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
+    final legalProvider = context.watch<LegalProvider>();
     final usuario = authProvider.usuario;
 
     if (usuario == null) {
@@ -223,6 +260,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (authProvider.trialVencido && !usuario.esSuperAdmin) {
       return PlanesScreen(bloqueante: true);
+    }
+
+    // Documentos legales: esperamos la primera verificación antes de
+    // renderizar, para no mostrar la app y taparla un instante después.
+    if (!legalProvider.cargado && legalProvider.cargando) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    // Vencido el preaviso, el admin debe aceptar antes de operar
+    // (T&C cl. 13 / Priv. cl. 10).
+    if (legalProvider.hayBloqueo) {
+      return LegalBloqueoScreen(
+        documentos: legalProvider.bloqueantes,
+        onLogout: () => _logout(context),
+      );
     }
 
     final modoAdmin = authProvider.modoAdmin && usuario.esSuperAdmin;
@@ -329,6 +381,17 @@ class _HomeScreenState extends State<HomeScreen> {
           if (modoAdmin) _buildBannerModoAdmin(context),
           if (!modoAdmin && authProvider.mostrarBannerTrial && !usuario.esSuperAdmin)
             _buildBannerTrial(authProvider.diasRestantesTrial),
+          // Avisos legales no bloqueantes: preaviso para el admin,
+          // informativos para el resto.
+          if (!modoAdmin)
+            ...legalProvider.avisos.map(
+              (doc) => LegalBannerAviso(
+                documento: doc,
+                puedeAceptar: usuario.esAdminEmpresa,
+              ),
+            ),
+          if (legalProvider.error != null)
+            _buildBannerErrorLegal(legalProvider.error!),
           Expanded(
             child: isDesktop
                 ? Row(
