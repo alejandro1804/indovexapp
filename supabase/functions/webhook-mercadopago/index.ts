@@ -55,8 +55,14 @@ async function validarFirma(
 }
 
 // ─────────────────────────────────────────────────────────────
-// RAMA SUSCRIPCIÓN (preapproval): tu lógica original, sin cambios.
+// RAMA SUSCRIPCIÓN (preapproval).
 // Actualiza el estado de la empresa según el estado de la suscripción.
+//
+// El tier (starter/pro) se resuelve vía planes.tier a partir del
+// preapproval_plan_id de MercadoPago. Antes se seteaba plan='pago',
+// que dejó de ser un tier válido: empresas.plan ahora acepta
+// trial|starter|pro|interno y de él se derivan los límites de uso
+// (usuarios, máquinas, storage) por trigger.
 // ─────────────────────────────────────────────────────────────
 async function procesarSuscripcion(
   dataId: string,
@@ -83,8 +89,9 @@ async function procesarSuscripcion(
   const empresaId = sub.external_reference;
   const estadoSub = sub.status;
   const mpSubId = sub.id;
+  const mpPlanId = sub.preapproval_plan_id ?? null;
 
-  console.log(`>>> [SUSCRIPCIÓN] empresaId="${empresaId}" | estadoSub="${estadoSub}" | mpSubId="${mpSubId}"`);
+  console.log(`>>> [SUSCRIPCIÓN] empresaId="${empresaId}" | estadoSub="${estadoSub}" | mpSubId="${mpSubId}" | mpPlanId="${mpPlanId}"`);
 
   if (!empresaId) {
     console.log(">>> [SUSCRIPCIÓN] suscripción sin external_reference");
@@ -97,11 +104,54 @@ async function procesarSuscripcion(
     suscripcion_actualizada: new Date().toISOString(),
   };
 
+  // Trazabilidad: qué plan de MercadoPago contrató esta empresa
+  if (mpPlanId) {
+    updateData.mp_plan_id = mpPlanId;
+  }
+
   if (estadoSub === "authorized") {
+    // Resolver el tier desde el catálogo antes de activar.
+    // Sin tier no se activa: empresas.plan tiene un check constraint
+    // (trial|starter|pro|interno) y un update inválido dejaría a la
+    // empresa en un estado inconsistente.
+    if (!mpPlanId) {
+      console.log(">>> [SUSCRIPCIÓN] suscripción autorizada SIN preapproval_plan_id: no se puede resolver el tier");
+      return jsonResp({
+        error: "Suscripción autorizada sin preapproval_plan_id",
+        empresa_id: empresaId,
+        mp_suscripcion_id: mpSubId,
+      }, 200);
+    }
+
+    const { data: planData, error: planError } = await supabase
+      .from("planes")
+      .select("tier, nombre")
+      .eq("mp_plan_id", mpPlanId)
+      .maybeSingle();
+
+    if (planError) {
+      console.log(">>> [SUSCRIPCIÓN] error al consultar planes:", planError.message);
+      return jsonResp({ error: "Error al resolver el plan", detalle: planError.message }, 200);
+    }
+
+    if (!planData?.tier) {
+      console.log(`>>> [SUSCRIPCIÓN] no hay plan en el catálogo con mp_plan_id="${mpPlanId}". Empresa NO activada.`);
+      return jsonResp({
+        error: "Plan de MercadoPago no encontrado en el catálogo",
+        mp_plan_id: mpPlanId,
+        empresa_id: empresaId,
+      }, 200);
+    }
+
+    console.log(`>>> [SUSCRIPCIÓN] tier resuelto: "${planData.tier}" (${planData.nombre})`);
+
     updateData.estado = "activa";
-    updateData.plan = "pago";
+    updateData.plan = planData.tier;   // starter | pro
   } else if (estadoSub === "paused" || estadoSub === "cancelled") {
     updateData.estado = "suspendida";
+    // No se toca plan: la empresa conserva su tier y sus límites
+    // durante el plazo de conservación (T&C cl. 12.2). La suspensión
+    // es reversible.
   }
 
   console.log(">>> [SUSCRIPCIÓN] Actualizando empresa con:", JSON.stringify(updateData));
@@ -116,8 +166,14 @@ async function procesarSuscripcion(
     return jsonResp({ error: "Error al actualizar empresa", detalle: updateError.message }, 200);
   }
 
-  console.log(`>>> [SUSCRIPCIÓN] empresa ${empresaId} actualizada a estado ${estadoSub}`);
-  return jsonResp({ ok: true, tipo: "suscripcion", empresa_id: empresaId, estado: estadoSub }, 200);
+  console.log(`>>> [SUSCRIPCIÓN] empresa ${empresaId} actualizada a estado ${estadoSub}${updateData.plan ? ` con tier ${updateData.plan}` : ""}`);
+  return jsonResp({
+    ok: true,
+    tipo: "suscripcion",
+    empresa_id: empresaId,
+    estado: estadoSub,
+    tier: updateData.plan ?? null,
+  }, 200);
 }
 
 // ─────────────────────────────────────────────────────────────
