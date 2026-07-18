@@ -11,6 +11,8 @@ import '../repuestos/repuestos_screen.dart';
 import '../maquinas/maquinas_screen.dart';
 import '../reportes/reportes_screen.dart';
 import '../configuracion/configuracion_screen.dart';
+import '../configuracion/sectores_screen.dart';
+import '../configuracion/usuarios_screen.dart';
 import '../auth/login_screen.dart';
 import '../planes/planes_screen.dart';
 import '../planes_mantenimiento/planes_mantenimiento_screen.dart';
@@ -54,7 +56,10 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  List<_NavItem> _buildNavItemsCliente(Usuario usuario) {
+  /// Destinos siempre visibles en la barra inferior (mobile).
+  /// Sectores y Usuarios salieron de Configuración: estaban demasiado
+  /// enterrados para el alta inicial (sin sector no se crean máquinas).
+  List<_NavItem> _buildNavItemsPrimarios(Usuario usuario) {
     final items = <_NavItem>[];
 
     if (usuario.tienePermiso('ver_tickets')) {
@@ -84,14 +89,31 @@ class _HomeScreenState extends State<HomeScreen> {
       ));
     }
 
-    if (usuario.tienePermiso('ver_planes_mantenimiento')) {
+    if (usuario.esAdmin) {
       items.add(_NavItem(
-        label: 'Planes',
-        icon: Icons.event_repeat_outlined,
-        iconActivo: Icons.event_repeat,
-        screen: const PlanesMantenimientoScreen(),
+        label: 'Sectores',
+        icon: Icons.domain_outlined,
+        iconActivo: Icons.domain,
+        screen: const SectoresScreen(),
       ));
     }
+
+    if (usuario.esAdmin) {
+      items.add(_NavItem(
+        label: 'Usuarios',
+        icon: Icons.people_outline,
+        iconActivo: Icons.people,
+        screen: const UsuariosScreen(),
+      ));
+    }
+
+    return items;
+  }
+
+  /// Destinos de uso ocasional: detrás del botón "Más" en mobile,
+  /// planos en el menú lateral de desktop.
+  List<_NavItem> _buildNavItemsSecundarios(Usuario usuario) {
+    final items = <_NavItem>[];
 
     if (usuario.tienePermiso('ver_dashboard')) {
       items.add(_NavItem(
@@ -102,21 +124,21 @@ class _HomeScreenState extends State<HomeScreen> {
       ));
     }
 
+    if (usuario.tienePermiso('ver_planes_mantenimiento')) {
+      items.add(_NavItem(
+        label: 'Planes',
+        icon: Icons.event_repeat_outlined,
+        iconActivo: Icons.event_repeat,
+        screen: const PlanesMantenimientoScreen(),
+      ));
+    }
+
     if (usuario.tienePermiso('ver_reportes')) {
       items.add(_NavItem(
         label: 'Reportes',
         icon: Icons.bar_chart_outlined,
         iconActivo: Icons.bar_chart,
         screen: const ReportesScreen(),
-      ));
-    }
-
-    if (usuario.esAdmin) {
-      items.add(_NavItem(
-        label: 'Config',
-        icon: Icons.settings_outlined,
-        iconActivo: Icons.settings,
-        screen: const ConfiguracionScreen(),
       ));
     }
 
@@ -161,6 +183,58 @@ class _HomeScreenState extends State<HomeScreen> {
       if (idx != -1) return idx;
     }
     return 0;
+  }
+
+  /// Hoja inferior con los destinos ocasionales.
+  /// El índice es absoluto sobre la lista completa de navItems.
+  void _mostrarMenuMas(int offsetSecundarios, List<_NavItem> secundarios) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 10),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              ...secundarios.asMap().entries.map((entry) {
+                final indexAbsoluto = offsetSecundarios + entry.key;
+                final item = entry.value;
+                final seleccionado = _selectedIndex == indexAbsoluto;
+                return ListTile(
+                  leading: Icon(
+                    seleccionado ? item.iconActivo : item.icon,
+                    color: seleccionado ? const Color(0xFF1F4E79) : Colors.grey[700],
+                  ),
+                  title: Text(
+                    item.label,
+                    style: TextStyle(
+                      color: seleccionado ? const Color(0xFF1F4E79) : Colors.black87,
+                      fontWeight: seleccionado ? FontWeight.w600 : FontWeight.normal,
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    setState(() => _selectedIndex = indexAbsoluto);
+                  },
+                );
+              }),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _logout(BuildContext context) async {
@@ -278,9 +352,27 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     final modoAdmin = authProvider.modoAdmin && usuario.esSuperAdmin;
-    final navItems = modoAdmin
-        ? _buildNavItemsAdmin()
-        : _buildNavItemsCliente(usuario);
+    final isDesktop = Responsive.isTabletOrDesktop(context);
+
+    // Config: en mobile vive en la AppBar; en desktop, donde sobra
+    // espacio, sigue siendo un destino más del menú lateral.
+    final mostrarConfig = !modoAdmin && usuario.esAdmin;
+
+    final primarios = modoAdmin ? _buildNavItemsAdmin() : _buildNavItemsPrimarios(usuario);
+    final secundarios = modoAdmin ? <_NavItem>[] : _buildNavItemsSecundarios(usuario);
+
+    // Lista completa. _selectedIndex es un índice absoluto sobre ésta.
+    final navItems = <_NavItem>[
+      ...primarios,
+      ...secundarios,
+      if (isDesktop && mostrarConfig)
+        _NavItem(
+          label: 'Config',
+          icon: Icons.settings_outlined,
+          iconActivo: Icons.settings,
+          screen: const ConfiguracionScreen(),
+        ),
+    ];
 
     if (navItems.isEmpty) {
       return Scaffold(
@@ -320,7 +412,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (_selectedIndex >= navItems.length) _selectedIndex = 0;
 
-    final isDesktop = Responsive.isTabletOrDesktop(context);
+    // ¿La pantalla activa está dentro de "Más"? Sirve para resaltar el botón.
+    final enSecundario = _selectedIndex >= primarios.length &&
+        _selectedIndex < primarios.length + secundarios.length;
 
     return Scaffold(
       appBar: isDesktop
@@ -347,6 +441,18 @@ class _HomeScreenState extends State<HomeScreen> {
                           _indexInicializado = false;
                         });
                       },
+                    ),
+                  ),
+                // Configuración: acción de AppBar, ya no ocupa lugar abajo.
+                if (mostrarConfig)
+                  Tooltip(
+                    message: 'Configuración',
+                    child: IconButton(
+                      icon: const Icon(Icons.settings_outlined),
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const ConfiguracionScreen()),
+                      ),
                     ),
                   ),
                 Padding(
@@ -595,18 +701,32 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: (isDesktop || navItems.length < 2)
           ? null
           : BottomNavigationBar(
-              currentIndex: _selectedIndex,
-              onTap: (index) => setState(() => _selectedIndex = index),
+              // Si la pantalla activa está en "Más", se resalta ese botón.
+              currentIndex: enSecundario ? primarios.length : _selectedIndex,
+              onTap: (index) {
+                if (secundarios.isNotEmpty && index == primarios.length) {
+                  _mostrarMenuMas(primarios.length, secundarios);
+                } else {
+                  setState(() => _selectedIndex = index);
+                }
+              },
               selectedItemColor: const Color(0xFF1F4E79),
               unselectedItemColor: Colors.grey,
               type: BottomNavigationBarType.fixed,
-              items: navItems
-                  .map((item) => BottomNavigationBarItem(
-                        icon: Icon(item.icon),
-                        activeIcon: Icon(item.iconActivo),
-                        label: item.label,
-                      ))
-                  .toList(),
+              items: [
+                ...primarios.map((item) => BottomNavigationBarItem(
+                      icon: Icon(item.icon),
+                      activeIcon: Icon(item.iconActivo),
+                      label: item.label,
+                    )),
+                // "Más" sólo si hay algo detrás.
+                if (secundarios.isNotEmpty)
+                  const BottomNavigationBarItem(
+                    icon: Icon(Icons.more_horiz_outlined),
+                    activeIcon: Icon(Icons.more_horiz),
+                    label: 'Más',
+                  ),
+              ],
             ),
     );
   }

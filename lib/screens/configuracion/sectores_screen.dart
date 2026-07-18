@@ -5,6 +5,7 @@ import '../../models/sector.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/responsive.dart';
 import '../../core/db_error_helper.dart';
+import '../tickets/tickets_screen.dart';
 
 class SectoresScreen extends StatefulWidget {
   const SectoresScreen({super.key});
@@ -249,6 +250,13 @@ class _SectoresScreenState extends State<SectoresScreen> {
             if (value == 'editar') _mostrarFormulario(sector: sector);
             if (value == 'eliminar') _eliminarSector(sector);
           },
+        ),
+        // Tocar el sector abre los tickets ya filtrados por él.
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => TicketsScreen(sectorInicial: sector.id),
+          ),
         ),
       ),
     );

@@ -8,7 +8,11 @@ import 'ticket_nuevo_screen.dart';
 import 'ticket_detail_screen.dart';
 
 class TicketsScreen extends StatefulWidget {
-  const TicketsScreen({super.key});
+  /// Precarga el filtro de sector. Se usa al entrar desde SectoresScreen;
+  /// como tab del menú llega null y la pantalla arranca sin filtrar.
+  final String? sectorInicial;
+
+  const TicketsScreen({super.key, this.sectorInicial});
 
   @override
   State<TicketsScreen> createState() => _TicketsScreenState();
@@ -27,7 +31,11 @@ class _TicketsScreenState extends State<TicketsScreen> {
   String _textoBusqueda = '';
 
   @override
-  void initState() { super.initState(); _cargarTickets(); }
+  void initState() {
+    super.initState();
+    if (widget.sectorInicial != null) _filtroSector = widget.sectorInicial!;
+    _cargarTickets();
+  }
 
   @override
   void dispose() { _busquedaController.dispose(); super.dispose(); }
@@ -322,6 +330,13 @@ class _TicketsScreenState extends State<TicketsScreen> {
     final chipSize = Responsive.chipFontSize(context);
     final sectores = _sectoresDisponibles;
 
+    // El dropdown se puebla desde los tickets cargados: si el sector no
+    // tiene ninguno, su id no estaría entre los items y el Dropdown
+    // reventaría por value inexistente. Se cae a 'todos' para evitarlo.
+    final filtroSectorValido = _filtroSector == 'todos' ||
+        sectores.any((s) => s.key == _filtroSector);
+    final valueSector = filtroSectorValido ? _filtroSector : 'todos';
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Tickets', style: TextStyle(fontSize: 18)),
@@ -434,7 +449,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: _buildDropdown(
-                      value: _filtroSector,
+                      value: valueSector,
                       contexto: 'Sector',
                       icono: Icons.apartment_outlined,
                       items: [
