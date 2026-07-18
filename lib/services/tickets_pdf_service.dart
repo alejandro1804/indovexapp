@@ -50,7 +50,7 @@ class TicketsPdfService {
     if (filtroEstado != null && filtroEstado != 'todos') filtros.add('Estado: ${labelEstado(filtroEstado)}');
     if (filtroTipo != null && filtroTipo != 'todos') filtros.add('Tipo: ${labelTipo(filtroTipo)}');
     if (filtroPrioridad != null && filtroPrioridad != 'todos') filtros.add('Prioridad: ${labelPrioridad(filtroPrioridad)}');
-    if (filtroSector != null && filtroSector != 'todos') filtros.add('Sector filtrado');
+    if (filtroSector != null && filtroSector != 'todos') filtros.add('Ubicacion filtrada');
     if (busqueda != null && busqueda.trim().isNotEmpty) filtros.add('Búsqueda: "${busqueda.trim()}"');
     final filtrosTexto = filtros.isEmpty ? 'Sin filtros (todos los tickets)' : filtros.join('  |  ');
 
@@ -133,7 +133,7 @@ class TicketsPdfService {
                 children: [
                   _celda('Nº', header: true),
                   _celda('Máquina', header: true),
-                  _celda('Sector', header: true),
+                  _celda('Ubicacion', header: true),
                   _celda('Descripción', header: true),
                   _celda('Tipo', header: true),
                   _celda('Prioridad', header: true),

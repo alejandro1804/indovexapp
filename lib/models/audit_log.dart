@@ -62,11 +62,11 @@ class AuditLog {
       case 'usuarios': return 'Usuarios';
       case 'roles': return 'Roles';
       case 'rol_permisos': return 'Permisos de roles';
-      case 'sectores': return 'Sectores';
+      case 'sectores': return 'Ubicaciones';
       case 'categorias_repuestos': return 'Categorías de repuestos';
       case 'proveedores': return 'Proveedores';
       case 'repuestos_maquinas': return 'Vínculos repuesto-máquina';
-      case 'usuario_sector': return 'Asignación de sectores';
+      case 'usuario_sector': return 'Asignación de ubicaciones';
       case 'empresas': return 'Empresa';
       default: return tabla;
     }

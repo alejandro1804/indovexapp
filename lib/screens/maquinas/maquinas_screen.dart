@@ -202,7 +202,7 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
                   value: sectorSeleccionado,
                   isExpanded: true,
                   style: const TextStyle(fontSize: 14, color: Colors.black87),
-                  decoration: const InputDecoration(labelText: 'Sector *', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(labelText: 'Ubicacion *', border: OutlineInputBorder()),
                   items: _sectores.map((s) => DropdownMenuItem(value: s.id, child: Text(s.nombre, style: const TextStyle(fontSize: 14), overflow: TextOverflow.ellipsis))).toList(),
                   onChanged: (v) => setDialogState(() => sectorSeleccionado = v!),
                 ),
@@ -484,10 +484,10 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
                   Expanded(
                     child: _buildDropdown(
                       value: _filtroSector,
-                      contexto: 'Sector',
+                      contexto: 'Ubicacion',
                       icono: Icons.apartment_outlined,
                       items: [
-                        _item('todos', 'Todos los sectores'),
+                        _item('todos', 'Todas las ubicaciones'),
                         ..._sectores.map((s) => _item(s.id, s.nombre)),
                       ],
                       onChanged: (v) => setState(() => _filtroSector = v),

@@ -48,7 +48,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
     }
   }
 
-  /// Devuelve true si el rol indicado (por id) restringe por sector.
+  /// Devuelve true si el rol indicado (por id) restringe por ubicación.
   bool _rolRestringe(String? rolId) {
     if (rolId == null) return false;
     final rol = _roles.firstWhere(
@@ -64,7 +64,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
     final telefonoController = TextEditingController();
     String? rolSeleccionado = _roles.isNotEmpty ? _roles.first['id'] : null;
 
-    // Sectores disponibles + selección para el alta.
+    // Ubicaciones disponibles + selección para el alta.
     List<Map<String, dynamic>> sectores = [];
     final Set<String> sectoresElegidos = {};
     try {
@@ -72,8 +72,8 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
           await _supabase.from('sectores').select('id, nombre').order('nombre');
       sectores = List<Map<String, dynamic>>.from(sectoresData);
     } catch (_) {
-      // Si falla la carga de sectores, seguimos: el selector solo aplica a roles
-      // que restringen, y en ese caso el guard de "Crear" avisará.
+      // Si falla la carga de ubicaciones, seguimos: el selector solo aplica a
+      // roles que restringen, y en ese caso el guard de "Crear" avisará.
     }
 
     if (!mounted) return;
@@ -145,13 +145,13 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                       onChanged: (v) =>
                           setDialogState(() => rolSeleccionado = v),
                     ),
-                    // Selector de sectores: solo si el rol elegido restringe.
+                    // Selector de ubicaciones: solo si el rol elegido restringe.
                     if (rolRestringe) ...[
                       const SizedBox(height: 12),
                       Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
-                          'Sectores asignados *',
+                          'Ubicaciones asignadas *',
                           style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -162,7 +162,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                       Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
-                          'Este rol solo verá los sectores que elijas.',
+                          'Este rol solo verá las ubicaciones que elijas.',
                           style: TextStyle(
                               fontSize: 10, color: Colors.grey[600]),
                         ),
@@ -183,7 +183,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                               const SizedBox(width: 8),
                               Expanded(
                                   child: Text(
-                                      'No hay sectores creados. Creá sectores antes de asignar este rol.',
+                                      'No hay ubicaciones creadas. Creá ubicaciones antes de asignar este rol.',
                                       style: TextStyle(
                                           fontSize: 10,
                                           color: Colors.orange[800]))),
@@ -252,7 +252,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                   onPressed: () => Navigator.pop(context),
                   child: const Text('Cancelar')),
               ElevatedButton(
-                // Bloqueado si el rol restringe y no hay sectores elegidos.
+                // Bloqueado si el rol restringe y no hay ubicaciones elegidas.
                 onPressed: (rolRestringe && sectoresElegidos.isEmpty)
                     ? null
                     : () async {
@@ -359,7 +359,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
           }
         }
 
-        // Sectores asignados (solo si el rol restringe y se eligieron).
+        // Ubicaciones asignadas (solo si el rol restringe y se eligieron).
         if (sectores.isNotEmpty && nuevoId != null) {
           try {
             final filas = sectores
@@ -371,9 +371,9 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
             await _supabase.from('usuario_sector').insert(filas);
           } catch (_) {
             // Usuario creado pero falló la asignación: avisamos para que el
-            // admin la complete desde el menú "Asignar sectores".
+            // admin la complete desde el menú "Asignar ubicaciones".
             _mostrarError(
-                'Usuario creado, pero no se pudieron asignar los sectores. Asignalos desde el menú del usuario.');
+                'Usuario creado, pero no se pudieron asignar las ubicaciones. Asignalas desde el menú del usuario.');
           }
         }
 
@@ -561,7 +561,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                   onChanged: (v) =>
                       setDialogState(() => rolSeleccionado = v!),
                 ),
-                // Aviso si el nuevo rol restringe por sector.
+                // Aviso si el nuevo rol restringe por ubicación.
                 if (_rolRestringe(rolSeleccionado)) ...[
                   const SizedBox(height: 10),
                   Container(
@@ -577,7 +577,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                             child: Text(
-                                'Este rol restringe por sector. Recordá asignar sectores desde el menú del usuario.',
+                                'Este rol restringe por ubicación. Recordá asignar ubicaciones desde el menú del usuario.',
                                 style: TextStyle(
                                     fontSize: 10, color: Colors.blue[700]))),
                       ],
@@ -629,12 +629,12 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
         asignados.add(a['sector_id'] as String);
       }
     } catch (e) {
-      _mostrarError('Error al cargar sectores: $e');
+      _mostrarError('Error al cargar ubicaciones: $e');
       return;
     }
 
     if (sectores.isEmpty) {
-      _mostrarError('No hay sectores creados. Creá sectores primero.');
+      _mostrarError('No hay ubicaciones creadas. Creá ubicaciones primero.');
       return;
     }
 
@@ -644,7 +644,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text('Sectores de ${usuario['nombre']}'),
+          title: Text('Ubicaciones de ${usuario['nombre']}'),
           content: SizedBox(
             width: Responsive.isDesktop(context) ? 400 : double.maxFinite,
             child: SingleChildScrollView(
@@ -687,11 +687,11 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
 
     if (confirmar != true) return;
 
-    // Si el rol restringe por sector, evitamos dejarlo sin ninguno (fail-closed).
+    // Si el rol restringe por ubicación, evitamos dejarlo sin ninguna (fail-closed).
     final restringe = _rolRestringe(usuario['rol_id'] as String?);
     if (restringe && seleccion.isEmpty) {
       _mostrarError(
-          'Este rol restringe por sector: asigná al menos un sector o cambiá el rol del usuario.');
+          'Este rol restringe por ubicación: asigná al menos una ubicación o cambiá el rol del usuario.');
       return;
     }
 
@@ -709,9 +709,9 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
             .toList();
         await _supabase.from('usuario_sector').insert(filas);
       }
-      _mostrarExito('Sectores actualizados');
+      _mostrarExito('Ubicaciones actualizadas');
     } catch (e) {
-      _mostrarError(mensajeAmigableDb(e, entidad: 'asignación de sector'));
+      _mostrarError(mensajeAmigableDb(e, entidad: 'asignación de ubicación'));
     }
   }
 
@@ -1069,7 +1069,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                         const Icon(Icons.location_on_outlined,
                             size: 9, color: Color(0xFF1F4E79)),
                         const SizedBox(width: 2),
-                        Text('por sector',
+                        Text('por ubicación',
                             style: TextStyle(
                                 fontSize: 8,
                                 color: const Color(0xFF1F4E79),
@@ -1130,14 +1130,14 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                   Text('Cambiar rol')
                 ]),
               ),
-            // "Asignar sectores" aparece si el rol del usuario restringe por sector.
+            // "Asignar ubicaciones" aparece si el rol del usuario restringe por ubicación.
             if (!esYo && rolRestringe)
               const PopupMenuItem(
                 value: 'asignar_sectores',
                 child: Row(children: [
                   Icon(Icons.domain_outlined, size: 18),
                   SizedBox(width: 8),
-                  Text('Asignar sectores')
+                  Text('Asignar ubicaciones')
                 ]),
               ),
             if (!esYo)

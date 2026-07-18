@@ -168,8 +168,8 @@ class _RolesScreenState extends State<RolesScreen> {
           .from('roles')
           .update({'restringe_por_sector': valor}).eq('id', rol['id']);
       _mostrarExito(valor
-          ? 'Los usuarios con rol "${rol['nombre']}" verán solo sus sectores asignados'
-          : 'El rol "${rol['nombre']}" vuelve a ver todos los sectores');
+          ? 'Los usuarios con rol "${rol['nombre']}" verán solo sus ubicaciones asignados'
+          : 'El rol "${rol['nombre']}" vuelve a ver todas las ubicaciones');
     } catch (e) {
       setState(() => rol['restringe_por_sector'] = !valor); // revertir
       _mostrarError(mensajeAmigableDb(e, entidad: 'rol'));
@@ -336,8 +336,8 @@ class _RolesScreenState extends State<RolesScreen> {
                                 Expanded(
                                   child: Text(
                                     restringido
-                                        ? 'Ve solo los sectores asignados'
-                                        : 'Ve todos los sectores',
+                                        ? 'Ve solo las ubicaciones asignados'
+                                        : 'Ve todas las ubicaciones',
                                     style: TextStyle(
                                         fontSize: 10,
                                         color: Colors.grey[700]),

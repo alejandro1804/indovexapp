@@ -33,7 +33,7 @@ class MaquinasPdfService {
 
     final filtros = <String>[];
     if (filtroEstado != null && filtroEstado != 'todos') filtros.add('Estado: ${labelEstado(filtroEstado)}');
-    if (filtroSector != null && filtroSector != 'todos') filtros.add('Sector: ${sectores[filtroSector] ?? filtroSector}');
+    if (filtroSector != null && filtroSector != 'todos') filtros.add('Ubicacion: ${sectores[filtroSector] ?? filtroSector}');
     if (busqueda != null && busqueda.trim().isNotEmpty) filtros.add('Búsqueda: "${busqueda.trim()}"');
     final filtrosTexto = filtros.isEmpty ? 'Sin filtros (todas las máquinas)' : filtros.join('  |  ');
 
@@ -110,7 +110,7 @@ class MaquinasPdfService {
                 children: [
                   _celda('Nombre', header: true),
                   _celda('Código', header: true),
-                  _celda('Sector', header: true),
+                  _celda('Ubicacion', header: true),
                   _celda('Estado', header: true),
                 ],
               ),

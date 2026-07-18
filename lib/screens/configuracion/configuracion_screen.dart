@@ -19,8 +19,8 @@ class ConfiguracionScreen extends StatelessWidget {
     final opciones = [
       _ConfigOpcion(
         icono: Icons.domain_outlined,
-        titulo: 'Sectores',
-        descripcion: 'Gestionar sectores de la planta',
+        titulo: 'Ubicacion',
+        descripcion: 'Gestionar Ubicacion',
         screen: const SectoresScreen(),
         visible: true,
       ),

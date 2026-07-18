@@ -235,7 +235,7 @@ class ExportEmpresaService {
 
     // Conteos del contenido exportado.
     final conteos = <List<String>>[
-      ['Sectores', contar('sectores').toString()],
+      ['Ubicaciones', contar('sectores').toString()],
       ['Máquinas', contar('maquinas').toString()],
       ['Repuestos', contar('repuestos').toString()],
       ['Categorías de repuestos', contar('categorias_repuestos').toString()],

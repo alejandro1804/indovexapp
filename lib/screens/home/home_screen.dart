@@ -91,7 +91,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (usuario.esAdmin) {
       items.add(_NavItem(
-        label: 'Sectores',
+        label: 'Ubicacion',
         icon: Icons.domain_outlined,
         iconActivo: Icons.domain,
         screen: const SectoresScreen(),

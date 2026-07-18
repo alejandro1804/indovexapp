@@ -420,7 +420,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                 const Divider(),
                 _infoRow('Máquina', maquina?['nombre'] ?? '-'),
                 _infoRow('Código', maquina?['codigo'] ?? '-'),
-                _infoRow('Sector', (maquina?['sectores'] as Map?)?['nombre'] ?? '-'),
+                _infoRow('Ubicacion', (maquina?['sectores'] as Map?)?['nombre'] ?? '-'),
                 _infoRow('Creado por', _nombreCreadoPor.isNotEmpty ? _nombreCreadoPor : '-'),
                 if (_nombreTecnico.isNotEmpty) _infoRow('Técnico', _nombreTecnico),
                 if (fecha != null) _infoRow('Fecha', _formatoAuditoria(fecha)),

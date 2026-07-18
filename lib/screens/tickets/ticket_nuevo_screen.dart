@@ -209,7 +209,7 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
                       child: Row(children: [
                         Icon(Icons.info_outline, color: Colors.blue[700], size: 16),
                         const SizedBox(width: 8),
-                        Expanded(child: Text('El encargado del sector recibirá una notificación al crear el ticket.', style: TextStyle(fontSize: 12, color: Colors.blue[700]))),
+                        Expanded(child: Text('El encargado de la ubicacion recibirá una notificación al crear el ticket.', style: TextStyle(fontSize: 12, color: Colors.blue[700]))),
                       ]),
                     ),
                     const SizedBox(height: 16),

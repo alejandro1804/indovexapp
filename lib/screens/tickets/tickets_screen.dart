@@ -370,7 +370,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
                   textInputAction: TextInputAction.search,
                   style: const TextStyle(fontSize: 12),
                   decoration: InputDecoration(
-                    hintText: 'Buscar por ticket, máquina o sector...',
+                    hintText: 'Buscar por ticket, máquina o ubicacion...',
                     hintStyle: const TextStyle(fontSize: 12),
                     prefixIcon: const Icon(Icons.search, size: 20),
                     prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
@@ -450,10 +450,10 @@ class _TicketsScreenState extends State<TicketsScreen> {
                   Expanded(
                     child: _buildDropdown(
                       value: valueSector,
-                      contexto: 'Sector',
+                      contexto: 'Ubicacion',
                       icono: Icons.apartment_outlined,
                       items: [
-                        _item('todos', 'Todos los sectores'),
+                        _item('todos', 'Todas las ubicaciones'),
                         ...sectores.map((s) => _item(s.key, s.value)),
                       ],
                       onChanged: (v) => setState(() => _filtroSector = v),

@@ -33,7 +33,7 @@ class _SectoresScreenState extends State<SectoresScreen> {
         _sectores = (data as List).map((e) => Sector.fromMap(e)).toList();
       });
     } catch (e) {
-      _mostrarError('Error al cargar sectores: $e');
+      _mostrarError('Error al cargar ubicaciones: $e');
     } finally {
       setState(() => _cargando = false);
     }
@@ -46,7 +46,7 @@ class _SectoresScreenState extends State<SectoresScreen> {
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(sector == null ? 'Nuevo Sector' : 'Editar Sector'),
+        title: Text(sector == null ? 'Nueva Ubicación' : 'Editar Ubicación'),
         content: SizedBox(
           width: Responsive.isDesktop(context) ? 400 : double.maxFinite,
           child: Column(
@@ -102,9 +102,9 @@ class _SectoresScreenState extends State<SectoresScreen> {
         'descripcion': descripcion.isEmpty ? null : descripcion,
       });
       await _cargarSectores();
-      _mostrarExito('Sector creado correctamente');
+      _mostrarExito('Ubicación creada correctamente');
     } catch (e) {
-      _mostrarError(mensajeAmigableDb(e, entidad: 'sector'));
+      _mostrarError(mensajeAmigableDb(e, entidad: 'ubicación'));
     }
   }
 
@@ -115,9 +115,9 @@ class _SectoresScreenState extends State<SectoresScreen> {
         'descripcion': descripcion.isEmpty ? null : descripcion,
       }).eq('id', id);
       await _cargarSectores();
-      _mostrarExito('Sector actualizado correctamente');
+      _mostrarExito('Ubicación actualizada correctamente');
     } catch (e) {
-      _mostrarError(mensajeAmigableDb(e, entidad: 'sector'));
+      _mostrarError(mensajeAmigableDb(e, entidad: 'ubicación'));
     }
   }
 
@@ -125,7 +125,7 @@ class _SectoresScreenState extends State<SectoresScreen> {
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Eliminar Sector'),
+        title: const Text('Eliminar Ubicación'),
         content: Text('¿Estás seguro que querés eliminar "${sector.nombre}"?\n\nEsto también eliminará las máquinas asociadas.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
@@ -141,7 +141,7 @@ class _SectoresScreenState extends State<SectoresScreen> {
       try {
         await _supabase.from('sectores').delete().eq('id', sector.id);
         await _cargarSectores();
-        _mostrarExito('Sector eliminado');
+        _mostrarExito('Ubicación eliminada');
       } catch (e) {
         _mostrarError('No se puede eliminar. Verificá que no tenga máquinas asociadas.');
       }
@@ -169,7 +169,7 @@ class _SectoresScreenState extends State<SectoresScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Sectores', style: TextStyle(fontSize: 17)),
+        title: const Text('Ubicaciones', style: TextStyle(fontSize: 17)),
         toolbarHeight: 48,
         backgroundColor: const Color(0xFF1F4E79),
         foregroundColor: Colors.white,
@@ -183,9 +183,9 @@ class _SectoresScreenState extends State<SectoresScreen> {
                     children: [
                       Icon(Icons.domain_outlined, size: 80, color: Colors.grey[400]),
                       const SizedBox(height: 16),
-                      Text('No hay sectores cargados', style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+                      Text('No hay ubicaciones cargadas', style: TextStyle(fontSize: 13, color: Colors.grey[600])),
                       const SizedBox(height: 8),
-                      Text('Tocá el botón + para agregar uno', style: TextStyle(fontSize: 10, color: Colors.grey[400])),
+                      Text('Tocá el botón + para agregar una', style: TextStyle(fontSize: 10, color: Colors.grey[400])),
                     ],
                   ),
                 )
@@ -251,7 +251,7 @@ class _SectoresScreenState extends State<SectoresScreen> {
             if (value == 'eliminar') _eliminarSector(sector);
           },
         ),
-        // Tocar el sector abre los tickets ya filtrados por él.
+        // Tocar la ubicación abre los tickets ya filtrados por ella.
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(
