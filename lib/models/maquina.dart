@@ -25,7 +25,9 @@ class Maquina {
       empresaId: map['empresa_id'],
       sectorId: map['sector_id'],
       nombre: map['nombre'],
-      codigo: map['codigo'],
+      // Código opcional: la DB puede devolver NULL. Lo normalizamos a '' para
+      // que el resto de la app lo trate como "sin código" sin nullchecks.
+      codigo: map['codigo'] ?? '',
       estado: map['estado'],
       descripcion: map['descripcion'],
       imagenUrl: map['imagen_url'],

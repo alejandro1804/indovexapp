@@ -95,7 +95,7 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
   String _nombreSector(String sectorId) {
     return _sectores.firstWhere(
       (s) => s.id == sectorId,
-      orElse: () => Sector(id: '', empresaId: '', nombre: 'Sin sector'),
+      orElse: () => Sector(id: '', empresaId: '', nombre: 'Sin ubicación'),
     ).nombre;
   }
 
@@ -178,7 +178,7 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
   }
 
   Future<void> _mostrarFormulario({Maquina? maquina}) async {
-    if (_sectores.isEmpty) { _mostrarError('Primero debés crear al menos un sector'); return; }
+    if (_sectores.isEmpty) { _mostrarError('Primero debés crear al menos una ubicación'); return; }
     final nombreController = TextEditingController(text: maquina?.nombre ?? '');
     final codigoController = TextEditingController(text: maquina?.codigo ?? '');
     final descripcionController = TextEditingController(text: maquina?.descripcion ?? '');
@@ -196,7 +196,9 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
               child: Column(mainAxisSize: MainAxisSize.min, children: [
                 TextField(controller: nombreController, style: const TextStyle(fontSize: 14), decoration: const InputDecoration(labelText: 'Nombre *', border: OutlineInputBorder()), textCapitalization: TextCapitalization.words, maxLength: 100),
                 const SizedBox(height: 12),
-                TextField(controller: codigoController, style: const TextStyle(fontSize: 14), decoration: const InputDecoration(labelText: 'Código *', border: OutlineInputBorder(), hintText: 'Ej: MAQ-001'), textCapitalization: TextCapitalization.characters, maxLength: 30),
+                // Código opcional: si se completa, la DB valida que no se repita
+                // dentro de la empresa (índice único parcial).
+                TextField(controller: codigoController, style: const TextStyle(fontSize: 14), decoration: const InputDecoration(labelText: 'Código', border: OutlineInputBorder(), hintText: 'Opcional. Ej: MAQ-001'), textCapitalization: TextCapitalization.characters, maxLength: 30),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   value: sectorSeleccionado,
@@ -231,7 +233,8 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
                 final nombre = normalizarTexto(nombreController.text);
                 final codigo = normalizarTexto(codigoController.text);
                 final descripcion = normalizarTexto(descripcionController.text);
-                if (nombre.isEmpty || codigo.isEmpty) return;
+                // Solo el nombre es obligatorio; el código es opcional.
+                if (nombre.isEmpty) return;
                 Navigator.pop(context);
                 if (maquina == null) {
                   await _crearMaquina(nombre: nombre, codigo: codigo, sectorId: sectorSeleccionado, estado: estadoSeleccionado, descripcion: descripcion);
@@ -252,18 +255,29 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
     try {
       final usuario = context.read<AuthProvider>().usuario;
       if (usuario == null) return;
-      await _supabase.from('maquinas').insert({'empresa_id': usuario.empresaId, 'sector_id': sectorId, 'nombre': nombre, 'codigo': codigo, 'estado': estado, 'descripcion': descripcion.isEmpty ? null : descripcion});
+      // Código vacío => null, para que el índice único parcial no lo cuente.
+      await _supabase.from('maquinas').insert({'empresa_id': usuario.empresaId, 'sector_id': sectorId, 'nombre': nombre, 'codigo': codigo.isEmpty ? null : codigo, 'estado': estado, 'descripcion': descripcion.isEmpty ? null : descripcion});
       await _cargarDatos();
       _mostrarExito('Máquina creada correctamente');
-    } catch (e) { _mostrarError(mensajeAmigableDb(e, entidad: 'máquina', campos: 'nombre o código')); }
+    } catch (e) { _mostrarError(_mensajeErrorMaquina(e)); }
   }
 
   Future<void> _editarMaquina({required String id, required String nombre, required String codigo, required String sectorId, required String estado, required String descripcion}) async {
     try {
-      await _supabase.from('maquinas').update({'sector_id': sectorId, 'nombre': nombre, 'codigo': codigo, 'estado': estado, 'descripcion': descripcion.isEmpty ? null : descripcion}).eq('id', id);
+      await _supabase.from('maquinas').update({'sector_id': sectorId, 'nombre': nombre, 'codigo': codigo.isEmpty ? null : codigo, 'estado': estado, 'descripcion': descripcion.isEmpty ? null : descripcion}).eq('id', id);
       await _cargarDatos();
       _mostrarExito('Máquina actualizada correctamente');
-    } catch (e) { _mostrarError(mensajeAmigableDb(e, entidad: 'máquina', campos: 'nombre o código')); }
+    } catch (e) { _mostrarError(_mensajeErrorMaquina(e)); }
+  }
+
+  /// Traduce el error de índice único de código a un mensaje claro.
+  /// Si no es ése, cae al helper genérico.
+  String _mensajeErrorMaquina(Object e) {
+    final texto = e.toString().toLowerCase();
+    if (texto.contains('uq_maquinas_codigo_empresa') || texto.contains('duplicate key')) {
+      return 'Ya existe una máquina con ese código. Elegí otro o dejalo vacío.';
+    }
+    return mensajeAmigableDb(e, entidad: 'máquina', campos: 'nombre o código');
   }
 
   Future<void> _eliminarMaquina(Maquina maquina) async {
@@ -298,6 +312,7 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
     final cardPadding = Responsive.cardPadding(context);
     final puedeGestionar = _puedeGestionar;
     final thumbSize = avatarRadius * 2;
+    final tieneCodigo = maquina.codigo.trim().isNotEmpty;
 
     return Card(
       elevation: 1,
@@ -327,7 +342,9 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
                   children: [
                     Text(maquina.nombre, style: TextStyle(fontWeight: FontWeight.w600, fontSize: titleSize), maxLines: 2, overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 2),
-                    Text('Código: ${maquina.codigo}', style: TextStyle(color: Colors.grey[600], fontSize: subtitleSize)),
+                    // La línea de código solo aparece si la máquina tiene uno.
+                    if (tieneCodigo)
+                      Text('Código: ${maquina.codigo}', style: TextStyle(color: Colors.grey[600], fontSize: subtitleSize)),
                     Text(_nombreSector(maquina.sectorId), style: TextStyle(color: Colors.grey[500], fontSize: subtitleSize)),
                   ],
                 ),
