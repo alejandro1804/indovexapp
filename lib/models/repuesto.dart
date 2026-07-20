@@ -34,7 +34,9 @@ class Repuesto {
       id: map['id'],
       empresaId: map['empresa_id'],
       categoriaId: map['categoria_id'],
-      codigo: map['codigo'],
+      // Código opcional: la DB puede devolver NULL. Lo normalizamos a '' para
+      // tratarlo como "sin código" sin nullchecks en el resto de la app.
+      codigo: map['codigo'] ?? '',
       descripcion: map['descripcion'],
       stockActual: map['stock_actual'],
       stockMinimo: map['stock_minimo'],

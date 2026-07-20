@@ -81,10 +81,12 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
             width: Responsive.isDesktop(context) ? 520 : double.maxFinite,
             child: SingleChildScrollView(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
+                // Código opcional: si se completa, la DB valida que no se repita
+                // dentro de la empresa (índice único parcial normalizado).
                 TextField(
                   controller: codigoController,
                   style: const TextStyle(fontSize: 13),
-                  decoration: const InputDecoration(labelText: 'Código *', border: OutlineInputBorder(), hintText: 'Ej: REP-001'),
+                  decoration: const InputDecoration(labelText: 'Código', border: OutlineInputBorder(), hintText: 'Opcional. Ej: REP-001'),
                   textCapitalization: TextCapitalization.characters,
                   maxLength: 30,
                 ),
@@ -168,7 +170,8 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
                 final descripcion = normalizarTexto(descripcionController.text);
                 final ubicacion = normalizarTexto(ubicacionController.text);
                 final notas = normalizarTexto(notasController.text);
-                if (codigo.isEmpty || descripcion.isEmpty) return;
+                // Solo la descripción es obligatoria; el código es opcional.
+                if (descripcion.isEmpty) return;
                 Navigator.pop(context);
                 await _editarRepuesto(
                   codigo: codigo,
@@ -201,7 +204,8 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
     try {
       await _supabase.from('repuestos').update({
         'categoria_id': categoriaId,
-        'codigo': codigo,
+        // Código vacío => null, para que el índice único parcial no lo cuente.
+        'codigo': codigo.isEmpty ? null : codigo,
         'descripcion': descripcion,
         'stock_minimo': stockMinimo,
         'ubicacion': ubicacion.isEmpty ? null : ubicacion,
@@ -211,8 +215,21 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
       await _recargarRepuesto();
       _mostrarExito('Repuesto actualizado correctamente');
     } catch (e) {
-      _mostrarError(mensajeAmigableDb(e, entidad: 'repuesto', campos: 'descripción o código'));
+      _mostrarError(_mensajeErrorRepuesto(e));
     }
+  }
+
+  /// Traduce los dos índices únicos de repuestos a mensajes claros.
+  /// Distingue código vs. descripción; si no es ninguno, cae al helper.
+  String _mensajeErrorRepuesto(Object e) {
+    final texto = e.toString().toLowerCase();
+    if (texto.contains('uq_repuestos_empresa_codigo_norm')) {
+      return 'Ya existe un repuesto con ese código. Elegí otro o dejalo vacío.';
+    }
+    if (texto.contains('uq_repuestos_empresa_descripcion_norm')) {
+      return 'Ya existe un repuesto con esa descripción.';
+    }
+    return mensajeAmigableDb(e, entidad: 'repuesto', campos: 'descripción o código');
   }
 
   void _mostrarExito(String m) {
@@ -364,7 +381,9 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
                 children: [
                   const Text('Información', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   const Divider(),
-                  _infoRow('Código', _repuesto.codigo),
+                  // La fila de código solo aparece si el repuesto tiene uno.
+                  if (_repuesto.codigo.trim().isNotEmpty)
+                    _infoRow('Código', _repuesto.codigo),
                   _infoRow('Categoría', _nombreCategoria(_repuesto.categoriaId)),
                   if (_repuesto.ubicacion != null && _repuesto.ubicacion!.isNotEmpty)
                     _infoRow('Ubicación', _repuesto.ubicacion!),

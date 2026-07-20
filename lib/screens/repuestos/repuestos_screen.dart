@@ -130,7 +130,9 @@ Future<void> _exportarPdf() async {
             width: Responsive.isDesktop(context) ? 520 : double.maxFinite,
             child: SingleChildScrollView(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                TextField(controller: codigoController, decoration: const InputDecoration(labelText: 'Código *', border: OutlineInputBorder(), hintText: 'Ej: REP-001'), textCapitalization: TextCapitalization.characters, maxLength: 30),
+                // Código opcional: si se completa, la DB valida que no se repita
+                // dentro de la empresa (índice único parcial normalizado).
+                TextField(controller: codigoController, decoration: const InputDecoration(labelText: 'Código', border: OutlineInputBorder(), hintText: 'Opcional. Ej: REP-001'), textCapitalization: TextCapitalization.characters, maxLength: 30),
                 const SizedBox(height: 12),
                 TextField(controller: descripcionController, decoration: const InputDecoration(labelText: 'Descripción *', border: OutlineInputBorder()), textCapitalization: TextCapitalization.sentences, maxLines: 2, maxLength: 500),
                 const SizedBox(height: 12),
@@ -176,7 +178,8 @@ Future<void> _exportarPdf() async {
                 final descripcion = normalizarTexto(descripcionController.text);
                 final ubicacion = normalizarTexto(ubicacionController.text);
                 final notas = normalizarTexto(notasController.text);
-                if (codigo.isEmpty || descripcion.isEmpty) return;
+                // Solo la descripción es obligatoria; el código es opcional.
+                if (descripcion.isEmpty) return;
                 Navigator.pop(context);
                 if (repuesto == null) {
                   await _crearRepuesto(codigo: codigo, descripcion: descripcion, categoriaId: categoriaSeleccionada, unidadMedida: unidadSeleccionada, stockActual: int.tryParse(stockActualController.text) ?? 0, stockMinimo: int.tryParse(stockMinimoController.text) ?? 0, ubicacion: ubicacion, notas: notas);
@@ -197,18 +200,32 @@ Future<void> _exportarPdf() async {
     try {
       final usuario = context.read<AuthProvider>().usuario;
       if (usuario == null) return;
-      await _supabase.from('repuestos').insert({'empresa_id': usuario.empresaId, 'categoria_id': categoriaId, 'codigo': codigo, 'descripcion': descripcion, 'stock_actual': stockActual, 'stock_minimo': stockMinimo, 'ubicacion': ubicacion.isEmpty ? null : ubicacion, 'unidad_medida': unidadMedida, 'notas': notas.isEmpty ? null : notas, 'activo': true});
+      // Código vacío => null, para que el índice único parcial no lo cuente.
+      await _supabase.from('repuestos').insert({'empresa_id': usuario.empresaId, 'categoria_id': categoriaId, 'codigo': codigo.isEmpty ? null : codigo, 'descripcion': descripcion, 'stock_actual': stockActual, 'stock_minimo': stockMinimo, 'ubicacion': ubicacion.isEmpty ? null : ubicacion, 'unidad_medida': unidadMedida, 'notas': notas.isEmpty ? null : notas, 'activo': true});
       await _cargarDatos();
       _mostrarExito('Repuesto creado correctamente');
-    } catch (e) { _mostrarError(mensajeAmigableDb(e, entidad: 'repuesto', campos: 'descripción o código')); }
+    } catch (e) { _mostrarError(_mensajeErrorRepuesto(e)); }
   }
 
   Future<void> _editarRepuesto({required String id, required String codigo, required String descripcion, String? categoriaId, required String unidadMedida, required int stockMinimo, required String ubicacion, required String notas}) async {
     try {
-      await _supabase.from('repuestos').update({'categoria_id': categoriaId, 'codigo': codigo, 'descripcion': descripcion, 'stock_minimo': stockMinimo, 'ubicacion': ubicacion.isEmpty ? null : ubicacion, 'unidad_medida': unidadMedida, 'notas': notas.isEmpty ? null : notas}).eq('id', id);
+      await _supabase.from('repuestos').update({'categoria_id': categoriaId, 'codigo': codigo.isEmpty ? null : codigo, 'descripcion': descripcion, 'stock_minimo': stockMinimo, 'ubicacion': ubicacion.isEmpty ? null : ubicacion, 'unidad_medida': unidadMedida, 'notas': notas.isEmpty ? null : notas}).eq('id', id);
       await _cargarDatos();
       _mostrarExito('Repuesto actualizado correctamente');
-    } catch (e) { _mostrarError(mensajeAmigableDb(e, entidad: 'repuesto', campos: 'descripción o código')); }
+    } catch (e) { _mostrarError(_mensajeErrorRepuesto(e)); }
+  }
+
+  /// Traduce los dos índices únicos de repuestos a mensajes claros.
+  /// Distingue código vs. descripción; si no es ninguno, cae al helper.
+  String _mensajeErrorRepuesto(Object e) {
+    final texto = e.toString().toLowerCase();
+    if (texto.contains('uq_repuestos_empresa_codigo_norm')) {
+      return 'Ya existe un repuesto con ese código. Elegí otro o dejalo vacío.';
+    }
+    if (texto.contains('uq_repuestos_empresa_descripcion_norm')) {
+      return 'Ya existe un repuesto con esa descripción.';
+    }
+    return mensajeAmigableDb(e, entidad: 'repuesto', campos: 'descripción o código');
   }
 
   void _mostrarExito(String m) { if (!mounted) return; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating)); }
@@ -222,6 +239,7 @@ Future<void> _exportarPdf() async {
     final avatarRadius = Responsive.avatarRadius(context);
     final cardPadding = Responsive.cardPadding(context);
     final thumbSize = avatarRadius * 2;
+    final tieneCodigo = repuesto.codigo.trim().isNotEmpty;
 
     return Card(
       elevation: 1,
@@ -269,7 +287,9 @@ Future<void> _exportarPdf() async {
                   children: [
                     Text(repuesto.descripcion, style: TextStyle(fontWeight: FontWeight.w600, fontSize: titleSize), maxLines: 2, overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 2),
-                    Text('Código: ${repuesto.codigo}', style: TextStyle(color: Colors.grey[600], fontSize: subtitleSize)),
+                    // La línea de código solo aparece si el repuesto tiene uno.
+                    if (tieneCodigo)
+                      Text('Código: ${repuesto.codigo}', style: TextStyle(color: Colors.grey[600], fontSize: subtitleSize)),
                     Text(_nombreCategoria(repuesto.categoriaId), style: TextStyle(color: Colors.grey[500], fontSize: subtitleSize)),
                   ],
                 ),
