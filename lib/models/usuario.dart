@@ -9,6 +9,7 @@ class Usuario {
   final String rolNombre;
   final bool primerLogin;
   final bool esSuperAdmin;
+  final bool restringePorSector;
   final List<String> permisos;
 
   Usuario({
@@ -22,6 +23,7 @@ class Usuario {
     required this.rolNombre,
     required this.primerLogin,
     required this.esSuperAdmin,
+    this.restringePorSector = false,
     this.permisos = const [],
   });
 
@@ -37,6 +39,7 @@ class Usuario {
       rolNombre: map['roles']?['nombre'] ?? '',
       primerLogin: map['primer_login'] ?? false,
       esSuperAdmin: map['es_super_admin'] ?? false,
+      restringePorSector: map['roles']?['restringe_por_sector'] ?? false,
       permisos: permisos,
     );
   }

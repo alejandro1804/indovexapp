@@ -31,7 +31,9 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
 
       List<Map<String, dynamic>> maquinas;
 
-      if (usuario.esEncargado) {
+      // Roles restringidos por ubicación solo ven las máquinas de sus
+      // ubicaciones asignadas (usuario_sector). El resto ve todas.
+      if (usuario.restringePorSector) {
         final sectoresData = await _supabase
             .from('usuario_sector')
             .select('sector_id')

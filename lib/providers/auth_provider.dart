@@ -55,7 +55,7 @@ class AuthProvider extends ChangeNotifier {
     try {
       final data = await _supabase
           .from('usuarios')
-          .select('*, roles(nombre)')
+          .select('*, roles(nombre, restringe_por_sector)')
           .eq('id', authUser.id)
           .single();
 

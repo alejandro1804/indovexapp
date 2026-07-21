@@ -55,7 +55,9 @@ class _TicketsScreenState extends State<TicketsScreen> {
             .eq('tecnico_id', usuario.id)
             .order('created_at', ascending: false);
         tickets = List<Map<String, dynamic>>.from(result);
-      } else if (usuario.esEncargado) {
+      } else if (usuario.restringePorSector) {
+        // Roles restringidos por ubicación ven solo los tickets de las
+        // máquinas de sus ubicaciones asignadas (usuario_sector).
         final sectoresData = await _supabase
             .from('usuario_sector')
             .select('sector_id')
