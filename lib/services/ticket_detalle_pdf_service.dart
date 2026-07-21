@@ -10,6 +10,7 @@ class TicketDetallePdfService {
     required String nombreEmpresa,
     required String nombreCreadoPor,
     required String nombreTecnico,
+    List<Map<String, dynamic>> comentarios = const [],
   }) async {
     final pdf = pw.Document();
     final ahora = DateTime.now();
@@ -177,6 +178,38 @@ class TicketDetallePdfService {
                     _celda(h['comentario'] ?? '-'),
                     _celda((h['usuarios'] as Map?)?['nombre'] ?? '-'),
                     _celda(fmtAuditoria(fechaH)),
+                  ]);
+                }),
+              ],
+            ),
+          pw.SizedBox(height: 16),
+          _seccion('Comentarios', colorAzul),
+          if (comentarios.isEmpty)
+            pw.Text('Sin comentarios registrados.',
+                style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey))
+          else
+            pw.Table(
+              border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+              columnWidths: {
+                0: const pw.FlexColumnWidth(2.0),
+                1: const pw.FlexColumnWidth(4.0),
+                2: const pw.FlexColumnWidth(2.5),
+              },
+              children: [
+                pw.TableRow(
+                  decoration: pw.BoxDecoration(color: colorAzul),
+                  children: [
+                    _celda('Usuario', header: true),
+                    _celda('Comentario', header: true),
+                    _celda('Fecha', header: true),
+                  ],
+                ),
+                ...comentarios.map((c) {
+                  final fechaC = DateTime.tryParse(c['created_at'] ?? '');
+                  return pw.TableRow(children: [
+                    _celda((c['usuarios'] as Map?)?['nombre'] ?? '-'),
+                    _celda(c['comentario'] ?? '-'),
+                    _celda(fmtAuditoria(fechaC)),
                   ]);
                 }),
               ],

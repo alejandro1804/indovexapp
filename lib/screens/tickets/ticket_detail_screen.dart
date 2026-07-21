@@ -20,12 +20,22 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
   Map<String, dynamic>? _ticket;
   List<Map<String, dynamic>> _historial = [];
   List<Map<String, dynamic>> _tecnicos = [];
+  List<Map<String, dynamic>> _comentarios = [];
   String _nombreCreadoPor = '';
   String _nombreTecnico = '';
   bool _cargando = true;
+  bool _puedeComentar = false;
+  bool _enviandoComentario = false;
+  final _comentarioController = TextEditingController();
 
   @override
   void initState() { super.initState(); _cargarTicket(); }
+
+  @override
+  void dispose() {
+    _comentarioController.dispose();
+    super.dispose();
+  }
 
   Future<void> _cargarTicket() async {
     setState(() => _cargando = true);
@@ -66,11 +76,43 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
           .eq('empresa_id', context.read<AuthProvider>().usuario?.empresaId ?? '')
           .eq('estado', 'activo');
 
+      final comentariosRaw = await _supabase
+          .from('ticket_comentarios')
+          .select('*, usuarios(nombre)')
+          .eq('ticket_id', widget.ticketId)
+          .order('created_at', ascending: true);
+
+      // Gate de UI: permiso + pertenencia + estado no terminal.
+      // La RLS es la autoridad final; esto solo evita mostrar un campo que fallaría.
+      final usuarioActual = context.read<AuthProvider>().usuario;
+      bool puedeComentar = false;
+      final estadoTicket = ticket['estado'] as String;
+      if (usuarioActual != null &&
+          estadoTicket != 'cerrado' &&
+          estadoTicket != 'rechazado' &&
+          usuarioActual.tienePermiso('comentar_ticket')) {
+        final esCreador = ticket['creado_por'] == usuarioActual.id;
+        final esTecnicoAsignado = ticket['tecnico_id'] == usuarioActual.id;
+        bool esEncargadoSector = false;
+        final sectorId = (ticket['maquinas'] as Map?)?['sector_id'];
+        if (!esCreador && !esTecnicoAsignado && sectorId != null) {
+          final vinculo = await _supabase
+              .from('usuario_sector')
+              .select('usuario_id')
+              .eq('sector_id', sectorId)
+              .eq('usuario_id', usuarioActual.id);
+          esEncargadoSector = (vinculo as List).isNotEmpty;
+        }
+        puedeComentar = esCreador || esTecnicoAsignado || esEncargadoSector;
+      }
+
       setState(() {
         _ticket = Map<String, dynamic>.from(ticket);
         _nombreCreadoPor = nombreCreadoPor;
         _nombreTecnico = nombreTecnico;
         _historial = List<Map<String, dynamic>>.from(historialRaw);
+        _comentarios = List<Map<String, dynamic>>.from(comentariosRaw);
+        _puedeComentar = puedeComentar;
         _tecnicos = (tecnicosRaw as List)
             .where((u) => (u['roles'] as Map?)?['nombre'] == 'tecnico')
             .map((u) => Map<String, dynamic>.from(u))
@@ -80,6 +122,30 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
       _mostrarError('Error al cargar ticket: $e');
     } finally {
       setState(() => _cargando = false);
+    }
+  }
+
+  Future<void> _agregarComentario() async {
+    final texto = _comentarioController.text.trim();
+    if (texto.isEmpty) return;
+
+    final usuario = context.read<AuthProvider>().usuario;
+    if (usuario == null) return;
+
+    setState(() => _enviandoComentario = true);
+    try {
+      await _supabase.from('ticket_comentarios').insert({
+        'ticket_id': widget.ticketId,
+        'usuario_id': usuario.id,
+        'comentario': texto,
+      });
+      _comentarioController.clear();
+      await _cargarTicket();
+      _mostrarExito('Comentario agregado');
+    } catch (e) {
+      _mostrarError('Error al agregar comentario: $e');
+    } finally {
+      if (mounted) setState(() => _enviandoComentario = false);
     }
   }
 
@@ -258,6 +324,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
         nombreEmpresa: nombreEmpresa,
         nombreCreadoPor: _nombreCreadoPor,
         nombreTecnico: _nombreTecnico,
+        comentarios: _comentarios,
       );
     } catch (e) {
       _mostrarError('Error al exportar PDF: $e');
@@ -501,6 +568,10 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
           ),
           const SizedBox(height: 16),
 
+          // Comentarios
+          _buildComentarios(estado),
+          const SizedBox(height: 16),
+
           // Adjuntos
           AdjuntosSection(
             entidadTipo: 'ticket',
@@ -508,6 +579,101 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
           ),
           const SizedBox(height: 24),
         ],
+      ),
+    );
+  }
+
+  Widget _buildComentarios(String estado) {
+    final estadoTerminal = estado == 'cerrado' || estado == 'rechazado';
+
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Icon(Icons.forum_outlined, size: 18, color: Color(0xFF1F4E79)),
+            const SizedBox(width: 8),
+            const Text('Comentarios', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const Spacer(),
+            if (_comentarios.isNotEmpty)
+              Text('${_comentarios.length}', style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+          ]),
+          const Divider(),
+
+          // Lista de comentarios
+          if (_comentarios.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Text('Sin comentarios', style: TextStyle(color: Colors.grey[500])),
+            )
+          else
+            ...(_comentarios.map((c) {
+              final fechaC = DateTime.tryParse(c['created_at'] ?? '');
+              final nombre = (c['usuarios'] as Map?)?['nombre'] ?? '';
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey[200]!),
+                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    CircleAvatar(
+                      radius: 12,
+                      backgroundColor: const Color(0xFF1F4E79).withOpacity(0.12),
+                      child: Text(
+                        nombre.isNotEmpty ? nombre[0].toUpperCase() : '?',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1F4E79)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(nombre, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    const Spacer(),
+                    Text(_formatoAuditoria(fechaC), style: TextStyle(color: Colors.grey[400], fontSize: 11)),
+                  ]),
+                  const SizedBox(height: 6),
+                  Text(c['comentario'] ?? '', style: const TextStyle(fontSize: 14)),
+                ]),
+              );
+            })),
+
+          // Campo para escribir (solo si puede comentar)
+          if (_puedeComentar && !estadoTerminal) ...[
+            const SizedBox(height: 8),
+            TextField(
+              controller: _comentarioController,
+              decoration: InputDecoration(
+                hintText: 'Escribí un comentario...',
+                border: const OutlineInputBorder(),
+                isDense: true,
+                suffixIcon: _enviandoComentario
+                    ? const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                      )
+                    : IconButton(
+                        icon: const Icon(Icons.send_outlined, color: Color(0xFF1F4E79)),
+                        onPressed: _agregarComentario,
+                      ),
+              ),
+              maxLines: 3,
+              minLines: 1,
+              textCapitalization: TextCapitalization.sentences,
+              enabled: !_enviandoComentario,
+            ),
+          ] else if (estadoTerminal)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                'El ticket está ${_labelEstado(estado).toLowerCase()}; no admite nuevos comentarios.',
+                style: TextStyle(color: Colors.grey[500], fontSize: 12, fontStyle: FontStyle.italic),
+              ),
+            ),
+        ]),
       ),
     );
   }
