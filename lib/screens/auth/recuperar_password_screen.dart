@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Pantalla donde el usuario ingresa su email para recibir el link
-/// de restablecimiento de contraseña (Supabase Auth nativo).
+/// Pantalla donde el usuario ingresa su email para recibir una contraseña
+/// temporal. Usa la Edge Function propia `recuperar-password`, que envía el
+/// correo desde soporte@indovexapp.com vía ZeptoMail (con el mismo diseño
+/// que el resto de los emails del sistema), en lugar del mail por defecto
+/// de Supabase Auth.
 class RecuperarPasswordScreen extends StatefulWidget {
   const RecuperarPasswordScreen({super.key});
 
@@ -16,8 +19,11 @@ class _RecuperarPasswordScreenState extends State<RecuperarPasswordScreen> {
   bool _enviando = false;
   bool _enviado = false;
 
-  // A dónde vuelve el usuario tras hacer clic en el link del mail.
-  static const _redirectTo = 'https://app.indovexapp.com';
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
+  }
 
   Future<void> _enviar() async {
     final email = _emailController.text.trim();
@@ -28,12 +34,19 @@ class _RecuperarPasswordScreenState extends State<RecuperarPasswordScreen> {
 
     setState(() => _enviando = true);
     try {
-      await _supabase.auth.resetPasswordForEmail(
-        email,
-        redirectTo: _redirectTo,
+      // Quien pide recuperar la contraseña no debería tener sesión abierta.
+      // Si quedó una vieja o vencida en el navegador, el SDK la adjunta a la
+      // llamada y la función falla del lado del servidor. Se limpia antes.
+      if (_supabase.auth.currentSession != null) {
+        await _supabase.auth.signOut();
+      }
+
+      await _supabase.functions.invoke(
+        'recuperar-password',
+        body: {'email': email},
       );
-      // Por seguridad, siempre mostramos éxito aunque el email no exista
-      // (no revelamos si una cuenta está registrada o no).
+      // La función siempre responde igual, exista o no el email: por
+      // seguridad no revelamos si la cuenta está registrada.
       if (mounted) setState(() => _enviado = true);
     } catch (e) {
       _mostrarError('No se pudo enviar el correo. Intentá de nuevo más tarde.');
@@ -77,7 +90,7 @@ class _RecuperarPasswordScreenState extends State<RecuperarPasswordScreen> {
         const Icon(Icons.lock_reset_outlined, size: 64, color: Color(0xFF1F4E79)),
         const SizedBox(height: 16),
         const Text(
-          'Ingresá el email con el que te registraste. Te enviaremos un enlace para definir una nueva contraseña.',
+          'Ingresá el email con el que te registraste. Te enviaremos una contraseña temporal para que puedas volver a entrar.',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 15),
         ),
@@ -101,7 +114,7 @@ class _RecuperarPasswordScreenState extends State<RecuperarPasswordScreen> {
           ),
           child: _enviando
               ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : const Text('Enviar enlace'),
+              : const Text('Enviar contraseña temporal'),
         ),
         const SizedBox(height: 12),
         TextButton(
@@ -120,7 +133,7 @@ class _RecuperarPasswordScreenState extends State<RecuperarPasswordScreen> {
         const Icon(Icons.mark_email_read_outlined, size: 64, color: Colors.green),
         const SizedBox(height: 16),
         const Text(
-          'Si el email está registrado, vas a recibir un enlace para restablecer tu contraseña en los próximos minutos.',
+          'Si el email está registrado, vas a recibir una contraseña temporal en los próximos minutos. Al ingresar con ella, el sistema te va a pedir que definas una nueva.',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 15),
         ),
