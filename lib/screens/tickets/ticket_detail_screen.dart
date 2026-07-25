@@ -171,7 +171,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
         'comentario': comentario,
       });
 
-      await _enviarNotificacion(nuevoEstado, tecnicoId, usuario, comentario);
+
       await _cargarTicket();
       _mostrarExito('Estado actualizado correctamente');
     } catch (e) {
@@ -179,70 +179,6 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     }
   }
 
-  Future<void> _enviarNotificacion(String nuevoEstado, String? tecnicoId, usuario, String? comentario) async {
-    final numero = _ticket!['numero'];
-    String mensaje = '';
-    String? paraUsuarioId;
-
-    switch (nuevoEstado) {
-      case 'asignado':
-        mensaje = 'Ticket $numero te fue asignado por ${usuario.nombre}';
-        paraUsuarioId = tecnicoId;
-        break;
-      case 'en_proceso':
-        mensaje = 'Ticket $numero está en proceso';
-        paraUsuarioId = _ticket!['creado_por'];
-        break;
-      case 'pausado':
-        mensaje = 'Ticket $numero fue pausado${comentario != null ? ': $comentario' : ''}';
-        paraUsuarioId = _ticket!['creado_por'];
-        break;
-      case 'resuelto':
-        mensaje = 'Ticket $numero fue resuelto por ${usuario.nombre}';
-        paraUsuarioId = _ticket!['creado_por'];
-        final maquina = _ticket!['maquinas'] as Map?;
-        if (maquina != null) {
-          final encargados = await _supabase
-              .from('usuario_sector')
-              .select('usuario_id')
-              .eq('sector_id', maquina['sector_id']);
-          for (final enc in encargados as List) {
-            if (enc['usuario_id'] != usuario.id) {
-              await _supabase.from('notificaciones').insert({
-                'tipo': 'ticket_resuelto',
-                'mensaje': mensaje,
-                'ticket_id': widget.ticketId,
-                'para_usuario_id': enc['usuario_id'],
-                'de_usuario_id': usuario.id,
-              });
-            }
-          }
-        }
-        break;
-      case 'cerrado':
-        mensaje = 'Ticket $numero fue cerrado';
-        paraUsuarioId = _ticket!['creado_por'];
-        break;
-      case 'rechazado':
-        mensaje = 'Ticket $numero fue rechazado${comentario != null ? ': $comentario' : ''}';
-        paraUsuarioId = _ticket!['creado_por'];
-        break;
-      case 'abierto':
-        mensaje = 'Ticket $numero fue reabierto';
-        paraUsuarioId = _ticket!['tecnico_id'];
-        break;
-    }
-
-    if (paraUsuarioId != null && paraUsuarioId != usuario.id) {
-      await _supabase.from('notificaciones').insert({
-        'tipo': 'ticket_$nuevoEstado',
-        'mensaje': mensaje,
-        'ticket_id': widget.ticketId,
-        'para_usuario_id': paraUsuarioId,
-        'de_usuario_id': usuario.id,
-      });
-    }
-  }
 
   Future<void> _mostrarDialogoAccion(String titulo, String accion, String nuevoEstado,
       {bool comentarioObligatorio = false, bool seleccionarTecnico = false}) async {

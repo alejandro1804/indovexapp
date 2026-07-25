@@ -6,6 +6,7 @@ import '../../providers/legal_provider.dart';
 import '../../models/usuario.dart';
 import '../../core/responsive.dart';
 import '../../widgets/legal_gate.dart';
+import '../../widgets/notificaciones_bell.dart';
 import '../tickets/tickets_screen.dart';
 import '../repuestos/repuestos_screen.dart';
 import '../maquinas/maquinas_screen.dart';
@@ -455,6 +456,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   ),
+                // Campanita de notificaciones (no la ve el super admin en
+                // modo plataforma, que no opera tickets de clientes).
+                if (!modoAdmin) const NotificacionesBell(color: Colors.white),
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: Center(
@@ -512,19 +516,33 @@ class _HomeScreenState extends State<HomeScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
-                                    'IndovexApp',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 1,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  const Text(
-                                    'Gestión Industrial',
-                                    style: TextStyle(color: Colors.white54, fontSize: 12),
+                                  Row(
+                                    children: [
+                                      const Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'IndovexApp',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 24,
+                                                fontWeight: FontWeight.bold,
+                                                letterSpacing: 1,
+                                              ),
+                                            ),
+                                            SizedBox(height: 4),
+                                            Text(
+                                              'Gestión Industrial',
+                                              style: TextStyle(color: Colors.white54, fontSize: 12),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      // Campanita también en el panel de escritorio.
+                                      if (!modoAdmin)
+                                        const NotificacionesBell(color: Colors.white),
+                                    ],
                                   ),
                                   const SizedBox(height: 20),
                                   const Divider(color: Colors.white24),

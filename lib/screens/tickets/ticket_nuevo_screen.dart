@@ -103,47 +103,10 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
         'comentario': 'Ticket creado',
       });
 
-      final maquina = await _supabase
-          .from('maquinas')
-          .select('sector_id')
-          .eq('id', _maquinaSeleccionada!)
-          .single();
-
-      final encargados = await _supabase
-          .from('usuario_sector')
-          .select('usuario_id')
-          .eq('sector_id', maquina['sector_id']);
-
-      for (final enc in encargados as List) {
-        if (enc['usuario_id'] != usuario.id) {
-          await _supabase.from('notificaciones').insert({
-            'tipo': 'ticket_nuevo',
-            'mensaje': 'Nuevo ticket $numero creado por ${usuario.nombre}',
-            'ticket_id': ticketData['id'],
-            'para_usuario_id': enc['usuario_id'],
-            'de_usuario_id': usuario.id,
-          });
-        }
-      }
-
-      final admins = await _supabase
-          .from('usuarios')
-          .select('id, roles(nombre)')
-          .eq('empresa_id', usuario.empresaId)
-          .eq('estado', 'activo');
-
-      for (final admin in admins as List) {
-        final rolNombre = (admin['roles'] as Map?)?['nombre'];
-        if (rolNombre == 'admin' && admin['id'] != usuario.id) {
-          await _supabase.from('notificaciones').insert({
-            'tipo': 'ticket_nuevo',
-            'mensaje': 'Nuevo ticket $numero creado por ${usuario.nombre}',
-            'ticket_id': ticketData['id'],
-            'para_usuario_id': admin['id'],
-            'de_usuario_id': usuario.id,
-          });
-        }
-      }
+      // Las notificaciones a los involucrados (creador, ejecutor y roles con
+      // permiso 'recibir_notificaciones_tickets') las genera el trigger
+      // trg_notificar_involucrados_ticket en la base. No se generan acá para
+      // no duplicarlas.
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
