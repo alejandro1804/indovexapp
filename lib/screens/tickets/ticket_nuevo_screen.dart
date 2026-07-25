@@ -68,18 +68,6 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
     }
   }
 
-  Future<String> _generarNumero() async {
-    final data = await _supabase
-        .from('tickets')
-        .select('numero')
-        .order('created_at', ascending: false)
-        .limit(1);
-    if ((data as List).isEmpty) return 'TK-0001';
-    final ultimo = data.first['numero'] as String;
-    final numero = int.tryParse(ultimo.split('-').last) ?? 0;
-    return 'TK-${(numero + 1).toString().padLeft(4, '0')}';
-  }
-
   Future<void> _crearTicket() async {
     if (_maquinaSeleccionada == null || _descripcionController.text.trim().isEmpty) {
       _mostrarError('Completá todos los campos obligatorios');
@@ -91,18 +79,21 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
       final usuario = context.read<AuthProvider>().usuario;
       if (usuario == null) return;
 
-      final numero = await _generarNumero();
-
+      // El número de ticket lo asigna la base (trigger trg_asignar_numero_ticket),
+      // correlativo por empresa. NO se genera ni se envía desde el cliente:
+      // hacerlo con un SELECT sujeto a RLS provocaba números duplicados entre
+      // ubicaciones. Se lee del registro devuelto por el insert.
       final ticketData = await _supabase.from('tickets').insert({
         'empresa_id': usuario.empresaId,
         'maquina_id': _maquinaSeleccionada,
         'creado_por': usuario.id,
-        'numero': numero,
         'estado': 'abierto',
         'tipo': _tipo,
         'prioridad': _prioridad,
         'descripcion_desperfecto': _descripcionController.text.trim(),
       }).select().single();
+
+      final numero = ticketData['numero'] as String? ?? '';
 
       await _supabase.from('ticket_historial').insert({
         'ticket_id': ticketData['id'],
