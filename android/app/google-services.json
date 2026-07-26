@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "165832267986",
+    "project_id": "indovexapp-33fbd",
+    "storage_bucket": "indovexapp-33fbd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:165832267986:android:6719328f786bb829e1750b",
+        "android_client_info": {
+          "package_name": "com.indovex.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBYi7pnMMQe0fGKmrNAFU7DOIwPAmYp_dM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -15,6 +15,8 @@ import 'screens/auth/cambiar_password_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/maquinas/maquina_detail_screen.dart';
 import 'models/maquina.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
 const supabaseUrl = String.fromEnvironment(
   'SUPABASE_URL',
@@ -30,6 +32,10 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   await Supabase.initialize(
     url: supabaseUrl,

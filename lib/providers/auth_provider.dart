@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/usuario.dart';
+import '../services/push_service.dart';
+
 
 class AuthProvider extends ChangeNotifier {
   final _supabase = Supabase.instance.client;
@@ -142,6 +144,7 @@ class AuthProvider extends ChangeNotifier {
       }
 
       await cargarUsuario();
+      await PushService.registrarDispositivo();
       return true;
     } catch (e) {
       _errorLogin = 'Email o contraseña incorrectos';
@@ -150,6 +153,9 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+
+    await PushService.desregistrarDispositivo();
+    await _supabase.auth.signOut();
     await _supabase.auth.signOut();
     _usuario = null;
     _plan = 'trial';
