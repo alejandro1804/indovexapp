@@ -22,6 +22,8 @@ import '../admin/empresas_screen.dart';
 import '../admin/gestion_planes_screen.dart';
 import '../admin/pagos_screen.dart';
 import '../admin/legal_cobertura_screen.dart';
+import '../../main.dart' show pendingTicketId;
+import '../tickets/ticket_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -37,14 +39,30 @@ class _HomeScreenState extends State<HomeScreen> {
   String _version = '';
 
   @override
-  void initState() {
-    super.initState();
-    _cargarVersion();
-    // Estado de documentos legales pendientes de aceptar.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) context.read<LegalProvider>().cargar();
-    });
-  }
+    void initState() {
+      super.initState();
+      _cargarVersion();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) context.read<LegalProvider>().cargar();
+        _abrirTicketPendiente();
+      });
+    }
+
+    // Si un push abrió la app (estaba cerrada), navegar al ticket ahora que
+    // el home ya está montado. Se hace acá para no competir con la carga inicial.
+    void _abrirTicketPendiente() {
+      final id = pendingTicketId;
+      if (id != null && id.isNotEmpty) {
+        pendingTicketId = null; // consumir una sola vez
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (!mounted) return;
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => TicketDetailScreen(ticketId: id)),
+          );
+        });
+      }
+    }
 
   Future<void> _cargarVersion() async {
     try {

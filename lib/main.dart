@@ -30,15 +30,21 @@ const supabaseAnonKey = String.fromEnvironment(
 );
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+// Ticket pendiente de abrir por un push recibido con la app cerrada.
+// El HomeScreen lo consume cuando termina de montarse.
+String? pendingTicketId;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-
-  await PushService.initRecepcion();
+try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    await PushService.initRecepcion();
+  } catch (e) {
+    debugPrint('Firebase/Push init falló (se continúa igual): $e');
+  }
 
   await Supabase.initialize(
     url: supabaseUrl,

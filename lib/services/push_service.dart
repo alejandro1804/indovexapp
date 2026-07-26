@@ -3,7 +3,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import '../main.dart' show navigatorKey;
+import '../main.dart' show navigatorKey, pendingTicketId;
 import '../screens/tickets/ticket_detail_screen.dart';
 
 /// Registro del dispositivo + recepción de notificaciones push (FCM).
@@ -31,6 +31,7 @@ class PushService {
 
   static Future<void> registrarDispositivo() async {
     try {
+      if (kIsWeb) return;   // el push del sistema no aplica en web
       final uid = _supabase.auth.currentUser?.id;
       if (uid == null) return;
 
@@ -132,7 +133,8 @@ class PushService {
     if (inicial != null) {
       final ticketId = inicial.data['ticket_id'];
       if (ticketId != null) {
-        _navegarCuandoListo(ticketId);
+        //_navegarCuandoListo(ticketId);
+        pendingTicketId = ticketId;
       }
     }
   }
