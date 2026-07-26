@@ -44,7 +44,23 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
           .from('tickets')
           .select('*, maquinas(nombre, codigo, sector_id, sectores(nombre))')
           .eq('id', widget.ticketId)
-          .single();
+         // .single();
+          .maybeSingle();
+          // Si la RLS bloquea el ticket o no existe, no crasheamos: avisamos y volvemos.
+                if (ticket == null) {
+                  if (mounted) {
+                    setState(() => _cargando = false);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('No tenés acceso a este ticket o fue eliminado'),
+                        backgroundColor: Colors.orange,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                    Navigator.of(context).maybePop();
+                  }
+                  return;
+                }
 
       final idsABuscar = <String>[];
       if (ticket['creado_por'] != null) idsABuscar.add(ticket['creado_por']);
