@@ -17,6 +17,7 @@ import 'screens/maquinas/maquina_detail_screen.dart';
 import 'models/maquina.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'services/push_service.dart';
 
 const supabaseUrl = String.fromEnvironment(
   'SUPABASE_URL',
@@ -36,6 +37,8 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  await PushService.initRecepcion();
 
   await Supabase.initialize(
     url: supabaseUrl,
