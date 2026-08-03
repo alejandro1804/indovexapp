@@ -165,7 +165,7 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
             await _supabase.from('maquinas').select().eq('id', maquinaId).single();
         maquina = Maquina.fromMap(data);
       } catch (e) {
-        _mostrarError('Máquina no encontrada o sin acceso');
+        _mostrarError('Activo no encontrado o sin acceso');
         return;
       }
     }
@@ -189,7 +189,7 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text(maquina == null ? 'Nueva Máquina' : 'Editar Máquina'),
+          title: Text(maquina == null ? 'Nuevo Activo' : 'Editar Activo'),
           content: SizedBox(
             width: Responsive.isDesktop(context) ? 480 : double.maxFinite,
             child: SingleChildScrollView(
@@ -258,7 +258,7 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
       // Código vacío => null, para que el índice único parcial no lo cuente.
       await _supabase.from('maquinas').insert({'empresa_id': usuario.empresaId, 'sector_id': sectorId, 'nombre': nombre, 'codigo': codigo.isEmpty ? null : codigo, 'estado': estado, 'descripcion': descripcion.isEmpty ? null : descripcion});
       await _cargarDatos();
-      _mostrarExito('Máquina creada correctamente');
+      _mostrarExito('Activo creado correctamente');
     } catch (e) { _mostrarError(_mensajeErrorMaquina(e)); }
   }
 
@@ -266,7 +266,7 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
     try {
       await _supabase.from('maquinas').update({'sector_id': sectorId, 'nombre': nombre, 'codigo': codigo.isEmpty ? null : codigo, 'estado': estado, 'descripcion': descripcion.isEmpty ? null : descripcion}).eq('id', id);
       await _cargarDatos();
-      _mostrarExito('Máquina actualizada correctamente');
+      _mostrarExito('Activo actualizado correctamente');
     } catch (e) { _mostrarError(_mensajeErrorMaquina(e)); }
   }
 
@@ -275,16 +275,16 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
   String _mensajeErrorMaquina(Object e) {
     final texto = e.toString().toLowerCase();
     if (texto.contains('uq_maquinas_codigo_empresa') || texto.contains('duplicate key')) {
-      return 'Ya existe una máquina con ese código. Elegí otro o dejalo vacío.';
+      return 'Ya existe un activo con ese código. Elegí otro o dejalo vacío.';
     }
-    return mensajeAmigableDb(e, entidad: 'máquina', campos: 'nombre o código');
+    return mensajeAmigableDb(e, entidad: 'activo', campos: 'nombre o código');
   }
 
   Future<void> _eliminarMaquina(Maquina maquina) async {
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Eliminar Máquina'),
+        title: const Text('Eliminar Activo'),
         content: Text('¿Estás seguro que querés eliminar "${maquina.nombre}"?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
@@ -296,7 +296,7 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
       try {
         await _supabase.from('maquinas').delete().eq('id', maquina.id);
         await _cargarDatos();
-        _mostrarExito('Máquina eliminada');
+        _mostrarExito('Activo eliminado');
       } catch (e) { _mostrarError('No se puede eliminar. Tiene tickets o repuestos asociados.'); }
     }
   }
@@ -342,7 +342,7 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
                   children: [
                     Text(maquina.nombre, style: TextStyle(fontWeight: FontWeight.w600, fontSize: titleSize), maxLines: 2, overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 2),
-                    // La línea de código solo aparece si la máquina tiene uno.
+                    // La línea de código solo aparece si el activo tiene uno.
                     if (tieneCodigo)
                       Text('Código: ${maquina.codigo}', style: TextStyle(color: Colors.grey[600], fontSize: subtitleSize)),
                     Text(_nombreSector(maquina.sectorId), style: TextStyle(color: Colors.grey[500], fontSize: subtitleSize)),
@@ -439,7 +439,7 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Máquinas', style: TextStyle(fontSize: 18)),
+        title: const Text('Activos', style: TextStyle(fontSize: 18)),
         toolbarHeight: 48,
         backgroundColor: const Color(0xFF1F4E79),
         foregroundColor: Colors.white,
@@ -532,7 +532,7 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 color: Colors.grey[100],
                 child: Row(children: [
-                  Text('${maquinasFiltradas.length} máquina${maquinasFiltradas.length != 1 ? 's' : ''}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                  Text('${maquinasFiltradas.length} activo${maquinasFiltradas.length != 1 ? 's' : ''}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                   const Spacer(),
                   if (_hayFiltrosActivos)
                     GestureDetector(
@@ -550,7 +550,7 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
                     ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                         Icon(Icons.precision_manufacturing_outlined, size: 80, color: Colors.grey[400]),
                         const SizedBox(height: 16),
-                        Text(_maquinas.isEmpty ? 'No hay máquinas cargadas' : 'No hay máquinas con ese filtro', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+                        Text(_maquinas.isEmpty ? 'No hay activos cargados' : 'No hay activos con ese filtro', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
                         if (_maquinas.isNotEmpty && _hayFiltrosActivos) ...[
                           const SizedBox(height: 8),
                           TextButton(onPressed: _limpiarFiltros, child: const Text('Limpiar filtros')),

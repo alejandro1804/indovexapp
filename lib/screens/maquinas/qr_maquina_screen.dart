@@ -100,7 +100,7 @@ class QrMaquinaScreen extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.crop_square, size: 20),
                 title: const Text('Chico (5 cm)'),
-                subtitle: const Text('Máquinas pequeñas o herramientas'),
+                subtitle: const Text('Activos pequeños o herramientas'),
                 onTap: () => Navigator.pop(context, 5.0),
               ),
               ListTile(
@@ -112,7 +112,7 @@ class QrMaquinaScreen extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.crop_square, size: 36),
                 title: const Text('Grande (10 cm)'),
-                subtitle: const Text('Máquinas grandes, escaneo a distancia'),
+                subtitle: const Text('Activos grandes, escaneo a distancia'),
                 onTap: () => Navigator.pop(context, 10.0),
               ),
               const SizedBox(height: 8),
@@ -200,7 +200,7 @@ class QrMaquinaScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Escaneá con la cámara del celular\npara abrir directo esta máquina en IndovexApp',
+                'Escaneá con la cámara del celular\npara abrir directo este activo en IndovexApp',
                 style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                 textAlign: TextAlign.center,
               ),

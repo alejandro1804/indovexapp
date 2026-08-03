@@ -302,7 +302,7 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
         title: const Text('Exportar datos'),
         content: Text(
           'Se generará un archivo ZIP con todos los registros de '
-          '"${empresa['empresa_nombre']}" (tickets, máquinas, repuestos, '
+          '"${empresa['empresa_nombre']}" (tickets, activos, repuestos, '
           'auditoría, etc.) en formato CSV, más los enlaces de descarga de '
           'sus archivos adjuntos (válidos 5 días).',
         ),
@@ -854,7 +854,7 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
   Widget _desgloseStorage(Map<String, dynamic> datos) {
     final desglose = datos['desglose'] as Map<String, dynamic>;
     final items = [
-      ('Máquinas', desglose['maquina']),
+      ('Activos', desglose['maquina']),
       ('Repuestos', desglose['repuesto']),
       ('Tickets', desglose['ticket']),
     ];

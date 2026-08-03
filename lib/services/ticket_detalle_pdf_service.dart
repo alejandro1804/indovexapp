@@ -121,7 +121,7 @@ class TicketDetallePdfService {
             ]),
           ),
           _seccion('Información general', colorAzul),
-          _fila('Máquina', maquina?['nombre'] ?? '-'),
+          _fila('Activo', maquina?['nombre'] ?? '-'),
           _fila('Código', maquina?['codigo'] ?? '-'),
           _fila('Ubicacion', sector),
           _fila('Creado por', nombreCreadoPor.isNotEmpty ? nombreCreadoPor : '-'),

@@ -101,7 +101,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (usuario.tienePermiso('ver_maquinas')) {
       items.add(_NavItem(
-        label: 'Máquinas',
+        label: 'Activos',
         icon: Icons.precision_manufacturing_outlined,
         iconActivo: Icons.precision_manufacturing,
         screen: const MaquinasScreen(),

@@ -56,8 +56,8 @@ class _TicketsScreenState extends State<TicketsScreen> {
             .order('created_at', ascending: false);
         tickets = List<Map<String, dynamic>>.from(result);
       } else if (usuario.restringePorSector) {
-        // Roles restringidos por ubicación ven solo los tickets de las
-        // máquinas de sus ubicaciones asignadas (usuario_sector).
+        // Roles restringidos por ubicación ven solo los tickets de los
+        // activos de sus ubicaciones asignadas (usuario_sector).
         final sectoresData = await _supabase
             .from('usuario_sector')
             .select('sector_id')
@@ -372,7 +372,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
                   textInputAction: TextInputAction.search,
                   style: const TextStyle(fontSize: 12),
                   decoration: InputDecoration(
-                    hintText: 'Buscar por ticket, máquina o ubicacion...',
+                    hintText: 'Buscar por ticket, activo o ubicación...',
                     hintStyle: const TextStyle(fontSize: 12),
                     prefixIcon: const Icon(Icons.search, size: 20),
                     prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
@@ -544,7 +544,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
                                             color: tipo == 'preventivo' ? Colors.green : Colors.red,
                                           ),
                                           const SizedBox(width: 6),
-                                          Expanded(child: Text(maquina?['nombre'] ?? 'Sin máquina', style: TextStyle(fontWeight: FontWeight.w600, fontSize: titleSize), overflow: TextOverflow.ellipsis)),
+                                          Expanded(child: Text(maquina?['nombre'] ?? 'Sin activo', style: TextStyle(fontWeight: FontWeight.w600, fontSize: titleSize), overflow: TextOverflow.ellipsis)),
                                         ]),
                                         const SizedBox(height: 2),
                                         Text(ticket['descripcion_desperfecto'] ?? '', style: TextStyle(fontSize: subtitleSize, color: Colors.grey[700]), maxLines: 2, overflow: TextOverflow.ellipsis),

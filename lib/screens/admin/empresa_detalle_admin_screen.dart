@@ -37,7 +37,7 @@ class EmpresaDetalleAdminScreen extends StatelessWidget {
             indicatorColor: Colors.white,
             tabs: [
               Tab(icon: Icon(Icons.confirmation_number_outlined, size: 20), text: 'Tickets'),
-              Tab(icon: Icon(Icons.precision_manufacturing_outlined, size: 20), text: 'Máquinas'),
+              Tab(icon: Icon(Icons.precision_manufacturing_outlined, size: 20), text: 'Activos'),
               Tab(icon: Icon(Icons.inventory_2_outlined, size: 20), text: 'Repuestos'),
               Tab(icon: Icon(Icons.people_outline, size: 20), text: 'Usuarios'),
               Tab(icon: Icon(Icons.storage_outlined, size: 20), text: 'Storage'),
@@ -207,7 +207,7 @@ class _TabTicketsState extends State<_TabTickets> with AutomaticKeepAliveClientM
                                   style: TextStyle(fontSize: 11, color: Colors.grey[500], fontWeight: FontWeight.w600)),
                               const SizedBox(width: 8),
                               Expanded(
-                                child: Text(t['maquina_nombre'] ?? 'Sin máquina',
+                                child: Text(t['maquina_nombre'] ?? 'Sin activo',
                                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                                     overflow: TextOverflow.ellipsis),
                               ),
@@ -252,7 +252,7 @@ class _TabTicketsState extends State<_TabTickets> with AutomaticKeepAliveClientM
 }
 
 // ─────────────────────────────────────────────
-// TAB MÁQUINAS
+// TAB ACTIVOS
 // ─────────────────────────────────────────────
 class _TabMaquinas extends StatefulWidget {
   final String empresaId;
@@ -368,12 +368,12 @@ class _TabMaquinasState extends State<_TabMaquinas> with AutomaticKeepAliveClien
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
           color: Colors.grey[100],
-          child: Text('${filtradas.length} máquina${filtradas.length != 1 ? 's' : ''}',
+          child: Text('${filtradas.length} activo${filtradas.length != 1 ? 's' : ''}',
               style: TextStyle(fontSize: 11, color: Colors.grey[600])),
         ),
         Expanded(
           child: filtradas.isEmpty
-              ? _vacio(Icons.precision_manufacturing_outlined, 'No hay máquinas')
+              ? _vacio(Icons.precision_manufacturing_outlined, 'No hay activos')
               : RefreshIndicator(
                   onRefresh: _cargar,
                   child: ListView.separated(
@@ -814,7 +814,7 @@ class _TabAlmacenamientoState extends State<_TabAlmacenamiento>
 
   String _labelCategoria(String categoria) {
     switch (categoria) {
-      case 'maquina': return 'Máquinas';
+      case 'maquina': return 'Activos';
       case 'repuesto': return 'Repuestos';
       case 'ticket': return 'Tickets';
       case 'usuario': return 'Usuarios (avatares)';

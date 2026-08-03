@@ -31,8 +31,8 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
 
       List<Map<String, dynamic>> maquinas;
 
-      // Roles restringidos por ubicación solo ven las máquinas de sus
-      // ubicaciones asignadas (usuario_sector). El resto ve todas.
+      // Roles restringidos por ubicación solo ven los activos de sus
+      // ubicaciones asignadas (usuario_sector). El resto ve todos.
       if (usuario.restringePorSector) {
         final sectoresData = await _supabase
             .from('usuario_sector')
@@ -62,7 +62,7 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
         if (_maquinas.isNotEmpty) _maquinaSeleccionada = _maquinas.first['id'];
       });
     } catch (e) {
-      _mostrarError('Error al cargar máquinas: $e');
+      _mostrarError('Error al cargar activos: $e');
     } finally {
       setState(() => _cargandoMaquinas = false);
     }
@@ -151,9 +151,9 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
               ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                   Icon(Icons.precision_manufacturing_outlined, size: 80, color: Colors.grey[400]),
                   const SizedBox(height: 16),
-                  Text('No hay máquinas disponibles', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+                  Text('No hay activos disponibles', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
                   const SizedBox(height: 8),
-                  Text('Primero debés cargar máquinas en el sistema', style: TextStyle(fontSize: 13, color: Colors.grey[400])),
+                  Text('Primero debés cargar activos en el sistema', style: TextStyle(fontSize: 13, color: Colors.grey[400])),
                 ]))
               : ListView(
                   padding: padding,
@@ -237,11 +237,11 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Máquina
+                    // Activo
                     DropdownButtonFormField<String>(
                       value: _maquinaSeleccionada,
                       decoration: const InputDecoration(
-                        labelText: 'Máquina *',
+                        labelText: 'Activo *',
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.precision_manufacturing_outlined),
                       ),

@@ -437,7 +437,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 const Text('Información', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const Divider(),
-                _infoRow('Máquina', maquina?['nombre'] ?? '-'),
+                _infoRow('Activo', maquina?['nombre'] ?? '-'),
                 _infoRow('Código', maquina?['codigo'] ?? '-'),
                 _infoRow('Ubicacion', (maquina?['sectores'] as Map?)?['nombre'] ?? '-'),
                 _infoRow('Creado por', _nombreCreadoPor.isNotEmpty ? _nombreCreadoPor : '-'),

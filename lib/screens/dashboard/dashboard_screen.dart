@@ -455,7 +455,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildMtbf(List<Map<String, dynamic>> mtbf) {
     if (mtbf.isEmpty) {
       return _sinDatos(
-        'El MTBF se calculará automáticamente cuando una máquina '
+        'El MTBF se calculará automáticamente cuando un activo '
         'acumule su segundo ticket correctivo cerrado.',
       );
     }
@@ -472,7 +472,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           child: Row(
             children: const [
-              Expanded(flex: 4, child: Text('Máquina', style: _thStyle)),
+              Expanded(flex: 4, child: Text('Activo', style: _thStyle)),
               Expanded(
                   flex: 3,
                   child: Text('MTBF',
@@ -500,7 +500,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: Row(
               children: [
-                // Máquina + sector
+                // Activo + sector
                 Expanded(
                   flex: 4,
                   child: Column(
@@ -561,11 +561,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           'Baja (<3 fallas), Media (3-5), Alta (6+).',
           style: TextStyle(color: Colors.grey[400], fontSize: 10),
         ),
-        // Alerta si hay máquinas con MTBF muy bajo
+        // Alerta si hay activos con MTBF muy bajo
         if (_tieneMtbfCritico(mtbf)) ...[
           const SizedBox(height: 8),
           _alerta(
-            'Hay máquinas con MTBF menor a 30 días. '
+            'Hay activos con MTBF menor a 30 días. '
             'Revisá su plan de mantenimiento preventivo.',
           ),
         ],

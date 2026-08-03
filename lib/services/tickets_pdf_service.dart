@@ -132,7 +132,7 @@ class TicketsPdfService {
                 decoration: pw.BoxDecoration(color: PdfColor.fromHex('#1F4E79')),
                 children: [
                   _celda('Nº', header: true),
-                  _celda('Máquina', header: true),
+                  _celda('Activo', header: true),
                   _celda('Ubicacion', header: true),
                   _celda('Descripción', header: true),
                   _celda('Tipo', header: true),

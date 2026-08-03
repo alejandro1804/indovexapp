@@ -71,7 +71,7 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
         }
       });
     } catch (e) {
-      _mostrarError('Error al cargar máquinas: $e');
+      _mostrarError('Error al cargar activos: $e');
     } finally {
       setState(() => _cargandoMaquinas = false);
     }
@@ -79,7 +79,7 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
 
   Future<void> _guardar() async {
     if (_maquinaSeleccionada == null) {
-      _mostrarError('Seleccioná una máquina');
+      _mostrarError('Seleccioná un activo');
       return;
     }
     if (_descripcionController.text.trim().isEmpty) {
@@ -167,23 +167,23 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
                   child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                     Icon(Icons.precision_manufacturing_outlined, size: 80, color: Colors.grey[400]),
                     const SizedBox(height: 16),
-                    Text('No hay máquinas disponibles', style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+                    Text('No hay activos disponibles', style: TextStyle(fontSize: 13, color: Colors.grey[600])),
                   ]),
                 )
               : ListView(
                   padding: padding,
                   children: [
-                    // Máquina (no editable en modo edición)
+                    // Activo (no editable en modo edición)
                     DropdownButtonFormField<String>(
                       value: _maquinaSeleccionada,
                       isExpanded: true,
                       style: const TextStyle(fontSize: 13, color: Colors.black87),
                       decoration: InputDecoration(
-                        labelText: 'Máquina *',
+                        labelText: 'Activo *',
                         labelStyle: const TextStyle(fontSize: 13),
                         border: const OutlineInputBorder(),
                         prefixIcon: const Icon(Icons.precision_manufacturing_outlined, size: 20),
-                        helperText: _esEdicion ? 'La máquina no puede modificarse' : null,
+                        helperText: _esEdicion ? 'El activo no puede modificarse' : null,
                         helperStyle: const TextStyle(fontSize: 10),
                         isDense: true,
                       ),

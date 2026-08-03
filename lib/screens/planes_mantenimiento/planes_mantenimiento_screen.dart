@@ -35,7 +35,7 @@ class _PlanesMantenimientoScreenState extends State<PlanesMantenimientoScreen> {
     super.dispose();
   }
 
-  // Filtra por nombre de máquina, código de máquina y descripción de la tarea
+  // Filtra por nombre de activo, código de activo y descripción de la tarea
   List<PlanMantenimiento> _filtrar(List<PlanMantenimiento> planes) {
     final q = _busqueda.trim().toLowerCase();
     if (q.isEmpty) return planes;
@@ -173,7 +173,7 @@ class _PlanesMantenimientoScreenState extends State<PlanesMantenimientoScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                // Buscador por máquina / tarea
+                // Buscador por activo / tarea
                 Container(
                   color: Colors.white,
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
@@ -183,7 +183,7 @@ class _PlanesMantenimientoScreenState extends State<PlanesMantenimientoScreen> {
                     textInputAction: TextInputAction.search,
                     style: const TextStyle(fontSize: 12),
                     decoration: InputDecoration(
-                      hintText: 'Buscar por máquina o tarea...',
+                      hintText: 'Buscar por activo o tarea...',
                       hintStyle: const TextStyle(fontSize: 12),
                       prefixIcon: const Icon(Icons.search, size: 20),
                       prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
@@ -449,7 +449,7 @@ class _PlanCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Fila superior: ícono + nombre máquina + menú
+                      // Fila superior: ícono + nombre activo + menú
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [

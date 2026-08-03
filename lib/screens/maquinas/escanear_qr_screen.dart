@@ -18,7 +18,7 @@ class _EscanearQrScreenState extends State<EscanearQrScreen> {
     super.dispose();
   }
 
-  // Extrae el ID de máquina de una URL tipo
+  // Extrae el ID de activo de una URL tipo
   // https://app.indovexapp.com/maquina/{id}
   String? _extraerMaquinaId(String raw) {
     try {
@@ -89,7 +89,7 @@ class _EscanearQrScreenState extends State<EscanearQrScreen> {
             left: 0,
             right: 0,
             child: Text(
-              'Apuntá al código QR de la máquina',
+              'Apuntá al código QR del activo',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.white,

@@ -9,7 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// Servicio de exportación de datos de una empresa (portabilidad / baja voluntaria).
 ///
 /// Genera un ZIP con:
-///  - Un CSV por cada tabla de la empresa (tickets, máquinas, repuestos, etc.)
+///  - Un CSV por cada tabla de la empresa (tickets, activos, repuestos, etc.)
 ///  - audit_log.csv (trazabilidad ALCOA+)
 ///  - archivos_descarga.csv: lista de archivos de Storage con signed URLs (5 días)
 ///
@@ -236,7 +236,7 @@ class ExportEmpresaService {
     // Conteos del contenido exportado.
     final conteos = <List<String>>[
       ['Ubicaciones', contar('sectores').toString()],
-      ['Máquinas', contar('maquinas').toString()],
+      ['Activos', contar('maquinas').toString()],
       ['Repuestos', contar('repuestos').toString()],
       ['Categorías de repuestos', contar('categorias_repuestos').toString()],
       ['Proveedores', contar('proveedores').toString()],

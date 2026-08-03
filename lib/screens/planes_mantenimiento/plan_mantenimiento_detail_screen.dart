@@ -114,7 +114,7 @@ class _PlanMantenimientoDetailScreenState extends State<PlanMantenimientoDetailS
       body: ListView(
         padding: padding,
         children: [
-          // Header máquina e intervalo
+          // Header activo e intervalo
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(

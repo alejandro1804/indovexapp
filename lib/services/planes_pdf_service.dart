@@ -123,7 +123,7 @@ class PlanesPdfService {
               pw.TableRow(
                 decoration: pw.BoxDecoration(color: PdfColor.fromHex('#1F4E79')),
                 children: [
-                  _celda('Máquina', header: true),
+                  _celda('Activo', header: true),
                   _celda('Tarea', header: true),
                   _celda('Intervalo', header: true),
                   _celda('Frecuencia', header: true),

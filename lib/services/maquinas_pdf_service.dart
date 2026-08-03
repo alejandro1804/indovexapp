@@ -35,7 +35,7 @@ class MaquinasPdfService {
     if (filtroEstado != null && filtroEstado != 'todos') filtros.add('Estado: ${labelEstado(filtroEstado)}');
     if (filtroSector != null && filtroSector != 'todos') filtros.add('Ubicacion: ${sectores[filtroSector] ?? filtroSector}');
     if (busqueda != null && busqueda.trim().isNotEmpty) filtros.add('Búsqueda: "${busqueda.trim()}"');
-    final filtrosTexto = filtros.isEmpty ? 'Sin filtros (todas las máquinas)' : filtros.join('  |  ');
+    final filtrosTexto = filtros.isEmpty ? 'Sin filtros (todos los activos)' : filtros.join('  |  ');
 
     pdf.addPage(
       pw.MultiPage(
@@ -55,7 +55,7 @@ class MaquinasPdfService {
                 children: [
                   pw.Text(nombreEmpresa,
                       style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#1F4E79'))),
-                  pw.Text('Listado de Máquinas',
+                  pw.Text('Listado de Activos',
                       style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey700)),
                   ],
               ),
@@ -92,7 +92,7 @@ class MaquinasPdfService {
                 pw.SizedBox(height: 2),
                 pw.Text(filtrosTexto, style: const pw.TextStyle(fontSize: 9)),
                 pw.SizedBox(height: 2),
-                pw.Text('Total: ${maquinas.length} máquina${maquinas.length != 1 ? 's' : ''}', style: const pw.TextStyle(fontSize: 9)),
+                pw.Text('Total: ${maquinas.length} activo${maquinas.length != 1 ? 's' : ''}', style: const pw.TextStyle(fontSize: 9)),
               ],
             ),
           ),
