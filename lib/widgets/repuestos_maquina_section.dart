@@ -38,7 +38,7 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
     }
   }
 
-  // Carga las opciones disponibles para vincular (repuestos o máquinas según modo)
+  // Carga las opciones disponibles para vincular (repuestos o activos según modo)
   Future<List<Map<String, dynamic>>> _cargarOpciones() async {
     if (_desdeMaquina) {
       final data = await _supabase
@@ -101,7 +101,7 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
                     ? 'Editar vínculo'
                     : _desdeMaquina
                         ? 'Agregar repuesto'
-                        : 'Asociar a máquina',
+                        : 'Asociar a activo',
                 style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
@@ -113,7 +113,7 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
                   isExpanded: true,
                   style: const TextStyle(fontSize: 13, color: Colors.black87),
                   decoration: InputDecoration(
-                    labelText: _desdeMaquina ? 'Repuesto *' : 'Máquina *',
+                    labelText: _desdeMaquina ? 'Repuesto *' : 'Activo *',
                     border: const OutlineInputBorder(),
                   ),
                   items: opciones.map((o) {
@@ -157,12 +157,12 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
               ),
               const SizedBox(height: 12),
 
-              // Ubicación en máquina
+              // Ubicación en activo
               TextField(
                 controller: ubicacionController,
                 style: const TextStyle(fontSize: 13),
                 decoration: const InputDecoration(
-                  labelText: 'Ubicación en máquina',
+                  labelText: 'Ubicación en activo',
                   border: OutlineInputBorder(),
                   hintText: 'Ej: eje principal, motor...',
                   prefixIcon: Icon(Icons.place_outlined),
@@ -205,7 +205,7 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
                         SnackBar(
                           content: Text(_desdeMaquina
                               ? 'Seleccioná un repuesto'
-                              : 'Seleccioná una máquina'),
+                              : 'Seleccioná un activo'),
                           backgroundColor: Colors.red,
                           behavior: SnackBarBehavior.floating,
                         ),
@@ -280,7 +280,7 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    _desdeMaquina ? 'Repuestos asociados' : 'Máquinas que lo usan',
+                    _desdeMaquina ? 'Repuestos asociados' : 'Activos que lo usan',
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -290,7 +290,7 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
                   visualDensity: VisualDensity.compact,
                   constraints: const BoxConstraints(),
                   padding: const EdgeInsets.all(4),
-                  tooltip: _desdeMaquina ? 'Agregar repuesto' : 'Asociar máquina',
+                  tooltip: _desdeMaquina ? 'Agregar repuesto' : 'Asociar activo',
                   icon: const Icon(Icons.add_circle_outline, color: Color(0xFF1F4E79)),
                   onPressed: () => _mostrarFormulario(),
                 ),
@@ -307,8 +307,8 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 child: Text(
                   _desdeMaquina
-                      ? 'No hay repuestos asociados a esta máquina.'
-                      : 'Este repuesto no está asociado a ninguna máquina.',
+                      ? 'No hay repuestos asociados a este activo.'
+                      : 'Este repuesto no está asociado a ningún activo.',
                   style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                 ),
               )
@@ -326,7 +326,7 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Línea 1: nombre del repuesto / máquina
+                      // Línea 1: nombre del repuesto / activo
                       Text(
                         nombre,
                         style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11),
@@ -366,7 +366,7 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
                         ],
                       ),
                       const SizedBox(height: 4),
-                      // Línea 3: ubicación en máquina + íconos editar / eliminar
+                      // Línea 3: ubicación en activo + íconos editar / eliminar
                       Row(
                         children: [
                           Expanded(

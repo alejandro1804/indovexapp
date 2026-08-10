@@ -395,7 +395,7 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
           ),
           const SizedBox(height: 16),
 
-          // ── Máquinas que usan este repuesto ────────────────────────────
+          // ── Activos que usan este repuesto ────────────────────────────
           RepuestosMaquinaSection(modo: 'desde_repuesto', entidadId: _repuesto.id),
           const SizedBox(height: 16),
 

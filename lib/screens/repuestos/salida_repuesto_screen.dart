@@ -142,7 +142,7 @@ class _SalidaRepuestoScreenState extends State<SalidaRepuestoScreen> {
             decoration: const InputDecoration(
               labelText: 'Observaciones (opcional)',
               border: OutlineInputBorder(),
-              hintText: 'Para qué se usa, en qué máquina, etc.',
+              hintText: 'Para qué se usa, en qué activo, etc.',
             ),
             maxLines: 2,
           ),

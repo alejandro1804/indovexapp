@@ -44,7 +44,7 @@ class _RepuestosTicketSectionState extends State<RepuestosTicketSection> {
     }
   }
 
-  // Carga repuestos: primero los asociados a la máquina, después el resto
+  // Carga repuestos: primero los asociados al activo, después el resto
   Future<List<Map<String, dynamic>>> _cargarRepuestosDisponibles() async {
     final asociadosRaw = await _supabase
         .from('repuestos_maquinas')
@@ -128,7 +128,7 @@ class _RepuestosTicketSectionState extends State<RepuestosTicketSection> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Los repuestos con 🔗 están asociados a esta máquina.',
+                'Los repuestos con 🔗 están asociados a este activo.',
                 style: TextStyle(fontSize: 11, color: Colors.grey[500]),
               ),
               const SizedBox(height: 12),

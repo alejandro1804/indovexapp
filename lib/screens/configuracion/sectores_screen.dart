@@ -126,7 +126,7 @@ class _SectoresScreenState extends State<SectoresScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Eliminar Ubicación'),
-        content: Text('¿Estás seguro que querés eliminar "${sector.nombre}"?\n\nEsto también eliminará las máquinas asociadas.'),
+        content: Text('¿Estás seguro que querés eliminar "${sector.nombre}"?\n\nEsto también eliminará los activos asociados.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
           ElevatedButton(
@@ -143,7 +143,7 @@ class _SectoresScreenState extends State<SectoresScreen> {
         await _cargarSectores();
         _mostrarExito('Ubicación eliminada');
       } catch (e) {
-        _mostrarError('No se puede eliminar. Verificá que no tenga máquinas asociadas.');
+        _mostrarError('No se puede eliminar. Verificá que no tenga activos asociados.');
       }
     }
   }

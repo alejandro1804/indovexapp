@@ -202,7 +202,7 @@ class _GestionPlanesScreenState extends State<GestionPlanesScreen> {
         const SizedBox(width: 8),
         Expanded(
           child: Text(
-            '${lim['maquinas']} máquinas · ${lim['usuarios']} usuarios · ${lim['storage']} MB',
+            '${lim['maquinas']} activos · ${lim['usuarios']} usuarios · ${lim['storage']} MB',
             style: TextStyle(fontSize: 11, color: Colors.blue[900]),
           ),
         ),
@@ -322,7 +322,7 @@ class _GestionPlanesScreenState extends State<GestionPlanesScreen> {
           Wrap(spacing: 8, runSpacing: 6, children: [
             _chip(Icons.layers, tier.toUpperCase(), const Color(0xFF1F4E79)),
             if (lim != null) ...[
-              _chip(Icons.precision_manufacturing, '${lim['maquinas']} máq', Colors.blueGrey),
+              _chip(Icons.precision_manufacturing, '${lim['maquinas']} act', Colors.blueGrey),
               _chip(Icons.people_outline, '${lim['usuarios']} usr', Colors.blueGrey),
               _chip(Icons.storage, '${lim['storage']} MB', Colors.teal),
             ],

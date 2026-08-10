@@ -52,12 +52,12 @@ class AuditLog {
     switch (tabla) {
       case 'tickets': return 'Tickets';
       case 'ticket_historial': return 'Historial de tickets';
-      case 'maquinas': return 'Máquinas';
+      case 'maquinas': return 'Activos';
       case 'repuestos': return 'Repuestos';
       case 'ingreso_repuestos': return 'Ingresos de stock';
       case 'salida_repuestos': return 'Salidas de stock';
       case 'planes_mantenimiento': return 'Planes de mantenimiento';
-      case 'lecturas_maquina': return 'Lecturas de máquina';
+      case 'lecturas_maquina': return 'Lecturas de activo';
       case 'tipos_intervalo': return 'Tipos de intervalo';
       case 'usuarios': return 'Usuarios';
       case 'roles': return 'Roles';
@@ -65,7 +65,7 @@ class AuditLog {
       case 'sectores': return 'Ubicaciones';
       case 'categorias_repuestos': return 'Categorías de repuestos';
       case 'proveedores': return 'Proveedores';
-      case 'repuestos_maquinas': return 'Vínculos repuesto-máquina';
+      case 'repuestos_maquinas': return 'Vínculos repuesto-activo';
       case 'usuario_sector': return 'Asignación de ubicaciones';
       case 'empresas': return 'Empresa';
       default: return tabla;
