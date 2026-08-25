@@ -4,7 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/export_empresa_service.dart';
 import 'empresa_detalle_admin_screen.dart';
-import 'pagos_empresa_screen.dart';
+import '../pagos/pagos_empresa_screen.dart';
 
 class EmpresasScreen extends StatefulWidget {
   const EmpresasScreen({super.key});

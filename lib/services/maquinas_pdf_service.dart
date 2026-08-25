@@ -133,7 +133,7 @@ class MaquinasPdfService {
     final bytes = await pdf.save();
     await Printing.sharePdf(
       bytes: Uint8List.fromList(bytes),
-      filename: 'maquinas_indovexapp_${ahora.millisecondsSinceEpoch}.pdf',
+      filename: 'activos_indovexapp_${ahora.millisecondsSinceEpoch}.pdf',
     );
   }
 

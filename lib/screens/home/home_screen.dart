@@ -20,7 +20,7 @@ import '../planes_mantenimiento/planes_mantenimiento_screen.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../admin/empresas_screen.dart';
 import '../admin/gestion_planes_screen.dart';
-import '../admin/pagos_screen.dart';
+import '../pagos/pagos_screen.dart';
 import '../admin/legal_cobertura_screen.dart';
 import '../../main.dart' show pendingTicketId;
 import '../tickets/ticket_detail_screen.dart';
