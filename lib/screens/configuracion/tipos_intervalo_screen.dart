@@ -30,10 +30,10 @@ class _TiposIntervaloScreenState extends State<TiposIntervaloScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (context) => Padding(
+      builder: (sheetContext) => Padding(
         padding: EdgeInsets.fromLTRB(
           24, 24, 24,
-          MediaQuery.of(context).viewInsets.bottom + 24,
+          MediaQuery.of(sheetContext).viewInsets.bottom + 24,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -84,7 +84,7 @@ class _TiposIntervaloScreenState extends State<TiposIntervaloScreen> {
                   final codigo = codigoController.text.trim().toLowerCase();
 
                   if (nombre.isEmpty || codigo.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    ScaffoldMessenger.of(sheetContext).showSnackBar(
                       const SnackBar(
                         content: Text('Completá todos los campos'),
                         backgroundColor: Colors.red,
@@ -94,9 +94,11 @@ class _TiposIntervaloScreenState extends State<TiposIntervaloScreen> {
                     return;
                   }
 
-                  Navigator.pop(context);
-
-                  final provider = this.context.read<TipoIntervaloProvider>();
+                  // Capturamos las referencias contra el context del State
+                  // ANTES de cerrar el sheet y del await.
+                  final messenger = ScaffoldMessenger.of(context);
+                  final provider = context.read<TipoIntervaloProvider>();
+                  Navigator.pop(sheetContext);
                   bool ok;
 
                   if (esEdicion) {
@@ -112,8 +114,8 @@ class _TiposIntervaloScreenState extends State<TiposIntervaloScreen> {
                     );
                   }
 
-                  if (!this.context.mounted) return;
-                  ScaffoldMessenger.of(this.context).showSnackBar(
+                  if (!mounted) return;
+                  messenger.showSnackBar(
                     SnackBar(
                       content: Text(ok
                           ? esEdicion ? 'Tipo actualizado' : 'Tipo creado correctamente'

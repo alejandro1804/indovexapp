@@ -44,7 +44,9 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
     try {
       final data = await _supabase.from('repuestos').select().eq('id', _repuesto.id).single();
       setState(() => _repuesto = Repuesto.fromMap(data));
-    } catch (e) {}
+    } catch (e) {
+        debugPrint('ERROR _recargarRepuesto: $e');
+    }
   }
 
   Future<void> _irAIngreso() async {

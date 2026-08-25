@@ -40,14 +40,15 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
     _maquinaSeleccionada = widget.plan?.maquinaId;
     _tipoIntervaloSeleccionado = widget.plan?.tipoIntervalo;
     _cargarMaquinas();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<TipoIntervaloProvider>().cargarTipos().then((_) {
-        final tipos = context.read<TipoIntervaloProvider>().tipos;
-        if (tipos.isNotEmpty && _tipoIntervaloSeleccionado == null) {
-          setState(() => _tipoIntervaloSeleccionado = tipos.first.codigo);
-        }
-      });
-    });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          context.read<TipoIntervaloProvider>().cargarTipos().then((_) {
+            if (!mounted) return;
+            final tipos = context.read<TipoIntervaloProvider>().tipos;
+            if (tipos.isNotEmpty && _tipoIntervaloSeleccionado == null) {
+              setState(() => _tipoIntervaloSeleccionado = tipos.first.codigo);
+            }
+          });
+        });
   }
 
   @override

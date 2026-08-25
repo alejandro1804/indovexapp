@@ -320,10 +320,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
     return null;
   }
 
-  /// Valida que el teléfono se pueda normalizar a un móvil uruguayo.
-  bool _esTelefonoValido(String telefono) {
-    return _normalizarTelefonoUy(telefono) != null;
-  }
+
 
   Future<void> _crearUsuario({
     required String email,
@@ -636,7 +633,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
       _mostrarError('No hay ubicaciones creadas. Creá ubicaciones primero.');
       return;
     }
-
+    if (!mounted) return;
     final seleccion = Set<String>.from(asignados);
 
     final confirmar = await showDialog<bool>(

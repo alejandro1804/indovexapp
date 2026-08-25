@@ -113,7 +113,8 @@ class _PlanesMantenimientoScreenState extends State<PlanesMantenimientoScreen> {
       context,
       MaterialPageRoute(builder: (_) => PlanMantenimientoNuevoScreen(plan: plan)),
     );
-    if (actualizado == true && context.mounted) {
+    if (!mounted) return;
+    if (actualizado == true) {
       context.read<PlanMantenimientoProvider>().cargarPlanes();
     }
   }

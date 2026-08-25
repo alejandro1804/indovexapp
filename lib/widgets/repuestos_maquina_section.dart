@@ -86,11 +86,11 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (context) => StatefulBuilder(
-        builder: (context, setSheetState) => Padding(
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) => Padding(
           padding: EdgeInsets.fromLTRB(
             24, 24, 24,
-            MediaQuery.of(context).viewInsets.bottom + 24,
+            MediaQuery.of(sheetContext).viewInsets.bottom + 24,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -191,7 +191,7 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
                   onPressed: () async {
                     final cantidad = int.tryParse(cantidadController.text.trim());
                     if (cantidad == null || cantidad <= 0) {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      ScaffoldMessenger.of(sheetContext).showSnackBar(
                         const SnackBar(
                           content: Text('Ingresá una cantidad válida'),
                           backgroundColor: Colors.red,
@@ -201,7 +201,7 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
                       return;
                     }
                     if (!esEdicion && seleccionId == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      ScaffoldMessenger.of(sheetContext).showSnackBar(
                         SnackBar(
                           content: Text(_desdeMaquina
                               ? 'Seleccioná un repuesto'
@@ -213,8 +213,12 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
                       return;
                     }
 
-                    Navigator.pop(context);
-                    final provider = this.context.read<RepuestoMaquinaProvider>();
+                    // Capturamos las referencias contra el context del State
+                    // ANTES de cerrar el sheet y del await, para no depender de
+                    // que ningún context siga montado después.
+                    final messenger = ScaffoldMessenger.of(context);
+                    final provider = context.read<RepuestoMaquinaProvider>();
+                    Navigator.pop(sheetContext);
                     bool ok;
 
                     if (esEdicion) {
@@ -234,8 +238,8 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
                       );
                     }
 
-                    if (!this.context.mounted) return;
-                    ScaffoldMessenger.of(this.context).showSnackBar(
+                    if (!mounted) return;
+                    messenger.showSnackBar(
                       SnackBar(
                         content: Text(ok ? 'Guardado correctamente' : 'Error al guardar'),
                         backgroundColor: ok ? Colors.green : Colors.red,

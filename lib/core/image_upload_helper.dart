@@ -172,7 +172,7 @@ class ImageUploadHelper {
       );
     }
 
-    return result ?? bytes;
+    return result;
   }
 
   /// Path determinista: siempre el mismo por entidad → upsert reemplaza sin acumular huérfanos.

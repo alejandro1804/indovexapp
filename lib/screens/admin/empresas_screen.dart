@@ -125,6 +125,7 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
         'aprobar-empresa',
         body: {'empresa_id': empresa['empresa_id']},
       );
+      if (!mounted) return;
       _mostrarExito('Empresa aprobada correctamente');
       await _cargar();
     } catch (e) {
@@ -157,6 +158,7 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
     try {
       await _supabase.rpc('sa_suspender_empresa',
           params: {'p_empresa_id': empresa['empresa_id']});
+      if (!mounted) return;
       _mostrarExito('Empresa suspendida');
       await _cargar();
     } catch (e) {
@@ -189,6 +191,7 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
     try {
       await _supabase.rpc('sa_solicitar_baja',
           params: {'p_empresa_id': empresa['empresa_id']});
+      if (!mounted) return;
       _mostrarExito('Baja iniciada');
       await _cargar();
     } catch (e) {
@@ -217,6 +220,7 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
     try {
       await _supabase.rpc('sa_reactivar_empresa',
           params: {'p_empresa_id': empresa['empresa_id']});
+      if (!mounted) return;
       _mostrarExito('Empresa reactivada');
       await _cargar();
     } catch (e) {
@@ -234,6 +238,8 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
       _mostrarError('Error al cargar plazos: $e');
       return;
     }
+
+    if (!mounted) return;
 
     final controllers = {
       for (final p in plazos)
@@ -318,6 +324,7 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
     );
     if (confirmar != true) return;
 
+    if (!mounted) return;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -405,6 +412,7 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
 
     if (confirmar != true) return;
 
+    if (!mounted) return;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -482,6 +490,7 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
           .from('empresas')
           .update({'storage_mb_limit': nuevoLimite})
           .eq('id', empresa['empresa_id']);
+      if (!mounted) return;
       _mostrarExito('Límite actualizado a $nuevoLimite MB');
       _storage.remove(empresa['empresa_id'].toString());
       await _cargar();

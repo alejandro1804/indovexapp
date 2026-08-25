@@ -40,6 +40,10 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
 
   Future<void> _cargarTicket() async {
     setState(() => _cargando = true);
+    // Capturamos el usuario del provider ANTES de cualquier await, para no
+    // leer el context tras los gaps async (usado más abajo en el query de
+    // técnicos y en el gate de comentarios).
+    final usuarioActual = context.read<AuthProvider>().usuario;
     try {
       final ticket = await _supabase
           .from('tickets')
@@ -90,7 +94,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
       final tecnicosRaw = await _supabase
           .from('usuarios')
           .select('id, nombre, roles(nombre)')
-          .eq('empresa_id', context.read<AuthProvider>().usuario?.empresaId ?? '')
+          .eq('empresa_id', usuarioActual?.empresaId ?? '')
           .eq('estado', 'activo');
 
       final comentariosRaw = await _supabase
@@ -101,7 +105,6 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
 
       // Gate de UI: permiso + pertenencia + estado no terminal.
       // La RLS es la autoridad final; esto solo evita mostrar un campo que fallaría.
-      final usuarioActual = context.read<AuthProvider>().usuario;
       bool puedeComentar = false;
       final estadoTicket = ticket['estado'] as String;
       if (usuarioActual != null &&
@@ -138,7 +141,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     } catch (e) {
       _mostrarError('Error al cargar ticket: $e');
     } finally {
-      setState(() => _cargando = false);
+      if (mounted) setState(() => _cargando = false);
     }
   }
 
@@ -167,10 +170,9 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
   }
 
   Future<void> _cambiarEstado(String nuevoEstado, {String? comentario, String? tecnicoId}) async {
+    final usuario = context.read<AuthProvider>().usuario;
+    if (usuario == null) return;
     try {
-      final usuario = context.read<AuthProvider>().usuario;
-      if (usuario == null) return;
-
       final estadoAnterior = _ticket!['estado'] as String;
       final updateData = <String, dynamic>{'estado': nuevoEstado};
       if (tecnicoId != null) updateData['tecnico_id'] = tecnicoId;
