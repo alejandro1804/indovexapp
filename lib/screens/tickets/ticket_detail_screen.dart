@@ -6,6 +6,7 @@ import '../../core/responsive.dart';
 import '../../widgets/adjuntos_section.dart';
 import '../../widgets/repuestos_ticket_section.dart';
 import '../../services/ticket_detalle_pdf_service.dart';
+import '../../models/usuario.dart';
 
 class TicketDetailScreen extends StatefulWidget {
   final String ticketId;
@@ -630,7 +631,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     );
   }
 
-  Widget _buildAcciones(usuario, String estado) {
+  Widget _buildAcciones(Usuario? usuario, String estado) {
     if (usuario == null) return const SizedBox.shrink();
     if (estado == 'cerrado' || estado == 'rechazado') return const SizedBox.shrink();
 

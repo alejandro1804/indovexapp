@@ -20,7 +20,7 @@ class RepuestoMaquinaProvider extends ChangeNotifier {
     try {
       _vinculos = await _service.obtenerPorMaquina(maquinaId);
     } catch (e) {
-      print('ERROR cargarPorMaquina: $e');
+      debugPrint('ERROR cargarPorMaquina: $e');
       _error = e.toString();
     } finally {
       _cargando = false;
@@ -35,7 +35,7 @@ class RepuestoMaquinaProvider extends ChangeNotifier {
     try {
       _vinculos = await _service.obtenerPorRepuesto(repuestoId);
     } catch (e) {
-      print('ERROR cargarPorRepuesto: $e');
+      debugPrint('ERROR cargarPorRepuesto: $e');
       _error = e.toString();
     } finally {
       _cargando = false;
@@ -62,7 +62,7 @@ class RepuestoMaquinaProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      print('ERROR vincular: $e');
+      debugPrint('ERROR vincular: $e');
       _error = e.toString();
       notifyListeners();
       return false;
@@ -89,7 +89,7 @@ class RepuestoMaquinaProvider extends ChangeNotifier {
       }
       return true;
     } catch (e) {
-      print('ERROR actualizar: $e');
+      debugPrint('ERROR actualizar: $e');
       _error = e.toString();
       notifyListeners();
       return false;
@@ -103,7 +103,7 @@ class RepuestoMaquinaProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      print('ERROR desvincular: $e');
+      debugPrint('ERROR desvincular: $e');
       _error = e.toString();
       notifyListeners();
       return false;

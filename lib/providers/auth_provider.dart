@@ -87,7 +87,7 @@ class AuthProvider extends ChangeNotifier {
         _trialVence = DateTime.parse(data['trial_vence']);
       }
     } catch (e) {
-      print('>>> ERROR cargarDatosEmpresa: $e');
+      debugPrint('>>> ERROR cargarDatosEmpresa: $e');
       _plan = 'trial';
       _trialVence = null;
     }

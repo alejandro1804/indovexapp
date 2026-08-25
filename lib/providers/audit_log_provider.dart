@@ -35,7 +35,7 @@ class AuditLogProvider extends ChangeNotifier {
         hasta: _hasta,
       );
     } catch (e) {
-      print('ERROR cargarLogs: $e');
+      debugPrint('ERROR cargarLogs: $e');
       _error = e.toString();
     } finally {
       _cargando = false;

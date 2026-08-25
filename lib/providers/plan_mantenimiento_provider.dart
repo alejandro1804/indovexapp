@@ -28,7 +28,7 @@ class PlanMantenimientoProvider extends ChangeNotifier {
         activo: _mostrandoActivos,
       );
     } catch (e) {
-      print('ERROR cargarPlanes: $e');
+      debugPrint('ERROR cargarPlanes: $e');
       _error = e.toString();
     } finally {
       _cargando = false;
@@ -65,7 +65,7 @@ class PlanMantenimientoProvider extends ChangeNotifier {
       }
       return true;
     } catch (e) {
-      print('ERROR crearPlan: $e');
+      debugPrint('ERROR crearPlan: $e');
       _error = e.toString();
       notifyListeners();
       return false;
@@ -107,7 +107,7 @@ class PlanMantenimientoProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      print('ERROR actualizarPlan: $e');
+      debugPrint('ERROR actualizarPlan: $e');
       _error = e.toString();
       notifyListeners();
       return false;
@@ -127,7 +127,7 @@ class PlanMantenimientoProvider extends ChangeNotifier {
       }
       return true;
     } catch (e) {
-      print('ERROR desactivarPlan: $e');
+      debugPrint('ERROR desactivarPlan: $e');
       _error = e.toString();
       notifyListeners();
       return false;
@@ -147,7 +147,7 @@ class PlanMantenimientoProvider extends ChangeNotifier {
       }
       return true;
     } catch (e) {
-      print('ERROR reactivarPlan: $e');
+      debugPrint('ERROR reactivarPlan: $e');
       _error = e.toString();
       notifyListeners();
       return false;

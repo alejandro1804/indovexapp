@@ -182,7 +182,7 @@ class ExportEmpresaService {
   }
 
   /// Devuelve el path relativo al bucket. Si el valor es una URL completa
-  /// (https://.../object/.../documentos/<path>), extrae solo <path>.
+  /// (`https://.../object/.../documentos/<path>`), extrae solo `<path>`.
   String _normalizarPath(String valor) {
     final v = valor.trim();
     if (!v.startsWith('http')) return v; // ya es path relativo

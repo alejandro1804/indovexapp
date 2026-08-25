@@ -21,7 +21,7 @@ class TipoIntervaloProvider extends ChangeNotifier {
     try {
       _tipos = await _service.obtenerTipos();
     } catch (e) {
-      print('ERROR cargarTipos: $e');
+      debugPrint('ERROR cargarTipos: $e');
       _error = e.toString();
     } finally {
       _cargando = false;
@@ -43,7 +43,7 @@ class TipoIntervaloProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      print('ERROR crearTipo: $e');
+      debugPrint('ERROR crearTipo: $e');
       _error = e.toString();
       notifyListeners();
       return false;
@@ -68,7 +68,7 @@ class TipoIntervaloProvider extends ChangeNotifier {
       }
       return true;
     } catch (e) {
-      print('ERROR actualizarTipo: $e');
+      debugPrint('ERROR actualizarTipo: $e');
       _error = e.toString();
       notifyListeners();
       return false;
@@ -82,7 +82,7 @@ class TipoIntervaloProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      print('ERROR desactivarTipo: $e');
+      debugPrint('ERROR desactivarTipo: $e');
       _error = e.toString();
       notifyListeners();
       return false;
