@@ -189,7 +189,7 @@ class _TabTicketsState extends State<_TabTickets> with AutomaticKeepAliveClientM
                   child: ListView.separated(
                     padding: const EdgeInsets.all(12),
                     itemCount: filtrados.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
                     itemBuilder: (context, i) {
                       final t = filtrados[i];
                       final estado = t['estado'] as String? ?? '';
@@ -197,7 +197,7 @@ class _TabTicketsState extends State<_TabTickets> with AutomaticKeepAliveClientM
                         elevation: 1,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
-                          side: BorderSide(color: _colorEstado(estado).withOpacity(0.3)),
+                          side: BorderSide(color: _colorEstado(estado).withValues(alpha: 0.3)),
                         ),
                         child: Padding(
                           padding: const EdgeInsets.all(12),
@@ -214,7 +214,7 @@ class _TabTicketsState extends State<_TabTickets> with AutomaticKeepAliveClientM
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: _colorEstado(estado).withOpacity(0.1),
+                                  color: _colorEstado(estado).withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(_labelEstado(estado),
@@ -379,7 +379,7 @@ class _TabMaquinasState extends State<_TabMaquinas> with AutomaticKeepAliveClien
                   child: ListView.separated(
                     padding: const EdgeInsets.all(12),
                     itemCount: filtradas.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
                     itemBuilder: (context, i) {
                       final m = filtradas[i];
                       final estado = m['estado'] as String? ?? '';
@@ -392,7 +392,7 @@ class _TabMaquinasState extends State<_TabMaquinas> with AutomaticKeepAliveClien
                           child: Row(children: [
                             CircleAvatar(
                               radius: 20,
-                              backgroundColor: color.withOpacity(0.1),
+                              backgroundColor: color.withValues(alpha: 0.1),
                               child: Icon(Icons.precision_manufacturing_outlined, color: color, size: 20),
                             ),
                             const SizedBox(width: 10),
@@ -410,7 +410,7 @@ class _TabMaquinasState extends State<_TabMaquinas> with AutomaticKeepAliveClien
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                               decoration: BoxDecoration(
-                                color: color.withOpacity(0.1),
+                                color: color.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(_labelEstado(estado),
@@ -559,7 +559,7 @@ class _TabRepuestosState extends State<_TabRepuestos> with AutomaticKeepAliveCli
                   child: ListView.separated(
                     padding: const EdgeInsets.all(12),
                     itemCount: filtrados.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
                     itemBuilder: (context, i) {
                       final r = filtrados[i];
                       final stockActual = r['stock_actual'] as int? ?? 0;
@@ -579,8 +579,8 @@ class _TabRepuestosState extends State<_TabRepuestos> with AutomaticKeepAliveCli
                             CircleAvatar(
                               radius: 20,
                               backgroundColor: bajo
-                                  ? Colors.orange.withOpacity(0.1)
-                                  : const Color(0xFF1F4E79).withOpacity(0.1),
+                                  ? Colors.orange.withValues(alpha: 0.1)
+                                  : const Color(0xFF1F4E79).withValues(alpha: 0.1),
                               child: Icon(
                                 bajo ? Icons.warning_amber_outlined : Icons.inventory_2_outlined,
                                 color: bajo ? Colors.orange : const Color(0xFF1F4E79),
@@ -692,7 +692,7 @@ class _TabUsuariosState extends State<_TabUsuarios> with AutomaticKeepAliveClien
                   child: ListView.separated(
                     padding: const EdgeInsets.all(12),
                     itemCount: _usuarios.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
                     itemBuilder: (context, i) {
                       final u = _usuarios[i];
                       final rol = u['rol_nombre'] ?? 'Sin rol';
@@ -706,7 +706,7 @@ class _TabUsuariosState extends State<_TabUsuarios> with AutomaticKeepAliveClien
                           child: Row(children: [
                             CircleAvatar(
                               radius: 20,
-                              backgroundColor: const Color(0xFF1F4E79).withOpacity(0.1),
+                              backgroundColor: const Color(0xFF1F4E79).withValues(alpha: 0.1),
                               child: Text(
                                 (u['nombre'] as String? ?? '?')[0].toUpperCase(),
                                 style: const TextStyle(
@@ -728,8 +728,8 @@ class _TabUsuariosState extends State<_TabUsuarios> with AutomaticKeepAliveClien
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                               decoration: BoxDecoration(
                                 color: activo
-                                    ? Colors.green.withOpacity(0.1)
-                                    : Colors.grey.withOpacity(0.1),
+                                    ? Colors.green.withValues(alpha: 0.1)
+                                    : Colors.grey.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -942,7 +942,7 @@ class _TabAlmacenamientoState extends State<_TabAlmacenamiento>
                   child: Row(children: [
                     CircleAvatar(
                       radius: 18,
-                      backgroundColor: const Color(0xFF1F4E79).withOpacity(0.1),
+                      backgroundColor: const Color(0xFF1F4E79).withValues(alpha: 0.1),
                       child: Icon(_iconoCategoria(categoria),
                           color: const Color(0xFF1F4E79), size: 18),
                     ),

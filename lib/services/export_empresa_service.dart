@@ -102,7 +102,7 @@ class ExportEmpresaService {
 
     // 5. Comprimir y descargar.
     final zipData = ZipEncoder().encode(archive);
-    final zipBytes = Uint8List.fromList(zipData!);
+    final zipBytes = Uint8List.fromList(zipData);
 
     final fecha = DateTime.now();
     final nombreArchivo =

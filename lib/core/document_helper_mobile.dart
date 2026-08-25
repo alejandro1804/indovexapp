@@ -97,7 +97,7 @@ Future<Uint8List?> _comprimirImagen(Uint8List original) async {
       onTimeout: () => original, // si se cuelga, seguimos con el original
     );
 
-    if (result != null && result.length > _adjImgMaxBytes) {
+    if (result.length > _adjImgMaxBytes) {
       final previa = result; // no-nullable para el onTimeout de abajo
       result = await FlutterImageCompress.compressWithList(
         previa,
@@ -113,7 +113,7 @@ Future<Uint8List?> _comprimirImagen(Uint8List original) async {
 
     // Seguridad: si por lo que sea el "comprimido" salió más grande que el
     // original (imágenes ya muy optimizadas), quedarse con el original.
-    if (result != null && result.length < original.length) {
+    if (result.length < original.length) {
       return result;
     }
     return null;

@@ -167,7 +167,7 @@ class _NotificacionesScreenState extends State<NotificacionesScreen> {
                   child: ListView.separated(
                     padding: Responsive.pagePadding(context),
                     itemCount: _notificaciones.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 6),
+                    separatorBuilder: (_, _) => const SizedBox(height: 6),
                     itemBuilder: (context, index) {
                       final n = _notificaciones[index];
                       final leida = n['leida'] == true;
@@ -180,7 +180,7 @@ class _NotificacionesScreenState extends State<NotificacionesScreen> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                           side: BorderSide(
-                            color: leida ? Colors.grey[200]! : const Color(0xFF1F4E79).withOpacity(0.25),
+                            color: leida ? Colors.grey[200]! : const Color(0xFF1F4E79).withValues(alpha: 0.25),
                           ),
                         ),
                         child: InkWell(
@@ -194,7 +194,7 @@ class _NotificacionesScreenState extends State<NotificacionesScreen> {
                                 CircleAvatar(
                                   radius: 18,
                                   backgroundColor: (leida ? Colors.grey : const Color(0xFF1F4E79))
-                                      .withOpacity(0.12),
+                                      .withValues(alpha: 0.12),
                                   child: Icon(_iconoTipo(tipo),
                                       size: 18,
                                       color: leida ? Colors.grey : const Color(0xFF1F4E79)),

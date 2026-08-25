@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:functions_client/functions_client.dart' show FunctionException;
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/db_error_helper.dart';
 

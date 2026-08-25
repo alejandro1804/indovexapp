@@ -161,7 +161,7 @@ class _AdjuntosSectionState extends State<AdjuntosSection> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1F4E79).withOpacity(0.1),
+                          color: const Color(0xFF1F4E79).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
@@ -212,7 +212,7 @@ class _AdjuntosSectionState extends State<AdjuntosSection> {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: _adjuntos.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
+                separatorBuilder: (_, _) => const Divider(height: 1),
                 itemBuilder: (_, i) => _AdjuntoTile(
                   adjunto: _adjuntos[i],
                   onAbrir: () => _abrir(_adjuntos[i]),
@@ -292,7 +292,7 @@ class _AdjuntoTile extends StatelessWidget {
                 width: 28,
                 height: 28,
                 decoration: BoxDecoration(
-                  color: DocumentHelper.colorPorMime(mime).withOpacity(0.1),
+                  color: DocumentHelper.colorPorMime(mime).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Icon(

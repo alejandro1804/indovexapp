@@ -211,7 +211,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               if (seleccionarTecnico && _tecnicos.isNotEmpty) ...[
                 DropdownButtonFormField<String>(
-                  value: tecnicoSeleccionado,
+                  initialValue: tecnicoSeleccionado,
                   decoration: const InputDecoration(labelText: 'Técnico *', border: OutlineInputBorder()),
                   items: _tecnicos.map((t) => DropdownMenuItem(value: t['id'] as String, child: Text(t['nombre'] as String))).toList(),
                   onChanged: (v) => setDialogState(() => tecnicoSeleccionado = v),
@@ -378,9 +378,9 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _colorEstado(estado).withOpacity(0.1),
+              color: _colorEstado(estado).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _colorEstado(estado).withOpacity(0.3)),
+              border: Border.all(color: _colorEstado(estado).withValues(alpha: 0.3)),
             ),
             child: Row(children: [
               Icon(Icons.circle, color: _colorEstado(estado), size: 12),
@@ -395,9 +395,9 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: _colorTipo(tipo).withOpacity(0.1),
+                color: _colorTipo(tipo).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: _colorTipo(tipo).withOpacity(0.4)),
+                border: Border.all(color: _colorTipo(tipo).withValues(alpha: 0.4)),
               ),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
                 Icon(
@@ -416,9 +416,9 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: _colorPrioridad(prioridad).withOpacity(0.1),
+                color: _colorPrioridad(prioridad).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: _colorPrioridad(prioridad).withOpacity(0.4)),
+                border: Border.all(color: _colorPrioridad(prioridad).withValues(alpha: 0.4)),
               ),
               child: Text(
                 prioridad[0].toUpperCase() + prioridad.substring(1),
@@ -576,7 +576,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                   Row(children: [
                     CircleAvatar(
                       radius: 12,
-                      backgroundColor: const Color(0xFF1F4E79).withOpacity(0.12),
+                      backgroundColor: const Color(0xFF1F4E79).withValues(alpha: 0.12),
                       child: Text(
                         nombre.isNotEmpty ? nombre[0].toUpperCase() : '?',
                         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1F4E79)),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:functions_client/functions_client.dart' show FunctionException;
 import '../../providers/auth_provider.dart';
 import '../../core/responsive.dart';
 import '../../core/db_error_helper.dart';
@@ -931,7 +930,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                       ? ListView.separated(
                           padding: padding,
                           itemCount: _usuarios.length,
-                          separatorBuilder: (_, __) =>
+                          separatorBuilder: (_, _) =>
                               const SizedBox(height: 8),
                           itemBuilder: (context, index) => _buildCard(
                               _usuarios[index], usuarioActual?.id),
@@ -977,7 +976,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
         leading: CircleAvatar(
           radius: 18,
           backgroundColor: activo
-              ? _colorRol(rolNombre).withOpacity(0.15)
+              ? _colorRol(rolNombre).withValues(alpha: 0.15)
               : Colors.grey[200],
           child: Text(usuario['nombre'][0].toUpperCase(),
               style: TextStyle(
@@ -1003,7 +1002,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                    color: const Color(0xFF1F4E79).withOpacity(0.1),
+                    color: const Color(0xFF1F4E79).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8)),
                 child: const Text('Yo',
                     style:
@@ -1045,7 +1044,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                       horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                       color: activo
-                          ? _colorRol(rolNombre).withOpacity(0.1)
+                          ? _colorRol(rolNombre).withValues(alpha: 0.1)
                           : Colors.grey[200],
                       borderRadius: BorderRadius.circular(10)),
                   child: Text(rolNombre,
@@ -1061,7 +1060,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                        color: const Color(0xFF1F4E79).withOpacity(0.08),
+                        color: const Color(0xFF1F4E79).withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(10)),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,

@@ -101,7 +101,7 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String?>(
-                  value: categoriaSeleccionada,
+                  initialValue: categoriaSeleccionada,
                   isExpanded: true,
                   style: const TextStyle(fontSize: 13, color: Colors.black87),
                   decoration: const InputDecoration(labelText: 'Categoría', border: OutlineInputBorder()),
@@ -113,7 +113,7 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: unidadSeleccionada,
+                  initialValue: unidadSeleccionada,
                   isExpanded: true,
                   style: const TextStyle(fontSize: 13, color: Colors.black87),
                   decoration: const InputDecoration(labelText: 'Unidad de medida *', border: OutlineInputBorder()),
@@ -310,10 +310,10 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: stockBajo ? Colors.orange.withOpacity(0.1) : const Color(0xFF1F4E79).withOpacity(0.1),
+              color: stockBajo ? Colors.orange.withValues(alpha: 0.1) : const Color(0xFF1F4E79).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: stockBajo ? Colors.orange.withOpacity(0.3) : const Color(0xFF1F4E79).withOpacity(0.3),
+                color: stockBajo ? Colors.orange.withValues(alpha: 0.3) : const Color(0xFF1F4E79).withValues(alpha: 0.3),
               ),
             ),
             child: Row(

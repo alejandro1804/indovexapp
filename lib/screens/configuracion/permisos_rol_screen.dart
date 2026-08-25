@@ -124,7 +124,7 @@ class _PermisosRolScreenState extends State<PermisosRolScreen> {
                                 return SwitchListTile(
                                   title: Text(p['nombre'], style: const TextStyle(fontSize: 12)),
                                   value: marcado,
-                                  activeColor: const Color(0xFF1F4E79),
+                                  activeThumbColor: const Color(0xFF1F4E79),
                                   onChanged: (v) {
                                     setState(() {
                                       if (v) {

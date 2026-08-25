@@ -112,10 +112,10 @@ class _MaquinaDetailScreenState extends State<MaquinaDetailScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _colorEstado(_maquina.estado).withOpacity(0.1),
+              color: _colorEstado(_maquina.estado).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                  color: _colorEstado(_maquina.estado).withOpacity(0.3)),
+                  color: _colorEstado(_maquina.estado).withValues(alpha: 0.3)),
             ),
             child: Row(
               children: [

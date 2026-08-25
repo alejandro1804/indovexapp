@@ -23,7 +23,7 @@ class AuthProvider extends ChangeNotifier {
   String? get errorLogin => _errorLogin;
   String get plan => _plan;
   bool get modoAdmin => _modoAdmin;
-  get supabase => _supabase;
+  SupabaseClient get supabase => _supabase;
 
   int get diasRestantesTrial {
     if (_trialVence == null) return 999;

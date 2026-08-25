@@ -56,7 +56,7 @@ class LecturaMaquinaService {
           'valor': valor,
           'fecha_lectura':
               (fechaLectura ?? DateTime.now()).toIso8601String().split('T')[0],
-          if (observacion != null) 'observacion': observacion,
+          'observacion': ?observacion,
         })
         .select()
         .single();

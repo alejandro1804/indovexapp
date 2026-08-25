@@ -130,7 +130,7 @@ class _CategoriasRepuestosScreenState extends State<CategoriasRepuestosScreen> {
               : RefreshIndicator(
                   onRefresh: _cargarCategorias,
                   child: columns == 1
-                      ? ListView.separated(padding: padding, itemCount: _categorias.length, separatorBuilder: (_, __) => const SizedBox(height: 8), itemBuilder: (context, index) => _buildCard(_categorias[index]))
+                      ? ListView.separated(padding: padding, itemCount: _categorias.length, separatorBuilder: (_, _) => const SizedBox(height: 8), itemBuilder: (context, index) => _buildCard(_categorias[index]))
                       : GridView.builder(padding: padding, gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: columns, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 3), itemCount: _categorias.length, itemBuilder: (context, index) => _buildCard(_categorias[index])),
                 ),
       floatingActionButton: FloatingActionButton(onPressed: () => _mostrarFormulario(), backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white, child: const Icon(Icons.add)),
@@ -145,7 +145,7 @@ class _CategoriasRepuestosScreenState extends State<CategoriasRepuestosScreen> {
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         leading: CircleAvatar(
           radius: 18,
-          backgroundColor: const Color(0xFF2E75B6).withOpacity(0.1),
+          backgroundColor: const Color(0xFF2E75B6).withValues(alpha: 0.1),
           child: Text(categoria.nombre[0].toUpperCase(), style: const TextStyle(color: Color(0xFF2E75B6), fontWeight: FontWeight.bold, fontSize: 13)),
         ),
         title: Text(

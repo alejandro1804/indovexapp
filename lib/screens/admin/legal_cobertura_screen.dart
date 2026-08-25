@@ -158,8 +158,8 @@ class _LegalCoberturaScreenState extends State<LegalCoberturaScreen> {
       margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
-        border: Border.all(color: color.withOpacity(0.3)),
+        color: color.withValues(alpha: 0.08),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -230,7 +230,7 @@ class _LegalCoberturaScreenState extends State<LegalCoberturaScreen> {
       child: ListView.separated(
         padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
         itemCount: filas.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 8),
+        separatorBuilder: (_, _) => const SizedBox(height: 8),
         itemBuilder: (context, i) => _buildFila(filas[i]),
       ),
     );

@@ -137,14 +137,14 @@ Future<void> _exportarPdf() async {
                 TextField(controller: descripcionController, decoration: const InputDecoration(labelText: 'Descripción *', border: OutlineInputBorder()), textCapitalization: TextCapitalization.sentences, maxLines: 2, maxLength: 500),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String?>(
-                  value: categoriaSeleccionada,
+                  initialValue: categoriaSeleccionada,
                   decoration: const InputDecoration(labelText: 'Categoría', border: OutlineInputBorder()),
                   items: [const DropdownMenuItem(value: null, child: Text('Sin categoría')), ..._categorias.map((c) => DropdownMenuItem(value: c.id, child: Text(c.nombre)))],
                   onChanged: (v) => setDialogState(() => categoriaSeleccionada = v),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: unidadSeleccionada,
+                  initialValue: unidadSeleccionada,
                   decoration: const InputDecoration(labelText: 'Unidad de medida *', border: OutlineInputBorder()),
                   items: const [
                     DropdownMenuItem(value: 'unidad', child: Text('Unidad')),
@@ -320,7 +320,7 @@ Future<void> _exportarPdf() async {
   }) {
     final activo = value != 'todos';
     return DropdownButtonFormField<String>(
-      value: value,
+      initialValue: value,
       isExpanded: true,
       isDense: true,
       style: const TextStyle(fontSize: 12, color: Colors.black87),
@@ -448,7 +448,7 @@ Future<void> _exportarPdf() async {
                   const SizedBox(width: 8),
                   Expanded(
                     child: DropdownButtonFormField<bool>(
-                      value: _soloStockBajo,
+                      initialValue: _soloStockBajo,
                       isExpanded: true,
                       isDense: true,
                       style: const TextStyle(fontSize: 12, color: Colors.black87),
@@ -511,7 +511,7 @@ Future<void> _exportarPdf() async {
                         child: ListView.separated(
                           padding: padding,
                           itemCount: repuestosFiltrados.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 8),
+                          separatorBuilder: (_, _) => const SizedBox(height: 8),
                           itemBuilder: (context, index) => _buildCard(repuestosFiltrados[index]),
                         ),
                       ),

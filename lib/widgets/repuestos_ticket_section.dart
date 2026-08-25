@@ -102,7 +102,7 @@ class _RepuestosTicketSectionState extends State<RepuestosTicketSection> {
               const Text('Registrar consumo de repuesto', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: repuestoSeleccionado,
+                initialValue: repuestoSeleccionado,
                 isExpanded: true,
                 decoration: const InputDecoration(labelText: 'Repuesto *', border: OutlineInputBorder()),
                 items: repuestos.map((r) {
@@ -258,7 +258,7 @@ class _RepuestosTicketSectionState extends State<RepuestosTicketSection> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.1),
+                        color: Colors.red.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(

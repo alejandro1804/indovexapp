@@ -78,7 +78,7 @@ class ConfiguracionScreen extends StatelessWidget {
       body: ListView.separated(
         padding: const EdgeInsets.all(12),
         itemCount: opciones.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 8),
+        separatorBuilder: (_, _) => const SizedBox(height: 8),
         itemBuilder: (context, index) {
           final opcion = opciones[index];
           return Card(
@@ -88,7 +88,7 @@ class ConfiguracionScreen extends StatelessWidget {
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               leading: CircleAvatar(
                 radius: 18,
-                backgroundColor: const Color(0xFF1F4E79).withOpacity(0.1),
+                backgroundColor: const Color(0xFF1F4E79).withValues(alpha: 0.1),
                 child: Icon(opcion.icono, color: const Color(0xFF1F4E79), size: 18),
               ),
               title: Text(

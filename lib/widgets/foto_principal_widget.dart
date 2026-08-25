@@ -223,7 +223,7 @@ class _FotoPrincipalWidgetState extends State<FotoPrincipalWidget> {
                       ? Image.network(
                           _signedUrl!,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _placeholder(size),
+                          errorBuilder: (_, _, _) => _placeholder(size),
                         )
                       : _placeholder(size),
             ),
@@ -266,8 +266,8 @@ class _FotoPrincipalWidgetState extends State<FotoPrincipalWidget> {
       _          => Icons.image_outlined,
     };
     return Container(
-      color: const Color(0xFF1F4E79).withOpacity(0.08),
-      child: Icon(icon, size: size * 0.45, color: const Color(0xFF1F4E79).withOpacity(0.4)),
+      color: const Color(0xFF1F4E79).withValues(alpha: 0.08),
+      child: Icon(icon, size: size * 0.45, color: const Color(0xFF1F4E79).withValues(alpha: 0.4)),
     );
   }
 }
@@ -297,7 +297,7 @@ class _FotoFullscreenScreen extends StatelessWidget {
               if (progress == null) return child;
               return const CircularProgressIndicator(color: Colors.white);
             },
-            errorBuilder: (_, __, ___) => const Icon(
+            errorBuilder: (_, _, _) => const Icon(
               Icons.broken_image_outlined,
               color: Colors.white54,
               size: 64,

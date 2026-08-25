@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -163,7 +162,7 @@ class ImageUploadHelper {
     );
 
     // Si sigue por encima del límite, re-comprimir con calidad menor
-    if (result != null && result.length > config.maxBytes) {
+    if (result.length > config.maxBytes) {
       result = await FlutterImageCompress.compressWithList(
         result,
         minWidth: config.maxWidth,

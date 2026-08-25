@@ -156,7 +156,7 @@ class _ProveedoresScreenState extends State<ProveedoresScreen> {
               : RefreshIndicator(
                   onRefresh: _cargarProveedores,
                   child: columns == 1
-                      ? ListView.separated(padding: padding, itemCount: _proveedores.length, separatorBuilder: (_, __) => const SizedBox(height: 8), itemBuilder: (context, index) => _buildCard(_proveedores[index]))
+                      ? ListView.separated(padding: padding, itemCount: _proveedores.length, separatorBuilder: (_, _) => const SizedBox(height: 8), itemBuilder: (context, index) => _buildCard(_proveedores[index]))
                       : GridView.builder(padding: padding, gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: columns, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 2.5), itemCount: _proveedores.length, itemBuilder: (context, index) => _buildCard(_proveedores[index])),
                 ),
       floatingActionButton: FloatingActionButton(onPressed: () => _mostrarFormulario(), backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white, child: const Icon(Icons.add)),
@@ -171,7 +171,7 @@ class _ProveedoresScreenState extends State<ProveedoresScreen> {
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         leading: CircleAvatar(
           radius: 18,
-          backgroundColor: const Color(0xFF1F4E79).withOpacity(0.1),
+          backgroundColor: const Color(0xFF1F4E79).withValues(alpha: 0.1),
           child: Text(proveedor.nombre[0].toUpperCase(), style: const TextStyle(color: Color(0xFF1F4E79), fontWeight: FontWeight.bold, fontSize: 13)),
         ),
         title: Text(

@@ -66,16 +66,16 @@ class AuditoriaDetalleScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.08),
+              color: color.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: color.withOpacity(0.3)),
+              border: Border.all(color: color.withValues(alpha: 0.3)),
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.15),
+                    color: color.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(log.operacionLabel,
@@ -144,7 +144,7 @@ class AuditoriaDetalleScreen extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.06),
+                        color: Colors.red.withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -161,7 +161,7 @@ class AuditoriaDetalleScreen extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.06),
+                        color: Colors.green.withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/repuesto.dart';
-import '../../providers/auth_provider.dart';
 
 class SalidaRepuestoScreen extends StatefulWidget {
   final Repuesto repuesto;

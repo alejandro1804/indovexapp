@@ -225,7 +225,7 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
                         return ChoiceChip(
                           label: Text(p[0].toUpperCase() + p.substring(1)),
                           selected: seleccionada,
-                          selectedColor: color.withOpacity(0.2),
+                          selectedColor: color.withValues(alpha: 0.2),
                           labelStyle: TextStyle(
                             color: seleccionada ? color : Colors.grey[600],
                             fontWeight: seleccionada ? FontWeight.bold : FontWeight.normal,
@@ -239,7 +239,7 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
 
                     // Activo
                     DropdownButtonFormField<String>(
-                      value: _maquinaSeleccionada,
+                      initialValue: _maquinaSeleccionada,
                       decoration: const InputDecoration(
                         labelText: 'Activo *',
                         border: OutlineInputBorder(),

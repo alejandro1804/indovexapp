@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/repuesto.dart';
 import '../../models/proveedor.dart';
-import '../../providers/auth_provider.dart';
 
 class IngresoRepuestoScreen extends StatefulWidget {
   final Repuesto repuesto;
@@ -150,7 +148,7 @@ class _IngresoRepuestoScreenState extends State<IngresoRepuestoScreen> {
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String?>(
-            value: _proveedorSeleccionado,
+            initialValue: _proveedorSeleccionado,
             decoration: const InputDecoration(
               labelText: 'Proveedor (opcional)',
               border: OutlineInputBorder(),

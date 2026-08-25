@@ -109,7 +109,7 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
               // Selector (solo en alta)
               if (!esEdicion)
                 DropdownButtonFormField<String>(
-                  value: seleccionId,
+                  initialValue: seleccionId,
                   isExpanded: true,
                   style: const TextStyle(fontSize: 13, color: Colors.black87),
                   decoration: InputDecoration(
@@ -340,7 +340,7 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF1F4E79).withOpacity(0.1),
+                              color: const Color(0xFF1F4E79).withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(

@@ -95,7 +95,7 @@ class _EscanearQrScreenState extends State<EscanearQrScreen> {
                 color: Colors.white,
                 fontSize: 14,
                 shadows: [
-                  Shadow(color: Colors.black.withOpacity(0.7), blurRadius: 4),
+                  Shadow(color: Colors.black.withValues(alpha: 0.7), blurRadius: 4),
                 ],
               ),
             ),

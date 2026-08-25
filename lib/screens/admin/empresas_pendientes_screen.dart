@@ -105,7 +105,7 @@ class _EmpresasPendientesScreenState extends State<EmpresasPendientesScreen> {
                   child: ListView.separated(
                     padding: const EdgeInsets.all(16),
                     itemCount: _empresas.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    separatorBuilder: (_, _) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final e = _empresas[index];
                       final procesando = _procesandoId == e['empresa_id'];

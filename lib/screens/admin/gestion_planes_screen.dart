@@ -87,7 +87,7 @@ class _GestionPlanesScreenState extends State<GestionPlanesScreen> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: tier,
+                initialValue: tier,
                 decoration: const InputDecoration(
                   labelText: 'Tier *',
                   border: OutlineInputBorder(),
@@ -103,7 +103,7 @@ class _GestionPlanesScreenState extends State<GestionPlanesScreen> {
               _resumenLimites(tier),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: ciclo,
+                initialValue: ciclo,
                 decoration: const InputDecoration(
                     labelText: 'Ciclo *', border: OutlineInputBorder()),
                 items: const [
@@ -251,7 +251,7 @@ class _GestionPlanesScreenState extends State<GestionPlanesScreen> {
                   child: ListView.separated(
                     padding: const EdgeInsets.all(12),
                     itemCount: _planes.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    separatorBuilder: (_, _) => const SizedBox(height: 10),
                     itemBuilder: (context, i) => _cardPlan(_planes[i]),
                   ),
                 ),
@@ -278,8 +278,8 @@ class _GestionPlanesScreenState extends State<GestionPlanesScreen> {
         borderRadius: BorderRadius.circular(10),
         side: BorderSide(
             color: activo
-                ? const Color(0xFF1F4E79).withOpacity(0.3)
-                : Colors.grey.withOpacity(0.2)),
+                ? const Color(0xFF1F4E79).withValues(alpha: 0.3)
+                : Colors.grey.withValues(alpha: 0.2)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -294,7 +294,7 @@ class _GestionPlanesScreenState extends State<GestionPlanesScreen> {
             ),
             Switch(
               value: activo,
-              activeColor: const Color(0xFF1F4E79),
+              activeThumbColor: const Color(0xFF1F4E79),
               onChanged: (_) => _toggleActivo(p),
             ),
           ]),
@@ -361,9 +361,9 @@ class _GestionPlanesScreenState extends State<GestionPlanesScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.4)),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Icon(icono, size: 13, color: color),

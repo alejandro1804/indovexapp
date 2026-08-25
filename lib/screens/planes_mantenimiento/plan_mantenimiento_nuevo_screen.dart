@@ -175,7 +175,7 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
                   children: [
                     // Activo (no editable en modo edición)
                     DropdownButtonFormField<String>(
-                      value: _maquinaSeleccionada,
+                      initialValue: _maquinaSeleccionada,
                       isExpanded: true,
                       style: const TextStyle(fontSize: 13, color: Colors.black87),
                       decoration: InputDecoration(
@@ -249,7 +249,7 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
                                   child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
                                 )
                               : DropdownButtonFormField<String>(
-                                  value: _tipoIntervaloSeleccionado,
+                                  initialValue: _tipoIntervaloSeleccionado,
                                   isExpanded: true,
                                   style: const TextStyle(fontSize: 13, color: Colors.black87),
                                   decoration: const InputDecoration(

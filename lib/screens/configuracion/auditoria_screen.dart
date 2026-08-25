@@ -173,7 +173,7 @@ class _AuditoriaScreenState extends State<AuditoriaScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: provider.desde != null
-                          ? const Color(0xFF1F4E79).withOpacity(0.1)
+                          ? const Color(0xFF1F4E79).withValues(alpha: 0.1)
                           : Colors.grey[100],
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
@@ -225,7 +225,7 @@ class _AuditoriaScreenState extends State<AuditoriaScreen> {
                     : ListView.separated(
                         padding: const EdgeInsets.all(12),
                         itemCount: provider.logs.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        separatorBuilder: (_, _) => const SizedBox(height: 8),
                         itemBuilder: (context, index) {
                           final log = provider.logs[index];
                           final color = _colorOperacion(log.operacion);
@@ -243,7 +243,7 @@ class _AuditoriaScreenState extends State<AuditoriaScreen> {
                                 child: Row(children: [
                                   CircleAvatar(
                                     radius: 18,
-                                    backgroundColor: color.withOpacity(0.1),
+                                    backgroundColor: color.withValues(alpha: 0.1),
                                     child: Icon(_iconoOperacion(log.operacion), color: color, size: 18),
                                   ),
                                   const SizedBox(width: 12),
@@ -294,7 +294,7 @@ class _AuditoriaScreenState extends State<AuditoriaScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: activo ? const Color(0xFF1F4E79).withOpacity(0.1) : Colors.grey[100],
+          color: activo ? const Color(0xFF1F4E79).withValues(alpha: 0.1) : Colors.grey[100],
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: activo ? const Color(0xFF1F4E79) : Colors.grey[300]!),
         ),

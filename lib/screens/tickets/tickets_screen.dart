@@ -501,7 +501,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
                         child: ListView.separated(
                           padding: padding,
                           itemCount: ticketsFiltrados.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 8),
+                          separatorBuilder: (_, _) => const SizedBox(height: 8),
                           itemBuilder: (context, index) {
                             final ticket = ticketsFiltrados[index];
                             final estado = ticket['estado'] as String;
@@ -516,7 +516,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
                               elevation: 1,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
-                                side: BorderSide(color: _colorEstado(estado).withOpacity(0.3), width: 1),
+                                side: BorderSide(color: _colorEstado(estado).withValues(alpha: 0.3), width: 1),
                               ),
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(10),
@@ -529,7 +529,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
                                   child: Row(children: [
                                     CircleAvatar(
                                       radius: Responsive.avatarRadius(context),
-                                      backgroundColor: _colorEstado(estado).withOpacity(0.1),
+                                      backgroundColor: _colorEstado(estado).withValues(alpha: 0.1),
                                       child: Icon(_iconoEstado(estado), color: _colorEstado(estado), size: Responsive.avatarRadius(context)),
                                     ),
                                     const SizedBox(width: 10),
@@ -552,7 +552,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
                                         Row(children: [
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                                            decoration: BoxDecoration(color: _colorPrioridad(prioridad).withOpacity(0.12), borderRadius: BorderRadius.circular(8)),
+                                            decoration: BoxDecoration(color: _colorPrioridad(prioridad).withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
                                             child: Text(
                                               prioridad[0].toUpperCase() + prioridad.substring(1),
                                               style: TextStyle(fontSize: chipSize, color: _colorPrioridad(prioridad), fontWeight: FontWeight.w600),
@@ -574,7 +574,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
                                     const SizedBox(width: 6),
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                      decoration: BoxDecoration(color: _colorEstado(estado).withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                                      decoration: BoxDecoration(color: _colorEstado(estado).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
                                       child: Text(_labelEstado(estado), style: TextStyle(fontSize: chipSize, color: _colorEstado(estado), fontWeight: FontWeight.w600)),
                                     ),
                                   ]),

@@ -529,7 +529,7 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
                           child: ListView.separated(
                             padding: const EdgeInsets.all(12),
                             itemCount: _empresasFiltradas.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 10),
+                            separatorBuilder: (_, _) => const SizedBox(height: 10),
                             itemBuilder: (context, index) =>
                                 _cardEmpresa(_empresasFiltradas[index]),
                           ),
@@ -608,9 +608,9 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
                 margin: const EdgeInsets.only(left: 6),
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1F4E79).withOpacity(0.1),
+                  color: const Color(0xFF1F4E79).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFF1F4E79).withOpacity(0.3)),
+                  border: Border.all(color: const Color(0xFF1F4E79).withValues(alpha: 0.3)),
                 ),
                 child: const Text('Mi empresa',
                     style: TextStyle(
@@ -763,9 +763,9 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
       margin: const EdgeInsets.only(top: 8),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(children: [
         Icon(vencido ? Icons.warning_amber : Icons.schedule, size: 14, color: color),
@@ -959,9 +959,9 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.4)),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Icon(icono, size: 12, color: color),

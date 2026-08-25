@@ -181,7 +181,7 @@ class _DestinatariosWhatsappScreenState extends State<DestinatariosWhatsappScree
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         leading: CircleAvatar(
           radius: 18,
-          backgroundColor: const Color(0xFF1F4E79).withOpacity(0.15),
+          backgroundColor: const Color(0xFF1F4E79).withValues(alpha: 0.15),
           child: Text(usuario['nombre'][0].toUpperCase(), style: const TextStyle(color: Color(0xFF1F4E79), fontWeight: FontWeight.bold, fontSize: 13)),
         ),
         title: Text(usuario['nombre'], style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12), overflow: TextOverflow.ellipsis),
@@ -210,7 +210,7 @@ class _DestinatariosWhatsappScreenState extends State<DestinatariosWhatsappScree
             ? const SizedBox(width: 36, height: 36, child: Padding(padding: EdgeInsets.all(8), child: CircularProgressIndicator(strokeWidth: 2)))
             : Switch(
                 value: activo,
-                activeColor: const Color(0xFF1F4E79),
+                activeThumbColor: const Color(0xFF1F4E79),
                 onChanged: tieneTelefono ? (v) => _toggleDestinatario(usuario, v) : null,
               ),
       ),

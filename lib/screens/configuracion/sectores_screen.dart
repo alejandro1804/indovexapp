@@ -195,7 +195,7 @@ class _SectoresScreenState extends State<SectoresScreen> {
                       ? ListView.separated(
                           padding: padding,
                           itemCount: _sectores.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 8),
+                          separatorBuilder: (_, _) => const SizedBox(height: 8),
                           itemBuilder: (context, index) => _buildCard(_sectores[index]),
                         )
                       : GridView.builder(
@@ -227,7 +227,7 @@ class _SectoresScreenState extends State<SectoresScreen> {
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         leading: CircleAvatar(
           radius: 18,
-          backgroundColor: const Color(0xFF1F4E79).withOpacity(0.1),
+          backgroundColor: const Color(0xFF1F4E79).withValues(alpha: 0.1),
           child: Text(
             sector.nombre[0].toUpperCase(),
             style: const TextStyle(color: Color(0xFF1F4E79), fontWeight: FontWeight.bold, fontSize: 13),

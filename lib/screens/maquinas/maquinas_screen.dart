@@ -201,7 +201,7 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
                 TextField(controller: codigoController, style: const TextStyle(fontSize: 14), decoration: const InputDecoration(labelText: 'Código', border: OutlineInputBorder(), hintText: 'Opcional. Ej: MAQ-001'), textCapitalization: TextCapitalization.characters, maxLength: 30),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: sectorSeleccionado,
+                  initialValue: sectorSeleccionado,
                   isExpanded: true,
                   style: const TextStyle(fontSize: 14, color: Colors.black87),
                   decoration: const InputDecoration(labelText: 'Ubicacion *', border: OutlineInputBorder()),
@@ -210,7 +210,7 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: estadoSeleccionado,
+                  initialValue: estadoSeleccionado,
                   isExpanded: true,
                   style: const TextStyle(fontSize: 14, color: Colors.black87),
                   decoration: const InputDecoration(labelText: 'Estado *', border: OutlineInputBorder()),
@@ -357,7 +357,7 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                     decoration: BoxDecoration(
-                      color: _colorEstado(maquina.estado).withOpacity(0.1),
+                      color: _colorEstado(maquina.estado).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(_labelEstado(maquina.estado), style: TextStyle(fontSize: chipSize, color: _colorEstado(maquina.estado), fontWeight: FontWeight.w600)),
@@ -392,7 +392,7 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
   }) {
     final activo = value != 'todos';
     return DropdownButtonFormField<String>(
-      value: value,
+      initialValue: value,
       isExpanded: true,
       isDense: true,
       style: const TextStyle(fontSize: 12, color: Colors.black87),
@@ -561,7 +561,7 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
                         child: ListView.separated(
                           padding: padding,
                           itemCount: maquinasFiltradas.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 8),
+                          separatorBuilder: (_, _) => const SizedBox(height: 8),
                           itemBuilder: (context, index) => _buildCard(maquinasFiltradas[index]),
                         ),
                       ),

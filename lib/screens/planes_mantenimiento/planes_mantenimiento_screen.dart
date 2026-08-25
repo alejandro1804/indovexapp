@@ -456,7 +456,7 @@ class _PlanCard extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.all(7),
                             decoration: BoxDecoration(
-                              color: colorIntervalo.withOpacity(0.1),
+                              color: colorIntervalo.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Icon(iconoIntervalo, color: colorIntervalo, size: 18),
@@ -571,10 +571,10 @@ class _PlanCard extends StatelessWidget {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: colorIntervalo.withOpacity(0.08),
+                              color: colorIntervalo.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
-                                color: colorIntervalo.withOpacity(0.3),
+                                color: colorIntervalo.withValues(alpha: 0.3),
                                 width: 1,
                               ),
                             ),
