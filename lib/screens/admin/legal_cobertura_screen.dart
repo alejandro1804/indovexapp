@@ -181,20 +181,20 @@ class _LegalCoberturaScreenState extends State<LegalCoberturaScreen> {
     );
   }
 
-  Widget _buildFiltros() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Row(
-        children: [
-          _chip('todos', 'Todos', _filas.length),
-          const SizedBox(width: 8),
-          _chip('pendientes', 'Pendientes', _totalPendientes),
-          const SizedBox(width: 8),
-          _chip('aceptados', 'Aceptados', _filas.length - _totalPendientes),
-        ],
-      ),
-    );
-  }
+   Widget _buildFiltros() {
+     return Padding(
+       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+       child: Wrap(
+         spacing: 8,
+         runSpacing: 8,
+         children: [
+           _chip('todos', 'Todos', _filas.length),
+           _chip('pendientes', 'Pendientes', _totalPendientes),
+           _chip('aceptados', 'Aceptados', _filas.length - _totalPendientes),
+         ],
+       ),
+     );
+   }
 
   Widget _chip(String valor, String label, int cantidad) {
     final activo = _filtro == valor;
