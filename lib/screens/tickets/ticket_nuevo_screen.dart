@@ -14,7 +14,13 @@ class TicketNuevoScreen extends StatefulWidget {
 class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
   final _supabase = Supabase.instance.client;
   final _descripcionController = TextEditingController();
+
+  // Todos los activos visibles para el usuario (traen su sector_id).
   List<Map<String, dynamic>> _maquinas = [];
+  // Ubicaciones derivadas de los activos disponibles (id -> nombre).
+  List<Map<String, dynamic>> _sectores = [];
+
+  String? _sectorSeleccionado;
   String? _maquinaSeleccionada;
   String _tipo = 'correctivo';
   String _prioridad = 'media';
@@ -22,7 +28,16 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
   bool _cargandoMaquinas = true;
 
   @override
-  void initState() { super.initState(); _cargarMaquinas(); }
+  void initState() {
+    super.initState();
+    _cargarMaquinas();
+  }
+
+  @override
+  void dispose() {
+    _descripcionController.dispose();
+    super.dispose();
+  }
 
   Future<void> _cargarMaquinas() async {
     try {
@@ -38,41 +53,71 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
             .from('usuario_sector')
             .select('sector_id')
             .eq('usuario_id', usuario.id);
-        final sectorIds = (sectoresData as List).map((e) => e['sector_id'] as String).toList();
+        final sectorIds =
+            (sectoresData as List).map((e) => e['sector_id'] as String).toList();
         if (sectorIds.isEmpty) {
-          setState(() { _cargandoMaquinas = false; });
+          setState(() => _cargandoMaquinas = false);
           return;
         }
         final data = await _supabase
             .from('maquinas')
-            .select('id, nombre, codigo, sectores(nombre)')
+            .select('id, nombre, codigo, sector_id, sectores(nombre)')
             .inFilter('sector_id', sectorIds)
             .order('nombre');
         maquinas = List<Map<String, dynamic>>.from(data);
       } else {
         final data = await _supabase
             .from('maquinas')
-            .select('id, nombre, codigo, sectores(nombre)')
+            .select('id, nombre, codigo, sector_id, sectores(nombre)')
             .order('nombre');
         maquinas = List<Map<String, dynamic>>.from(data);
       }
 
+      // Derivo las ubicaciones distintas a partir de los activos disponibles,
+      // así el selector de ubicación nunca muestra una ubicación sin activos.
+      final Map<String, String> sectoresMap = {};
+      for (final m in maquinas) {
+        final sid = m['sector_id'] as String?;
+        if (sid == null) continue;
+        final nombre = (m['sectores'] as Map?)?['nombre'] as String? ?? 'Sin nombre';
+        sectoresMap[sid] = nombre;
+      }
+      final sectores = sectoresMap.entries
+          .map((e) => {'id': e.key, 'nombre': e.value})
+          .toList()
+        ..sort((a, b) => (a['nombre'] as String)
+            .toLowerCase()
+            .compareTo((b['nombre'] as String).toLowerCase()));
+
       setState(() {
         _maquinas = maquinas;
-        if (_maquinas.isNotEmpty) _maquinaSeleccionada = _maquinas.first['id'];
+        _sectores = sectores;
       });
     } catch (e) {
       _mostrarError('Error al cargar activos: $e');
     } finally {
-      setState(() => _cargandoMaquinas = false);
+      if (mounted) setState(() => _cargandoMaquinas = false);
     }
   }
 
+  // Activos de la ubicación actualmente seleccionada.
+  List<Map<String, dynamic>> get _maquinasFiltradas {
+    if (_sectorSeleccionado == null) return const [];
+    return _maquinas
+        .where((m) => m['sector_id'] == _sectorSeleccionado)
+        .toList();
+  }
+
   Future<void> _crearTicket() async {
-    if (_maquinaSeleccionada == null || _descripcionController.text.trim().isEmpty) {
+    if (_sectorSeleccionado == null ||
+        _maquinaSeleccionada == null ||
+        _descripcionController.text.trim().isEmpty) {
       _mostrarError('Completá todos los campos obligatorios');
       return;
     }
+
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
 
     setState(() => _cargando = true);
     try {
@@ -109,35 +154,48 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
       // no duplicarlas.
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ticket $numero creado correctamente'), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating),
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Ticket $numero creado correctamente'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ),
       );
-      Navigator.pop(context);
+      navigator.pop();
     } catch (e) {
       _mostrarError('Error al crear ticket: $e');
     } finally {
-      setState(() => _cargando = false);
+      if (mounted) setState(() => _cargando = false);
     }
   }
 
   void _mostrarError(String m) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(m),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating));
   }
 
   Color _colorPrioridad(String p) {
     switch (p) {
-      case 'baja': return Colors.green;
-      case 'media': return Colors.orange;
-      case 'alta': return Colors.deepOrange;
-      case 'critica': return Colors.red;
-      default: return Colors.grey;
+      case 'baja':
+        return Colors.green;
+      case 'media':
+        return Colors.orange;
+      case 'alta':
+        return Colors.deepOrange;
+      case 'critica':
+        return Colors.red;
+      default:
+        return Colors.grey;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final padding = Responsive.pagePadding(context);
+    final maquinasFiltradas = _maquinasFiltradas;
 
     return Scaffold(
       appBar: AppBar(
@@ -147,31 +205,48 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
       ),
       body: _cargandoMaquinas
           ? const Center(child: CircularProgressIndicator())
-          : _maquinas.isEmpty
-              ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Icon(Icons.precision_manufacturing_outlined, size: 80, color: Colors.grey[400]),
-                  const SizedBox(height: 16),
-                  Text('No hay activos disponibles', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
-                  const SizedBox(height: 8),
-                  Text('Primero debés cargar activos en el sistema', style: TextStyle(fontSize: 13, color: Colors.grey[400])),
-                ]))
+          : _sectores.isEmpty
+              ? Center(
+                  child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                      Icon(Icons.precision_manufacturing_outlined,
+                          size: 80, color: Colors.grey[400]),
+                      const SizedBox(height: 16),
+                      Text('No hay activos disponibles',
+                          style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+                      const SizedBox(height: 8),
+                      Text('Primero debés cargar activos en el sistema',
+                          style: TextStyle(fontSize: 13, color: Colors.grey[400])),
+                    ]))
               : ListView(
                   padding: padding,
                   children: [
                     // Info
                     Container(
                       padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: Colors.blue[50], borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.blue[200]!)),
+                      decoration: BoxDecoration(
+                          color: Colors.blue[50],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.blue[200]!)),
                       child: Row(children: [
                         Icon(Icons.info_outline, color: Colors.blue[700], size: 16),
                         const SizedBox(width: 8),
-                        Expanded(child: Text('El encargado de la ubicacion recibirá una notificación al crear el ticket.', style: TextStyle(fontSize: 12, color: Colors.blue[700]))),
+                        Expanded(
+                            child: Text(
+                                'El encargado de la ubicacion recibirá una notificación al crear el ticket.',
+                                style: TextStyle(
+                                    fontSize: 12, color: Colors.blue[700]))),
                       ]),
                     ),
                     const SizedBox(height: 16),
 
                     // Tipo
-                    const Text('Tipo de ticket', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87)),
+                    const Text('Tipo de ticket',
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87)),
                     const SizedBox(height: 8),
                     Row(children: [
                       Expanded(
@@ -180,14 +255,29 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             decoration: BoxDecoration(
-                              color: _tipo == 'correctivo' ? Colors.red[50] : Colors.grey[100],
+                              color: _tipo == 'correctivo'
+                                  ? Colors.red[50]
+                                  : Colors.grey[100],
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: _tipo == 'correctivo' ? Colors.red : Colors.grey[300]!),
+                              border: Border.all(
+                                  color: _tipo == 'correctivo'
+                                      ? Colors.red
+                                      : Colors.grey[300]!),
                             ),
                             child: Column(children: [
-                              Icon(Icons.build_outlined, color: _tipo == 'correctivo' ? Colors.red : Colors.grey, size: 22),
+                              Icon(Icons.build_outlined,
+                                  color: _tipo == 'correctivo'
+                                      ? Colors.red
+                                      : Colors.grey,
+                                  size: 22),
                               const SizedBox(height: 4),
-                              Text('Correctivo', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _tipo == 'correctivo' ? Colors.red : Colors.grey)),
+                              Text('Correctivo',
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: _tipo == 'correctivo'
+                                          ? Colors.red
+                                          : Colors.grey)),
                             ]),
                           ),
                         ),
@@ -199,14 +289,29 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             decoration: BoxDecoration(
-                              color: _tipo == 'preventivo' ? Colors.green[50] : Colors.grey[100],
+                              color: _tipo == 'preventivo'
+                                  ? Colors.green[50]
+                                  : Colors.grey[100],
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: _tipo == 'preventivo' ? Colors.green : Colors.grey[300]!),
+                              border: Border.all(
+                                  color: _tipo == 'preventivo'
+                                      ? Colors.green
+                                      : Colors.grey[300]!),
                             ),
                             child: Column(children: [
-                              Icon(Icons.event_available_outlined, color: _tipo == 'preventivo' ? Colors.green : Colors.grey, size: 22),
+                              Icon(Icons.event_available_outlined,
+                                  color: _tipo == 'preventivo'
+                                      ? Colors.green
+                                      : Colors.grey,
+                                  size: 22),
                               const SizedBox(height: 4),
-                              Text('Preventivo', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _tipo == 'preventivo' ? Colors.green : Colors.grey)),
+                              Text('Preventivo',
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: _tipo == 'preventivo'
+                                          ? Colors.green
+                                          : Colors.grey)),
                             ]),
                           ),
                         ),
@@ -215,7 +320,11 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
                     const SizedBox(height: 16),
 
                     // Prioridad
-                    const Text('Prioridad', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87)),
+                    const Text('Prioridad',
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87)),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
@@ -228,31 +337,94 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
                           selectedColor: color.withValues(alpha: 0.2),
                           labelStyle: TextStyle(
                             color: seleccionada ? color : Colors.grey[600],
-                            fontWeight: seleccionada ? FontWeight.bold : FontWeight.normal,
+                            fontWeight:
+                                seleccionada ? FontWeight.bold : FontWeight.normal,
                           ),
-                          side: BorderSide(color: seleccionada ? color : Colors.grey[300]!),
+                          side: BorderSide(
+                              color: seleccionada ? color : Colors.grey[300]!),
                           onSelected: (_) => setState(() => _prioridad = p),
                         );
                       }).toList(),
                     ),
                     const SizedBox(height: 16),
 
-                    // Activo
+                    // Ubicación (se elige primero)
                     DropdownButtonFormField<String>(
-                      initialValue: _maquinaSeleccionada,
+                      initialValue: _sectorSeleccionado,
+                      isExpanded: true,
                       decoration: const InputDecoration(
-                        labelText: 'Activo *',
+                        labelText: 'Ubicación *',
                         border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.precision_manufacturing_outlined),
+                        prefixIcon: Icon(Icons.location_on_outlined),
                       ),
-                      items: _maquinas.map((m) {
-                        final sector = (m['sectores'] as Map?)?['nombre'] ?? '';
+                      // El ítem seleccionado se renderiza aparte y se recorta con
+                      // ellipsis, evitando el overflow cuando el nombre es largo.
+                      selectedItemBuilder: (context) {
+                        return _sectores.map((s) {
+                          return Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              s['nombre'] as String,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              softWrap: false,
+                            ),
+                          );
+                        }).toList();
+                      },
+                      items: _sectores.map((s) {
                         return DropdownMenuItem(
-                          value: m['id'] as String,
-                          child: Text('${m['nombre']} (${m['codigo']}) — $sector', overflow: TextOverflow.ellipsis),
+                          value: s['id'] as String,
+                          child: Text(s['nombre'] as String,
+                              overflow: TextOverflow.ellipsis),
                         );
                       }).toList(),
-                      onChanged: (v) => setState(() => _maquinaSeleccionada = v),
+                      onChanged: (v) => setState(() {
+                        _sectorSeleccionado = v;
+                        // Reset del activo al cambiar de ubicación.
+                        _maquinaSeleccionada = null;
+                      }),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Activo (deshabilitado hasta elegir ubicación)
+                    DropdownButtonFormField<String>(
+                      initialValue: _maquinaSeleccionada,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: 'Activo *',
+                        border: const OutlineInputBorder(),
+                        prefixIcon:
+                            const Icon(Icons.precision_manufacturing_outlined),
+                        hintText: _sectorSeleccionado == null
+                            ? 'Elegí una ubicación primero'
+                            : null,
+                      ),
+                      // El ítem seleccionado se renderiza aparte y se recorta con
+                      // ellipsis, evitando el overflow cuando el nombre es largo.
+                      selectedItemBuilder: (context) {
+                        return maquinasFiltradas.map((m) {
+                          return Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              '${m['nombre']} (${m['codigo']})',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              softWrap: false,
+                            ),
+                          );
+                        }).toList();
+                      },
+                      items: maquinasFiltradas.map((m) {
+                        return DropdownMenuItem(
+                          value: m['id'] as String,
+                          child: Text('${m['nombre']} (${m['codigo']})',
+                              overflow: TextOverflow.ellipsis),
+                        );
+                      }).toList(),
+                      onChanged: _sectorSeleccionado == null
+                          ? null
+                          : (v) => setState(() => _maquinaSeleccionada = v),
                     ),
                     const SizedBox(height: 16),
 
@@ -263,7 +435,8 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
                         labelText: 'Descripción del desperfecto *',
                         border: OutlineInputBorder(),
                         alignLabelWithHint: true,
-                        hintText: 'Describí el problema con el mayor detalle posible...',
+                        hintText:
+                            'Describí el problema con el mayor detalle posible...',
                       ),
                       maxLines: 5,
                       textCapitalization: TextCapitalization.sentences,
@@ -276,10 +449,17 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
                       child: ElevatedButton.icon(
                         onPressed: _cargando ? null : _crearTicket,
                         icon: _cargando
-                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                    color: Colors.white, strokeWidth: 2))
                             : const Icon(Icons.send_outlined),
-                        label: const Text('Crear Ticket', style: TextStyle(fontSize: 16)),
-                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white),
+                        label: const Text('Crear Ticket',
+                            style: TextStyle(fontSize: 16)),
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF1F4E79),
+                            foregroundColor: Colors.white),
                       ),
                     ),
                   ],

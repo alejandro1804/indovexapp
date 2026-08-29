@@ -169,13 +169,15 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     }
   }
 
-  Future<void> _cambiarEstado(String nuevoEstado, {String? comentario, String? tecnicoId}) async {
+  Future<void> _cambiarEstado(String nuevoEstado, {String? comentario, String? tecnicoId, bool limpiarTecnico = false}) async {
     final usuario = context.read<AuthProvider>().usuario;
     if (usuario == null) return;
     try {
       final estadoAnterior = _ticket!['estado'] as String;
       final updateData = <String, dynamic>{'estado': nuevoEstado};
       if (tecnicoId != null) updateData['tecnico_id'] = tecnicoId;
+      // Reabrir desde 'asignado' deja el ticket en cola, sin técnico.
+      if (limpiarTecnico) updateData['tecnico_id'] = null;
       if (nuevoEstado == 'cerrado') {
         updateData['fecha_cierre'] = DateTime.now().toUtc().toIso8601String();
       }
@@ -256,6 +258,136 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Diálogo de reasignación de técnico (acción de rescate del admin/encargado).
+  /// Excluye al técnico actualmente asignado de la lista, exige comentario y
+  /// mantiene el estado actual del ticket (continuidad del trabajo). El
+  /// comentario se guarda en el historial con el prefijo "Reasignación de
+  /// técnico:" para dejar clara la naturaleza de la transición.
+  Future<void> _mostrarDialogoReasignar() async {
+    final tecnicoActual = _ticket!['tecnico_id'] as String?;
+    final disponibles = _tecnicos
+        .where((t) => t['id'] != tecnicoActual)
+        .toList();
+    final estadoActual = _ticket!['estado'] as String;
+
+    final comentarioController = TextEditingController();
+    String? tecnicoSeleccionado =
+        disponibles.isNotEmpty ? disponibles.first['id'] as String : null;
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Reasignar técnico'),
+          content: SizedBox(
+            width: Responsive.isDesktop(context) ? 420 : double.maxFinite,
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              if (disponibles.isNotEmpty) ...[
+                DropdownButtonFormField<String>(
+                  initialValue: tecnicoSeleccionado,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'Nuevo técnico *', border: OutlineInputBorder()),
+                  items: disponibles.map((t) => DropdownMenuItem(value: t['id'] as String, child: Text(t['nombre'] as String, overflow: TextOverflow.ellipsis))).toList(),
+                  onChanged: (v) => setDialogState(() => tecnicoSeleccionado = v),
+                ),
+                const SizedBox(height: 12),
+              ] else
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: Colors.orange[50], borderRadius: BorderRadius.circular(8)),
+                  child: const Text('No hay otros técnicos disponibles para reasignar.', style: TextStyle(color: Colors.orange)),
+                ),
+              if (disponibles.isNotEmpty) const SizedBox(height: 0),
+              TextField(
+                controller: comentarioController,
+                decoration: const InputDecoration(
+                  labelText: 'Motivo *',
+                  border: OutlineInputBorder(),
+                  hintText: 'Ej: técnico no disponible, sin respuesta...',
+                ),
+                maxLines: 3,
+                textCapitalization: TextCapitalization.sentences,
+              ),
+            ]),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+            ElevatedButton(
+              onPressed: () async {
+                if (disponibles.isEmpty) return;
+                if (comentarioController.text.trim().isEmpty) return;
+                if (tecnicoSeleccionado == null) return;
+                Navigator.pop(context);
+                // Mantiene el estado actual (continuidad del trabajo).
+                await _cambiarEstado(
+                  estadoActual,
+                  comentario: 'Reasignación de técnico: ${comentarioController.text.trim()}',
+                  tecnicoId: tecnicoSeleccionado,
+                );
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white),
+              child: const Text('Reasignar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Diálogo de reapertura (solo desde 'asignado'). Devuelve el ticket a
+  /// 'abierto' y lo deja sin técnico (en cola). Exige comentario, que se guarda
+  /// en el historial con el prefijo "Reapertura:".
+  Future<void> _mostrarDialogoReabrir() async {
+    final comentarioController = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reabrir ticket'),
+        content: SizedBox(
+          width: Responsive.isDesktop(context) ? 420 : double.maxFinite,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.blue[50], borderRadius: BorderRadius.circular(8)),
+              child: const Text(
+                'El ticket volverá a "Abierto" y quedará sin técnico asignado, listo para reasignar.',
+                style: TextStyle(fontSize: 13, color: Colors.black87),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: comentarioController,
+              decoration: const InputDecoration(
+                labelText: 'Motivo *',
+                border: OutlineInputBorder(),
+                hintText: 'Ej: técnico no disponible, sin respuesta...',
+              ),
+              maxLines: 3,
+              textCapitalization: TextCapitalization.sentences,
+            ),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          ElevatedButton(
+            onPressed: () async {
+              if (comentarioController.text.trim().isEmpty) return;
+              Navigator.pop(context);
+              await _cambiarEstado(
+                'abierto',
+                comentario: 'Reapertura: ${comentarioController.text.trim()}',
+                limpiarTecnico: true,
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white),
+            child: const Text('Reabrir'),
+          ),
+        ],
       ),
     );
   }
@@ -576,20 +708,40 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                   border: Border.all(color: Colors.grey[200]!),
                 ),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [
-                    CircleAvatar(
-                      radius: 12,
-                      backgroundColor: const Color(0xFF1F4E79).withValues(alpha: 0.12),
-                      child: Text(
-                        nombre.isNotEmpty ? nombre[0].toUpperCase() : '?',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1F4E79)),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      CircleAvatar(
+                        radius: 12,
+                        backgroundColor: const Color(0xFF1F4E79).withValues(alpha: 0.12),
+                        child: Text(
+                          nombre.isNotEmpty ? nombre[0].toUpperCase() : '?',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1F4E79)),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(nombre, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                    const Spacer(),
-                    Text(_formatoAuditoria(fechaC), style: TextStyle(color: Colors.grey[400], fontSize: 11)),
-                  ]),
+                      const SizedBox(width: 8),
+                      // Nombre en la primera línea, fecha y hora en la segunda.
+                      // Al apilar en Column ya no compiten por el ancho: se acaba
+                      // el overflow de la fila.
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              nombre,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                            ),
+                            Text(
+                              _formatoAuditoria(fechaC),
+                              style: TextStyle(color: Colors.grey[400], fontSize: 11),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 6),
                   Text(c['comentario'] ?? '', style: const TextStyle(fontSize: 14)),
                 ]),
@@ -652,6 +804,26 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
           'Rechazar', Icons.cancel_outlined, Colors.red,
           () => _mostrarDialogoAccion('Rechazar ticket', 'Rechazar', 'rechazado',
               comentarioObligatorio: true),
+        ));
+      }
+      // Acciones de rescate: evitan que un ticket asignado quede en limbo si el
+      // técnico no actúa. Desde 'asignado' se puede reasignar o reabrir; una vez
+      // que el técnico ya empezó ('en_proceso'/'pausado') solo se reasigna, para
+      // no descartar trabajo ni repuestos ya cargados.
+      if (estado == 'asignado') {
+        botones.add(_botonAccion(
+          'Reasignar técnico', Icons.published_with_changes, Colors.orange,
+          () => _mostrarDialogoReasignar(),
+        ));
+        botones.add(_botonAccion(
+          'Reabrir', Icons.restart_alt, Colors.blue,
+          () => _mostrarDialogoReabrir(),
+        ));
+      }
+      if (estado == 'en_proceso' || estado == 'pausado') {
+        botones.add(_botonAccion(
+          'Reasignar técnico', Icons.published_with_changes, Colors.orange,
+          () => _mostrarDialogoReasignar(),
         ));
       }
       if (estado == 'resuelto') {

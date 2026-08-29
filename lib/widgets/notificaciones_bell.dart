@@ -44,21 +44,25 @@ class _NotificacionesBellState extends State<NotificacionesBell> {
           onPressed: _abrir,
         ),
         if (noLeidas > 0)
+          // El badge es puramente visual: IgnorePointer deja que todos los
+          // toques atraviesen hacia el IconButton (área táctil 48x48 completa).
           Positioned(
             top: 8,
             right: 6,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-              constraints: const BoxConstraints(minWidth: 17, minHeight: 17),
-              decoration: BoxDecoration(
-                color: Colors.red,
-                borderRadius: BorderRadius.circular(9),
-                border: Border.all(color: Colors.white, width: 1.2),
-              ),
-              child: Text(
-                noLeidas > 99 ? '99+' : '$noLeidas',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+            child: IgnorePointer(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                constraints: const BoxConstraints(minWidth: 17, minHeight: 17),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(9),
+                  border: Border.all(color: Colors.white, width: 1.2),
+                ),
+                child: Text(
+                  noLeidas > 99 ? '99+' : '$noLeidas',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
               ),
             ),
           ),

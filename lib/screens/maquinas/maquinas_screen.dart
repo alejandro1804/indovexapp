@@ -40,17 +40,51 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
 
   Future<void> _cargarDatos() async {
     setState(() => _cargando = true);
+    // Capturamos el usuario del provider ANTES de los await, para no leer el
+    // context tras los gaps async.
+    final usuario = context.read<AuthProvider>().usuario;
     try {
       final maquinasData = await _supabase.from('maquinas').select().order('nombre', ascending: true);
-      final sectoresData = await _supabase.from('sectores').select().order('nombre', ascending: true);
+
+      // Las ubicaciones del filtro dependen del alcance del usuario:
+      // - restringePorSector: solo sus ubicaciones asignadas (usuario_sector),
+      //   incluidas las que aún no tienen activos. Se leen en dos pasos para no
+      //   depender del embed anidado.
+      // - resto (acceso total): catálogo completo de la empresa.
+      List<Sector> sectores;
+      if (usuario != null && usuario.restringePorSector) {
+        final asignadas = await _supabase
+            .from('usuario_sector')
+            .select('sector_id')
+            .eq('usuario_id', usuario.id);
+        final sectorIds =
+            (asignadas as List).map((e) => e['sector_id'] as String).toList();
+        if (sectorIds.isEmpty) {
+          sectores = [];
+        } else {
+          final sectoresData = await _supabase
+              .from('sectores')
+              .select()
+              .inFilter('id', sectorIds)
+              .order('nombre', ascending: true);
+          sectores = (sectoresData as List).map((e) => Sector.fromMap(e)).toList();
+        }
+      } else {
+        final sectoresData = await _supabase
+            .from('sectores')
+            .select()
+            .order('nombre', ascending: true);
+        sectores = (sectoresData as List).map((e) => Sector.fromMap(e)).toList();
+      }
+
       setState(() {
         _maquinas = (maquinasData as List).map((e) => Maquina.fromMap(e)).toList();
-        _sectores = (sectoresData as List).map((e) => Sector.fromMap(e)).toList();
+        _sectores = sectores;
       });
     } catch (e) {
       _mostrarError('Error al cargar datos: $e');
     } finally {
-      setState(() => _cargando = false);
+      if (mounted) setState(() => _cargando = false);
     }
   }
 
