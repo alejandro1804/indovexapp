@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/auth_provider.dart';
@@ -7,6 +8,7 @@ import '../../widgets/adjuntos_section.dart';
 import '../../widgets/repuestos_ticket_section.dart';
 import '../../services/ticket_detalle_pdf_service.dart';
 import '../../models/usuario.dart';
+import '../../screens/maquinas/escanear_qr_screen.dart';
 
 class TicketDetailScreen extends StatefulWidget {
   final String ticketId;
@@ -258,6 +260,241 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // Transiciones del técnico con verificación presencial por QR
+  //
+  // Iniciar, reanudar y marcar resuelto comparten la misma maquinaria:
+  //   1) Se resuelve la VERIFICACIÓN: escanear el QR del activo (validando que
+  //      coincida con el del ticket) o, como escape auditado, indicar un motivo
+  //      para iniciar sin escaneo. En web/PC no hay cámara: solo escape.
+  //   2) Se pide el COMENTARIO del técnico (obligatorio al resolver, opcional
+  //      al iniciar/reanudar), mostrando arriba la constancia de verificación.
+  //   3) Se cambia el estado, guardando en el historial un comentario compuesto
+  //      "«constancia de verificación» — «comentario del técnico»".
+  //
+  // Todo queda en el comentario del ticket_historial (Opción A); no se toca el
+  // esquema.
+  // ===========================================================================
+
+  /// Punto de entrada genérico. [titulo] y [accion] rotulan la UI; [estadoDestino]
+  /// es el estado al que transiciona; [comentarioObligatorio] exige texto del
+  /// técnico (true para resolver, false para iniciar/reanudar).
+  Future<void> _transicionConVerificacion({
+    required String titulo,
+    required String accion,
+    required String estadoDestino,
+    required bool comentarioObligatorio,
+  }) async {
+    // Paso 1: elegir cómo se verifica la presencia.
+    final opcion = await showModalBottomSheet<String>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text(
+                titulo,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                'Para dejar constancia de la presencia en el activo, escaneá su código QR in situ.',
+                style: TextStyle(fontSize: 13, color: Colors.black54),
+              ),
+            ),
+            const SizedBox(height: 8),
+            // En web no hay cámara: se oculta el escaneo y queda solo el escape.
+            if (!kIsWeb)
+              ListTile(
+                leading: const Icon(Icons.qr_code_scanner, color: Color(0xFF1F4E79)),
+                title: const Text('Escanear QR del activo'),
+                subtitle: const Text('Confirma que estás frente al activo correcto'),
+                onTap: () => Navigator.pop(sheetContext, 'escanear'),
+              ),
+            ListTile(
+              leading: const Icon(Icons.edit_note, color: Colors.orange),
+              title: const Text('No puedo escanear'),
+              subtitle: const Text('Continuar sin QR indicando el motivo'),
+              onTap: () => Navigator.pop(sheetContext, 'escape'),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+
+    if (opcion == null || !mounted) return;
+
+    // Constancia de verificación que encabezará el comentario del historial.
+    String constancia;
+
+    if (opcion == 'escanear') {
+      final maquinaIdEscaneado = await Navigator.push<String>(
+        context,
+        MaterialPageRoute(builder: (_) => const EscanearQrScreen()),
+      );
+      // Canceló el escaneo: no seguimos.
+      if (maquinaIdEscaneado == null || !mounted) return;
+
+      final maquinaIdTicket = _ticket!['maquina_id'] as String?;
+      if (maquinaIdEscaneado != maquinaIdTicket) {
+        // QR de otro activo: se rechaza sin cambiar de estado.
+        _mostrarError('El QR escaneado corresponde a otro activo, no al de este ticket.');
+        return;
+      }
+      constancia = 'Verificado por escaneo QR in situ';
+    } else {
+      // Escape auditado: pedir motivo antes del comentario.
+      final motivo = await _pedirMotivoEscape();
+      if (motivo == null || !mounted) return; // canceló
+      constancia = 'Sin escaneo QR. Motivo: $motivo';
+    }
+
+    // Paso 2: comentario del técnico (con la constancia visible arriba).
+    await _pedirComentarioYConfirmar(
+      titulo: titulo,
+      accion: accion,
+      estadoDestino: estadoDestino,
+      constancia: constancia,
+      comentarioObligatorio: comentarioObligatorio,
+    );
+  }
+
+  /// Diálogo del camino de escape: devuelve el motivo (no vacío) o null si se
+  /// cancela. En web presugiere "Sin cámara (equipo de escritorio)".
+  Future<String?> _pedirMotivoEscape() async {
+    final motivoController = TextEditingController(
+      text: kIsWeb ? 'Sin cámara (equipo de escritorio)' : '',
+    );
+
+    return showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Continuar sin escaneo'),
+        content: SizedBox(
+          width: Responsive.isDesktop(dialogContext) ? 420 : double.maxFinite,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.orange[50], borderRadius: BorderRadius.circular(8)),
+              child: const Text(
+                'Quedará registrado que se continuó sin verificación por QR, junto con el motivo.',
+                style: TextStyle(fontSize: 13, color: Colors.black87),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: motivoController,
+              decoration: const InputDecoration(
+                labelText: 'Motivo *',
+                border: OutlineInputBorder(),
+                hintText: 'Ej: etiqueta QR ilegible, activo sin etiqueta...',
+              ),
+              maxLines: 3,
+              textCapitalization: TextCapitalization.sentences,
+            ),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancelar')),
+          ElevatedButton(
+            onPressed: () {
+              final t = motivoController.text.trim();
+              if (t.isEmpty) return;
+              Navigator.pop(dialogContext, t);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white),
+            child: const Text('Continuar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Diálogo final: muestra la constancia de verificación como encabezado fijo
+  /// y pide el comentario del técnico. Compone el comentario del historial y
+  /// ejecuta el cambio de estado.
+  Future<void> _pedirComentarioYConfirmar({
+    required String titulo,
+    required String accion,
+    required String estadoDestino,
+    required String constancia,
+    required bool comentarioObligatorio,
+  }) async {
+    final comentarioController = TextEditingController();
+    final verificadoOk = constancia.startsWith('Verificado');
+
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(titulo),
+        content: SizedBox(
+          width: Responsive.isDesktop(dialogContext) ? 420 : double.maxFinite,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            // Encabezado con el resultado de la verificación.
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: verificadoOk ? Colors.green[50] : Colors.orange[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: verificadoOk ? Colors.green[200]! : Colors.orange[200]!),
+              ),
+              child: Row(children: [
+                Icon(
+                  verificadoOk ? Icons.verified_outlined : Icons.warning_amber_outlined,
+                  size: 18,
+                  color: verificadoOk ? Colors.green[700] : Colors.orange[800],
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    constancia,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: verificadoOk ? Colors.green[800] : Colors.orange[900],
+                    ),
+                  ),
+                ),
+              ]),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: comentarioController,
+              decoration: InputDecoration(
+                labelText: comentarioObligatorio ? 'Comentario *' : 'Comentario (opcional)',
+                border: const OutlineInputBorder(),
+                hintText: 'Describí el trabajo realizado...',
+              ),
+              maxLines: 3,
+              textCapitalization: TextCapitalization.sentences,
+            ),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancelar')),
+          ElevatedButton(
+            onPressed: () async {
+              final texto = comentarioController.text.trim();
+              if (comentarioObligatorio && texto.isEmpty) return;
+              Navigator.pop(dialogContext);
+              // Comentario compuesto: constancia + texto del técnico (si hay).
+              final comentarioFinal =
+                  texto.isEmpty ? constancia : '$constancia — $texto';
+              await _cambiarEstado(estadoDestino, comentario: comentarioFinal);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white),
+            child: Text(accion),
+          ),
+        ],
       ),
     );
   }
@@ -840,10 +1077,19 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     }
 
     if (esTecnico) {
+      // Iniciar, reanudar y marcar resuelto verifican presencia por QR (con
+      // escape auditado). Comentario opcional al iniciar/reanudar, obligatorio
+      // al resolver. Pausar NO pide QR: el técnico ya está en el sitio; se
+      // vuelve a verificar recién al reanudar.
       if (estado == 'asignado') {
         botones.add(_botonAccion(
           'Iniciar trabajo', Icons.build_outlined, Colors.purple,
-          () => _mostrarDialogoAccion('Iniciar trabajo', 'Iniciar', 'en_proceso'),
+          () => _transicionConVerificacion(
+            titulo: 'Iniciar trabajo',
+            accion: 'Iniciar',
+            estadoDestino: 'en_proceso',
+            comentarioObligatorio: false,
+          ),
         ));
       }
       if (estado == 'en_proceso') {
@@ -854,19 +1100,32 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
         ));
         botones.add(_botonAccion(
           'Marcar resuelto', Icons.check_circle_outline, Colors.green,
-          () => _mostrarDialogoAccion('Marcar como resuelto', 'Resolver', 'resuelto',
-              comentarioObligatorio: true),
+          () => _transicionConVerificacion(
+            titulo: 'Marcar como resuelto',
+            accion: 'Resolver',
+            estadoDestino: 'resuelto',
+            comentarioObligatorio: true,
+          ),
         ));
       }
       if (estado == 'pausado') {
         botones.add(_botonAccion(
           'Reanudar', Icons.play_circle_outline, Colors.purple,
-          () => _mostrarDialogoAccion('Reanudar trabajo', 'Reanudar', 'en_proceso'),
+          () => _transicionConVerificacion(
+            titulo: 'Reanudar trabajo',
+            accion: 'Reanudar',
+            estadoDestino: 'en_proceso',
+            comentarioObligatorio: false,
+          ),
         ));
         botones.add(_botonAccion(
           'Marcar resuelto', Icons.check_circle_outline, Colors.green,
-          () => _mostrarDialogoAccion('Marcar como resuelto', 'Resolver', 'resuelto',
-              comentarioObligatorio: true),
+          () => _transicionConVerificacion(
+            titulo: 'Marcar como resuelto',
+            accion: 'Resolver',
+            estadoDestino: 'resuelto',
+            comentarioObligatorio: true,
+          ),
         ));
       }
     }

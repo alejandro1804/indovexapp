@@ -60,6 +60,7 @@ class _NotificacionesBellState extends State<NotificacionesBell> {
                 ),
                 child: Text(
                   noLeidas > 99 ? '99+' : '$noLeidas',
+
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                 ),
