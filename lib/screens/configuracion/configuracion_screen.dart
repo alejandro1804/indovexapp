@@ -8,6 +8,7 @@ import 'categorias_repuestos_screen.dart';
 import 'roles_screen.dart';
 import 'tipos_intervalo_screen.dart';
 import 'auditoria_screen.dart';
+import 'perfil_empresa_screen.dart';
 
 class ConfiguracionScreen extends StatelessWidget {
   const ConfiguracionScreen({super.key});
@@ -18,9 +19,16 @@ class ConfiguracionScreen extends StatelessWidget {
 
     final opciones = [
       _ConfigOpcion(
+        icono: Icons.business_outlined,
+        titulo: 'Perfil de empresa',
+        descripcion: 'Ver y actualizar los datos de la empresa',
+        screen: const PerfilEmpresaScreen(),
+        visible: usuario?.esAdmin ?? false,
+      ),
+      _ConfigOpcion(
         icono: Icons.domain_outlined,
-        titulo: 'Ubicacion',
-        descripcion: 'Gestionar Ubicacion',
+        titulo: 'Ubicaciones',
+        descripcion: 'Gestionar Ubicaciones',
         screen: const SectoresScreen(),
         visible: true,
       ),
