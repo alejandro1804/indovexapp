@@ -8,7 +8,7 @@ import '../../widgets/adjuntos_section.dart';
 import '../../widgets/repuestos_ticket_section.dart';
 import '../../services/ticket_detalle_pdf_service.dart';
 import '../../models/usuario.dart';
-import '../activos/escanear_qr_screen.dart';
+import '../maquinas/escanear_qr_screen.dart';
 
 class TicketDetailScreen extends StatefulWidget {
   final String ticketId;
@@ -1057,29 +1057,34 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     if (usuario == null) return const SizedBox.shrink();
     if (estado == 'cerrado' || estado == 'rechazado') return const SizedBox.shrink();
 
-    final esAdminOEncargado = usuario.esAdmin || usuario.esEncargado;
-    // El ejecutor ya no se define por el rol 'tecnico' sino por el permiso
-    // 'cambiar_estado': puede ser técnico, admin, encargado u otro perfil.
+    // Cada acción se gobierna por su PERMISO, no por el rol. Así la pantalla
+    // de Roles y permisos es la única fuente de verdad:
+    //  - asignar_tecnico: asignar, rechazar, reasignar, reabrir-a-cola.
+    //  - cerrar_ticket:   cerrar y reabrir un ticket resuelto.
+    //  - cambiar_estado:  ejecutar (iniciar, pausar, reanudar, resolver).
+    final puedeAsignar = usuario.tienePermiso('asignar_tecnico');
+    final puedeCerrar = usuario.tienePermiso('cerrar_ticket');
     final puedeEjecutar = usuario.tienePermiso('cambiar_estado');
     final botones = <Widget>[];
 
-    if (esAdminOEncargado) {
-      if (estado == 'abierto') {
-        botones.add(_botonAccion(
-          'Asignar', Icons.assignment_ind_outlined, Colors.orange,
-          () => _mostrarDialogoAccion('Asignar ejecutor', 'Asignar', 'asignado',
-              seleccionarTecnico: true),
-        ));
-        botones.add(_botonAccion(
-          'Rechazar', Icons.cancel_outlined, Colors.red,
-          () => _mostrarDialogoAccion('Rechazar ticket', 'Rechazar', 'rechazado',
-              comentarioObligatorio: true),
-        ));
-      }
-      // Acciones de rescate: evitan que un ticket asignado quede en limbo si el
-      // técnico no actúa. Desde 'asignado' se puede reasignar o reabrir; una vez
-      // que el técnico ya empezó ('en_proceso'/'pausado') solo se reasigna, para
-      // no descartar trabajo ni repuestos ya cargados.
+    if (estado == 'abierto' && puedeAsignar) {
+      botones.add(_botonAccion(
+        'Asignar', Icons.assignment_ind_outlined, Colors.orange,
+        () => _mostrarDialogoAccion('Asignar ejecutor', 'Asignar', 'asignado',
+            seleccionarTecnico: true),
+      ));
+      botones.add(_botonAccion(
+        'Rechazar', Icons.cancel_outlined, Colors.red,
+        () => _mostrarDialogoAccion('Rechazar ticket', 'Rechazar', 'rechazado',
+            comentarioObligatorio: true),
+      ));
+    }
+
+    // Acciones de rescate: evitan que un ticket asignado quede en limbo si el
+    // ejecutor no actúa. Desde 'asignado' se puede reasignar o reabrir; una vez
+    // que ya empezó ('en_proceso'/'pausado') solo se reasigna, para no descartar
+    // trabajo ni repuestos ya cargados. Todas requieren asignar_tecnico.
+    if (puedeAsignar) {
       if (estado == 'asignado') {
         botones.add(_botonAccion(
           'Reasignar', Icons.published_with_changes, Colors.orange,
@@ -1096,17 +1101,19 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
           () => _mostrarDialogoReasignar(),
         ));
       }
-      if (estado == 'resuelto') {
-        botones.add(_botonAccion(
-          'Cerrar ticket', Icons.lock_outline, Colors.grey,
-          () => _mostrarDialogoAccion('Cerrar ticket', 'Cerrar', 'cerrado'),
-        ));
-        botones.add(_botonAccion(
-          'Reabrir', Icons.restart_alt, Colors.blue,
-          () => _mostrarDialogoAccion('Reabrir ticket', 'Reabrir', 'abierto',
-              comentarioObligatorio: true),
-        ));
-      }
+    }
+
+    // Cerrar y reabrir un ticket resuelto: permiso cerrar_ticket.
+    if (estado == 'resuelto' && puedeCerrar) {
+      botones.add(_botonAccion(
+        'Cerrar ticket', Icons.lock_outline, Colors.grey,
+        () => _mostrarDialogoAccion('Cerrar ticket', 'Cerrar', 'cerrado'),
+      ));
+      botones.add(_botonAccion(
+        'Reabrir', Icons.restart_alt, Colors.blue,
+        () => _mostrarDialogoAccion('Reabrir ticket', 'Reabrir', 'abierto',
+            comentarioObligatorio: true),
+      ));
     }
 
     if (puedeEjecutar) {
