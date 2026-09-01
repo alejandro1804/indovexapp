@@ -8,7 +8,7 @@ import '../../widgets/adjuntos_section.dart';
 import '../../widgets/repuestos_ticket_section.dart';
 import '../../services/ticket_detalle_pdf_service.dart';
 import '../../models/usuario.dart';
-import '../../screens/maquinas/escanear_qr_screen.dart';
+import '../activos/escanear_qr_screen.dart';
 
 class TicketDetailScreen extends StatefulWidget {
   final String ticketId;
@@ -93,11 +93,45 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
           .eq('ticket_id', widget.ticketId)
           .order('fecha', ascending: false);
 
-      final tecnicosRaw = await _supabase
-          .from('usuarios')
-          .select('id, nombre, roles(nombre)')
-          .eq('empresa_id', usuarioActual?.empresaId ?? '')
-          .eq('estado', 'activo');
+      // Ejecutores asignables: usuarios cuyo ROL tiene el permiso
+      // 'cambiar_estado'. Ya no se filtra por el rol 'tecnico': el ejecutor
+      // puede ser técnico, admin, encargado o cualquier perfil al que se le
+      // haya dado ese permiso. Plan B (dos queries) para no depender de embeds
+      // anidados de 3 niveles; el toSet() neutraliza posibles filas duplicadas
+      // en rol_permisos.
+      List<String> rolIdsEjecutores = [];
+      try {
+        final permisoData = await _supabase
+            .from('permisos')
+            .select('id')
+            .eq('codigo', 'cambiar_estado')
+            .maybeSingle();
+        if (permisoData != null) {
+          final permisoId = permisoData['id'] as String;
+          final rolesConPermiso = await _supabase
+              .from('rol_permisos')
+              .select('rol_id')
+              .eq('permiso_id', permisoId);
+          rolIdsEjecutores = (rolesConPermiso as List)
+              .map((e) => e['rol_id'] as String)
+              .toSet()
+              .toList();
+        }
+      } catch (_) {
+        // Si falla, la lista de ejecutores queda vacía; la UI lo maneja.
+      }
+
+      List<Map<String, dynamic>> ejecutoresRaw = [];
+      if (rolIdsEjecutores.isNotEmpty) {
+        final data = await _supabase
+            .from('usuarios')
+            .select('id, nombre, rol_id')
+            .eq('empresa_id', usuarioActual?.empresaId ?? '')
+            .eq('estado', 'activo')
+            .inFilter('rol_id', rolIdsEjecutores)
+            .order('nombre');
+        ejecutoresRaw = List<Map<String, dynamic>>.from(data);
+      }
 
       final comentariosRaw = await _supabase
           .from('ticket_comentarios')
@@ -135,10 +169,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
         _historial = List<Map<String, dynamic>>.from(historialRaw);
         _comentarios = List<Map<String, dynamic>>.from(comentariosRaw);
         _puedeComentar = puedeComentar;
-        _tecnicos = (tecnicosRaw as List)
-            .where((u) => (u['roles'] as Map?)?['nombre'] == 'tecnico')
-            .map((u) => Map<String, dynamic>.from(u))
-            .toList();
+        _tecnicos = ejecutoresRaw;
       });
     } catch (e) {
       _mostrarError('Error al cargar ticket: $e');
@@ -219,7 +250,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
               if (seleccionarTecnico && _tecnicos.isNotEmpty) ...[
                 DropdownButtonFormField<String>(
                   initialValue: tecnicoSeleccionado,
-                  decoration: const InputDecoration(labelText: 'Técnico *', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(labelText: 'Ejecutor *', border: OutlineInputBorder()),
                   items: _tecnicos.map((t) => DropdownMenuItem(value: t['id'] as String, child: Text(t['nombre'] as String))).toList(),
                   onChanged: (v) => setDialogState(() => tecnicoSeleccionado = v),
                 ),
@@ -229,7 +260,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(color: Colors.orange[50], borderRadius: BorderRadius.circular(8)),
-                  child: const Text('No hay técnicos disponibles. Primero creá un usuario con rol técnico.', style: TextStyle(color: Colors.orange)),
+                  child: const Text('No hay ejecutores disponibles. Asigná el permiso "Cambiar estado" a algún rol.', style: TextStyle(color: Colors.orange)),
                 ),
               TextField(
                 controller: comentarioController,
@@ -519,7 +550,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Reasignar técnico'),
+          title: const Text('Reasignar ejecutor'),
           content: SizedBox(
             width: Responsive.isDesktop(context) ? 420 : double.maxFinite,
             child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -527,7 +558,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                 DropdownButtonFormField<String>(
                   initialValue: tecnicoSeleccionado,
                   isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Nuevo técnico *', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(labelText: 'Nuevo ejecutor *', border: OutlineInputBorder()),
                   items: disponibles.map((t) => DropdownMenuItem(value: t['id'] as String, child: Text(t['nombre'] as String, overflow: TextOverflow.ellipsis))).toList(),
                   onChanged: (v) => setDialogState(() => tecnicoSeleccionado = v),
                 ),
@@ -536,7 +567,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(color: Colors.orange[50], borderRadius: BorderRadius.circular(8)),
-                  child: const Text('No hay otros técnicos disponibles para reasignar.', style: TextStyle(color: Colors.orange)),
+                  child: const Text('No hay otros ejecutores disponibles para reasignar.', style: TextStyle(color: Colors.orange)),
                 ),
               if (disponibles.isNotEmpty) const SizedBox(height: 0),
               TextField(
@@ -1027,14 +1058,16 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
     if (estado == 'cerrado' || estado == 'rechazado') return const SizedBox.shrink();
 
     final esAdminOEncargado = usuario.esAdmin || usuario.esEncargado;
-    final esTecnico = usuario.esTecnico;
+    // El ejecutor ya no se define por el rol 'tecnico' sino por el permiso
+    // 'cambiar_estado': puede ser técnico, admin, encargado u otro perfil.
+    final puedeEjecutar = usuario.tienePermiso('cambiar_estado');
     final botones = <Widget>[];
 
     if (esAdminOEncargado) {
       if (estado == 'abierto') {
         botones.add(_botonAccion(
-          'Asignar técnico', Icons.assignment_ind_outlined, Colors.orange,
-          () => _mostrarDialogoAccion('Asignar técnico', 'Asignar', 'asignado',
+          'Asignar', Icons.assignment_ind_outlined, Colors.orange,
+          () => _mostrarDialogoAccion('Asignar ejecutor', 'Asignar', 'asignado',
               seleccionarTecnico: true),
         ));
         botones.add(_botonAccion(
@@ -1049,7 +1082,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
       // no descartar trabajo ni repuestos ya cargados.
       if (estado == 'asignado') {
         botones.add(_botonAccion(
-          'Reasignar técnico', Icons.published_with_changes, Colors.orange,
+          'Reasignar', Icons.published_with_changes, Colors.orange,
           () => _mostrarDialogoReasignar(),
         ));
         botones.add(_botonAccion(
@@ -1059,7 +1092,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
       }
       if (estado == 'en_proceso' || estado == 'pausado') {
         botones.add(_botonAccion(
-          'Reasignar técnico', Icons.published_with_changes, Colors.orange,
+          'Reasignar', Icons.published_with_changes, Colors.orange,
           () => _mostrarDialogoReasignar(),
         ));
       }
@@ -1076,7 +1109,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
       }
     }
 
-    if (esTecnico) {
+    if (puedeEjecutar) {
       // Iniciar, reanudar y marcar resuelto verifican presencia por QR (con
       // escape auditado). Comentario opcional al iniciar/reanudar, obligatorio
       // al resolver. Pausar NO pide QR: el técnico ya está en el sitio; se
