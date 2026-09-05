@@ -17,10 +17,9 @@ class PlanesScreen extends StatelessWidget {
   }
 
   Future<void> _logout(BuildContext context) async {
+    final navigator = Navigator.of(context);
     await context.read<AuthProvider>().logout();
-    if (!context.mounted) return;
-    Navigator.pushReplacement(
-      context,
+    navigator.pushReplacement(
       MaterialPageRoute(builder: (_) => const LoginScreen()),
     );
   }
@@ -92,7 +91,7 @@ class PlanesScreen extends StatelessWidget {
 
                 // Descripción
                 Text(
-                  'Para contratar un plan e continuar usando IndovexApp, visitá nuestro sitio web.',
+                  'Podés conocer más sobre IndovexApp en nuestro sitio web.',
                   style: TextStyle(
                     fontSize: 15,
                     color: Colors.grey[600],
@@ -128,7 +127,7 @@ class PlanesScreen extends StatelessWidget {
 
                 // Texto de apoyo
                 Text(
-                  'Una vez que completes la contratación en la web,\ntu acceso se actualizará automáticamente.',
+                  'Si ya sos cliente, tu acceso se actualiza automáticamente.',
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey[500],
