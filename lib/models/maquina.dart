@@ -7,6 +7,7 @@ class Maquina {
   final String estado;
   final String? descripcion;
   final String? imagenUrl;
+  final int? tamanioBytes;
 
   Maquina({
     required this.id,
@@ -17,6 +18,7 @@ class Maquina {
     required this.estado,
     this.descripcion,
     this.imagenUrl,
+    this.tamanioBytes,
   });
 
   factory Maquina.fromMap(Map<String, dynamic> map) {
@@ -31,6 +33,7 @@ class Maquina {
       estado: map['estado'],
       descripcion: map['descripcion'],
       imagenUrl: map['imagen_url'],
+      tamanioBytes: map['tamanio_bytes'],
     );
   }
 }

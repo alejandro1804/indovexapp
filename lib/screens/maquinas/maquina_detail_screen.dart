@@ -89,6 +89,7 @@ class _MaquinaDetailScreenState extends State<MaquinaDetailScreen> {
               empresaId: _maquina.empresaId,
               entidadId: _maquina.id,
               size: 120,
+              tamanioBytes: _maquina.tamanioBytes,
               puedeEditar: _puedeGestionar,
               onFotoActualizada: (nuevoPath) {
                 setState(() {
@@ -101,6 +102,9 @@ class _MaquinaDetailScreenState extends State<MaquinaDetailScreen> {
                     estado: _maquina.estado,
                     descripcion: _maquina.descripcion,
                     imagenUrl: nuevoPath.isEmpty ? null : nuevoPath,
+                    // Al cambiar/borrar la foto no conocemos el tamaño acá;
+                    // se recarga fresco desde la DB al volver al listado.
+                    tamanioBytes: nuevoPath.isEmpty ? null : _maquina.tamanioBytes,
                   );
                 });
               },

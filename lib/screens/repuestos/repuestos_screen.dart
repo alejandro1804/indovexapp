@@ -265,6 +265,7 @@ Future<void> _exportarPdf() async {
                     empresaId: repuesto.empresaId,
                     entidadId: repuesto.id,
                     size: thumbSize,
+                    tamanioBytes: repuesto.tamanioBytes,
                     puedeEditar: false,
                   ),
                   if (stockBajo)

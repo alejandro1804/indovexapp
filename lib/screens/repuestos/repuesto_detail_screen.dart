@@ -285,6 +285,7 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
               empresaId: _repuesto.empresaId,
               entidadId: _repuesto.id,
               size: 120,
+              tamanioBytes: _repuesto.tamanioBytes,
               puedeEditar: puedeGestionar,
               onFotoActualizada: (nuevoPath) {
                 setState(() {
@@ -300,6 +301,9 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
                     unidadMedida: _repuesto.unidadMedida,
                     notas: _repuesto.notas,
                     imagenUrl: nuevoPath.isEmpty ? null : nuevoPath,
+                    // Al cambiar/borrar la foto no conocemos el tamaño acá;
+                    // se recarga fresco desde la DB al volver al listado.
+                    tamanioBytes: nuevoPath.isEmpty ? null : _repuesto.tamanioBytes,
                     activo: _repuesto.activo,
                   );
                 });

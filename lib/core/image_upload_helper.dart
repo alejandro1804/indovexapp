@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/egress_service.dart';
 
 /// Configuración de compresión por tipo de entidad
 class _ImageConfig {
@@ -57,6 +58,11 @@ class ImageUploadHelper {
   static final _supabase = Supabase.instance.client;
   static const _bucket = 'documentos';
   static final _picker = ImagePicker();
+
+  // Paths cuyo egress ya se registró en esta sesión de la app. Evita contar
+  // la misma imagen varias veces por rebuild del widget. Se reinicia al
+  // reiniciar la app (dedup por sesión, no persistente).
+  static final Set<String> _egressRegistrado = {};
 
   /// Consulta el uso de almacenamiento de la empresa vía RPC.
   ///
@@ -194,8 +200,23 @@ class ImageUploadHelper {
   }
 
   /// Genera una signed URL con 1 hora de vigencia.
-  static Future<String> signedUrl(String storagePath) async {
-    return await _supabase.storage.from(_bucket).createSignedUrl(storagePath, 3600);
+  ///
+  /// [tamanioBytes]: si se provee, registra egress de imagen (una sola vez
+  /// por path en esta sesión de la app; dedup interno vía _egressRegistrado).
+  /// Los llamadores que no lo pasan no registran nada (retrocompatible).
+  static Future<String> signedUrl(String storagePath, {int? tamanioBytes}) async {
+    final url = await _supabase.storage.from(_bucket).createSignedUrl(storagePath, 3600);
+
+    // Instrumentación de egress con dedup por sesión: registrar solo la
+    // primera vez que se sirve este path en esta ejecución de la app.
+    if (tamanioBytes != null &&
+        tamanioBytes > 0 &&
+        !_egressRegistrado.contains(storagePath)) {
+      _egressRegistrado.add(storagePath);
+      await EgressService.registrar(EgressOrigen.imagen, tamanioBytes);
+    }
+
+    return url;
   }
 
   /// Elimina la foto del bucket (no falla si no existe).

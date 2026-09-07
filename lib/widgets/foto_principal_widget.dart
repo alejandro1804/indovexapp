@@ -15,6 +15,7 @@ import '../core/image_upload_helper.dart';
 ///   empresaId: maquina.empresaId,
 ///   entidadId: maquina.id,
 ///   size: 56,
+///   tamanioBytes: maquina.tamanioBytes,
 ///   onFotoActualizada: (nuevoPath) => setState(() => maquina = ...),
 ///   puedeEditar: true,
 /// )
@@ -27,6 +28,9 @@ class FotoPrincipalWidget extends StatefulWidget {
   final double size;          // lado del cuadrado en el listado
   final bool puedeEditar;
   final void Function(String nuevoPath)? onFotoActualizada;
+  // Tamaño en bytes de la imagen (para instrumentar egress al servirla).
+  // Opcional: si es null, no se registra egress (fail-open).
+  final int? tamanioBytes;
 
   const FotoPrincipalWidget({
     super.key,
@@ -37,6 +41,7 @@ class FotoPrincipalWidget extends StatefulWidget {
     this.size = 56,
     this.puedeEditar = false,
     this.onFotoActualizada,
+    this.tamanioBytes,
   });
 
   @override
@@ -69,7 +74,12 @@ class _FotoPrincipalWidgetState extends State<FotoPrincipalWidget> {
     }
     setState(() => _cargando = true);
     try {
-      final url = await ImageUploadHelper.signedUrl(widget.storagePath!);
+      // Instrumentación de egress: pasamos el tamaño para que signedUrl
+      // lo registre (una vez por sesión por path; dedup interno del helper).
+      final url = await ImageUploadHelper.signedUrl(
+        widget.storagePath!,
+        tamanioBytes: widget.tamanioBytes,
+      );
       if (mounted) setState(() => _signedUrl = url);
     } catch (_) {
       if (mounted) setState(() => _signedUrl = null);
@@ -98,7 +108,9 @@ class _FotoPrincipalWidgetState extends State<FotoPrincipalWidget> {
 
       widget.onFotoActualizada?.call(resultado.path);
 
-      // Recargar URL firmada para el nuevo path
+      // Recargar URL firmada para el nuevo path.
+      // No instrumentamos egress acá: subir no es servir/visualizar, y el
+      // registro real ocurre en _cargarUrl cuando la imagen se muestra.
       final url = await ImageUploadHelper.signedUrl(resultado.path);
       if (mounted) setState(() => _signedUrl = url);
 

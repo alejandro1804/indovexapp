@@ -10,6 +10,7 @@ class Repuesto {
   final String unidadMedida;
   final String? notas;
   final String? imagenUrl;
+  final int? tamanioBytes;
   final bool activo;
 
   Repuesto({
@@ -24,6 +25,7 @@ class Repuesto {
     required this.unidadMedida,
     this.notas,
     this.imagenUrl,
+    this.tamanioBytes,
     required this.activo,
   });
 
@@ -44,6 +46,7 @@ class Repuesto {
       unidadMedida: map['unidad_medida'],
       notas: map['notas'],
       imagenUrl: map['imagen_url'],
+      tamanioBytes: map['tamanio_bytes'],
       activo: map['activo'],
     );
   }

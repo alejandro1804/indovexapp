@@ -367,6 +367,7 @@ class _MaquinasScreenState extends State<MaquinasScreen> {
                 empresaId: maquina.empresaId,
                 entidadId: maquina.id,
                 size: thumbSize,
+                tamanioBytes: maquina.tamanioBytes,
                 puedeEditar: false,
               ),
               const SizedBox(width: 10),
