@@ -3,6 +3,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../models/repuesto.dart';
+import 'egress_service.dart';
 
 class RepuestosPdfService {
   static Future<void> generarYCompartir({
@@ -147,6 +148,7 @@ class RepuestosPdfService {
     );
 
     final bytes = await pdf.save();
+    await EgressService.registrar(EgressOrigen.pdf, bytes.length);
     await Printing.sharePdf(
       bytes: Uint8List.fromList(bytes),
       filename: 'repuestos_indovexapp_${ahora.millisecondsSinceEpoch}.pdf',

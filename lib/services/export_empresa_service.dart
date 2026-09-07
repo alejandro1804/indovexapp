@@ -5,6 +5,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'egress_service.dart';
+
 
 /// Servicio de exportación de datos de una empresa (portabilidad / baja voluntaria).
 ///
@@ -103,6 +105,11 @@ class ExportEmpresaService {
     // 5. Comprimir y descargar.
     final zipData = ZipEncoder().encode(archive);
     final zipBytes = Uint8List.fromList(zipData);
+    await EgressService.registrar(
+      EgressOrigen.export,
+      zipBytes.length,
+      empresaId: empresaId,
+    );
 
     final fecha = DateTime.now();
     final nombreArchivo =

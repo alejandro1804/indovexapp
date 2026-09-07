@@ -98,11 +98,16 @@ class ImageUploadHelper {
   }
 
   /// Abre el selector de imagen (cámara o galería) y sube al bucket.
-  /// Devuelve el path en Storage si tuvo éxito, null si se canceló.
+  /// Devuelve un record con el path en Storage y el tamaño en bytes del
+  /// .webp subido, o null si se canceló.
+  ///
+  /// El campo `bytes` es el tamaño real del archivo comprimido que se
+  /// sube (compressed.length). Se persiste en la tabla vía guardarEnDb
+  /// para instrumentar egress y calcular storage almacenado real.
   ///
   /// Lanza [StorageQuotaExcedidaException] si la empresa está al 100% de
   /// su cuota (chequeo previo, para no comprimir/subir en vano).
-  static Future<String?> pickAndUpload({
+  static Future<({String path, int bytes})?> pickAndUpload({
     required String tipo,        // 'maquina' | 'repuesto' | 'avatar'
     required String empresaId,
     required String entidadId,   // para avatar: user_id
@@ -140,7 +145,7 @@ class ImageUploadHelper {
       ),
     );
 
-    return path;
+    return (path: path, bytes: compressed.length);
   }
 
   /// Comprime a WebP respetando los límites de la config.
@@ -203,10 +208,15 @@ class ImageUploadHelper {
   }
 
   /// Guarda el path en la tabla correspondiente.
+  ///
+  /// [tamanioBytes]: tamaño del .webp subido. Solo se persiste para
+  /// máquina/repuesto (que tienen columna tamanio_bytes); avatar lo ignora.
+  /// Si es null (ej. al borrar), no se toca la columna de tamaño.
   static Future<void> guardarEnDb({
     required String tipo,
     required String entidadId,
     required String path,
+    int? tamanioBytes,
   }) async {
     final tabla = switch (tipo) {
       'maquina'  => 'maquinas',
@@ -221,6 +231,12 @@ class ImageUploadHelper {
       _          => throw ArgumentError('tipo inválido: $tipo'),
     };
 
-    await _supabase.from(tabla).update({campo: path}).eq('id', entidadId);
+    final datos = <String, dynamic>{campo: path};
+    // Solo máquina/repuesto tienen columna tamanio_bytes; avatar no.
+    if (tipo != 'avatar' && tamanioBytes != null) {
+      datos['tamanio_bytes'] = tamanioBytes;
+    }
+
+    await _supabase.from(tabla).update(datos).eq('id', entidadId);
   }
 }

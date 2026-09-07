@@ -81,24 +81,25 @@ class _FotoPrincipalWidgetState extends State<FotoPrincipalWidget> {
   Future<void> _subirFoto(ImageSource source) async {
     setState(() => _subiendo = true);
     try {
-      final path = await ImageUploadHelper.pickAndUpload(
+      final resultado = await ImageUploadHelper.pickAndUpload(
         tipo: widget.tipo,
         empresaId: widget.empresaId,
         entidadId: widget.entidadId,
         source: source,
       );
-      if (path == null) return;
+      if (resultado == null) return;
 
       await ImageUploadHelper.guardarEnDb(
         tipo: widget.tipo,
         entidadId: widget.entidadId,
-        path: path,
+        path: resultado.path,
+        tamanioBytes: resultado.bytes,
       );
 
-      widget.onFotoActualizada?.call(path);
+      widget.onFotoActualizada?.call(resultado.path);
 
       // Recargar URL firmada para el nuevo path
-      final url = await ImageUploadHelper.signedUrl(path);
+      final url = await ImageUploadHelper.signedUrl(resultado.path);
       if (mounted) setState(() => _signedUrl = url);
 
       if (mounted) {
@@ -163,12 +164,10 @@ class _FotoPrincipalWidgetState extends State<FotoPrincipalWidget> {
     if (widget.storagePath == null) return;
     try {
       await ImageUploadHelper.eliminar(widget.storagePath!);
-      await ImageUploadHelper.guardarEnDb(
-        tipo: widget.tipo,
-        entidadId: widget.entidadId,
-        path: '',
-      );
-      // Guardar null en DB correctamente
+
+      // Setear imagen a null y, para máquina/repuesto, limpiar también
+      // tamanio_bytes para que no quede un tamaño fantasma de una imagen
+      // que ya no existe (ensuciaría el cálculo de storage).
       final tabla = switch (widget.tipo) {
         'maquina'  => 'maquinas',
         'repuesto' => 'repuestos',
@@ -176,7 +175,12 @@ class _FotoPrincipalWidgetState extends State<FotoPrincipalWidget> {
         _          => 'maquinas',
       };
       final campo = widget.tipo == 'avatar' ? 'avatar_path' : 'imagen_url';
-      await Supabase.instance.client.from(tabla).update({campo: null}).eq('id', widget.entidadId);
+
+      final datos = <String, dynamic>{campo: null};
+      if (widget.tipo != 'avatar') {
+        datos['tamanio_bytes'] = null;
+      }
+      await Supabase.instance.client.from(tabla).update(datos).eq('id', widget.entidadId);
 
       widget.onFotoActualizada?.call('');
       if (mounted) setState(() => _signedUrl = null);

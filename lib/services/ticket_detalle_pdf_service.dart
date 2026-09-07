@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'egress_service.dart';
 
 class TicketDetallePdfService {
   static Future<void> generarYCompartir({
@@ -221,6 +222,7 @@ class TicketDetallePdfService {
     );
 
     final bytes = await pdf.save();
+    await EgressService.registrar(EgressOrigen.pdf, bytes.length);
     await Printing.sharePdf(
       bytes: Uint8List.fromList(bytes),
       filename: 'ticket_${numero}_${ahora.millisecondsSinceEpoch}.pdf',

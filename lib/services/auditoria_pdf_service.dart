@@ -3,6 +3,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../models/audit_log.dart';
+import 'egress_service.dart';
 
 class AuditoriaPdfService {
   static Future<void> generarYCompartir({
@@ -131,6 +132,7 @@ class AuditoriaPdfService {
     );
 
     final bytes = await pdf.save();
+    await EgressService.registrar(EgressOrigen.pdf, bytes.length);
     await Printing.sharePdf(
       bytes: Uint8List.fromList(bytes),
       filename: 'auditoria_indovex_${ahora.millisecondsSinceEpoch}.pdf',
