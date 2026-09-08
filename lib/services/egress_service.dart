@@ -57,7 +57,6 @@ class EgressService {
       await _sb.rpc('registrar_egress', params: params);
     } catch (_) {
       // Telemetría best-effort: no propagar. La acción del usuario ya ocurrió.
-
     }
   }
 }
@@ -68,4 +67,5 @@ class EgressOrigen {
   static const imagen = 'imagen';
   static const pdf = 'pdf';
   static const export = 'export';
+  static const adjunto = 'adjunto';
 }

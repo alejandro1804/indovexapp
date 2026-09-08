@@ -5,12 +5,18 @@ import 'dart:typed_data';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'document_exceptions.dart';
 
 // Límites de compresión para ADJUNTOS en web (equivalentes a los de mobile).
 const int _adjImgMaxLado = 1600;      // px máximo del lado mayor
 const double _adjImgQuality = 0.85;   // calidad WebP inicial (0..1)
 const int _adjImgMaxBytes = 800000;   // ~800 KB; si supera, recomprime
 const double _adjImgQualityBaja = 0.65;
+
+// Tope de tamaño para adjuntos que NO son imagen (PDF, doc, planilla).
+// Mismo criterio que mobile: las imágenes se comprimen igual; este límite
+// protege storage y egress del documento enorme sin comprimir.
+const int _adjDocMaxBytes = 15 * 1024 * 1024; // 15 MB
 
 Future<Map<String, dynamic>?> pickAndUpload({
   required String entidadTipo,
@@ -36,6 +42,15 @@ Future<Map<String, dynamic>?> pickAndUpload({
   final file = await completer.future;
   if (file == null) return null;
 
+  // Tope de 15 MB para no-imágenes. Se chequea con file.size ANTES de leer
+  // los bytes, para no cargar en memoria un archivo enorme solo para
+  // rechazarlo.
+  final mimePrelim = lookupMimeType(file.name) ??
+      (file.type.isNotEmpty ? file.type : 'application/octet-stream');
+  if (!mimePrelim.startsWith('image/') && file.size > _adjDocMaxBytes) {
+    throw AdjuntoTamanioExcedidoException(file.size, _adjDocMaxBytes);
+  }
+
   // Leer bytes originales
   final reader = html.FileReader();
   reader.readAsArrayBuffer(file);
@@ -43,9 +58,7 @@ Future<Map<String, dynamic>?> pickAndUpload({
 
   Uint8List bytes = Uint8List.fromList(reader.result as List<int>);
   String nombreArchivo = file.name;
-  final mimeDetectado = lookupMimeType(nombreArchivo);
-  String mime = mimeDetectado ??
-      (file.type.isNotEmpty ? file.type : 'application/octet-stream');
+  String mime = mimePrelim;
 
   // Si es imagen, comprimir a WebP con canvas antes de subir.
   // Otros tipos (PDF, doc, planilla) se suben tal cual.

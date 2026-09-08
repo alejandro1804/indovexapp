@@ -5,6 +5,7 @@ import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'document_exceptions.dart';
 
 // Límites de compresión para ADJUNTOS (más generosos que las portadas:
 // un adjunto puede ser una foto de detalle que el técnico necesita leer,
@@ -17,6 +18,12 @@ const int _adjImgMaxLado = 1600;    // px máximo del lado mayor
 const int _adjImgQuality = 85;      // calidad JPEG inicial
 const int _adjImgMaxBytes = 800000; // ~800 KB; si supera, recomprime a menor calidad
 const int _adjImgQualityBaja = 65;  // segunda pasada si sigue muy grande
+
+// Tope de tamaño para adjuntos que NO son imagen (PDF, doc, planilla).
+// Las imágenes no se topean: se comprimen igual, sin importar su tamaño de
+// entrada. Este límite protege storage y egress del caso patológico
+// (un documento enorme lleno de imágenes sin comprimir).
+const int _adjDocMaxBytes = 15 * 1024 * 1024; // 15 MB
 
 Future<Map<String, dynamic>?> pickAndUpload({
   required String entidadTipo,
@@ -34,9 +41,17 @@ Future<Map<String, dynamic>?> pickAndUpload({
   final picked = result.files.first;
   if (picked.path == null) return null;
 
+  // Tope de 15 MB para no-imágenes. Se chequea con picked.size (tamaño en
+  // disco, sin leer los bytes) para no cargar en memoria un archivo enorme
+  // solo para rechazarlo.
+  final mimePrelim = lookupMimeType(picked.path!) ?? 'application/octet-stream';
+  if (!mimePrelim.startsWith('image/') && picked.size > _adjDocMaxBytes) {
+    throw AdjuntoTamanioExcedidoException(picked.size, _adjDocMaxBytes);
+  }
+
   Uint8List bytes = await File(picked.path!).readAsBytes();
   String nombreArchivo = picked.name;
-  String mime = lookupMimeType(picked.path!) ?? 'application/octet-stream';
+  String mime = mimePrelim;
 
   // Si es imagen, comprimir a JPEG antes de subir. Otros tipos (PDF, doc,
   // planilla) se suben tal cual, sin tocarlos.

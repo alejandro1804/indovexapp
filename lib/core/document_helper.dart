@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/egress_service.dart';
 
 // Conditional imports — Flutter elige el correcto según la plataforma
 import 'document_helper_mobile.dart'
@@ -37,10 +38,18 @@ class DocumentHelper {
     return List<Map<String, dynamic>>.from(data);
   }
 
-  static Future<String> urlFirmada(String storagePath) async {
+  /// Genera una signed URL de 1 hora para descargar/abrir un adjunto.
+  ///
+  /// [tamanioBytes]: si se provee, registra egress de adjunto. Cada apertura
+  /// es una descarga real (acción explícita del usuario), por eso NO hay
+  /// dedup: se cuenta cada vez. Los llamadores que no lo pasan no registran.
+  static Future<String> urlFirmada(String storagePath, {int? tamanioBytes}) async {
     final response = await _supabase.storage
         .from(_bucket)
         .createSignedUrl(storagePath, 3600);
+    if (tamanioBytes != null) {
+      await EgressService.registrar(EgressOrigen.adjunto, tamanioBytes);
+    }
     return response;
   }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/document_helper.dart';
+import '../core/document_exceptions.dart';
 
 class AdjuntosSection extends StatefulWidget {
   final String entidadTipo; // 'maquina' | 'repuesto' | 'ticket'
@@ -75,6 +76,9 @@ class _AdjuntosSectionState extends State<AdjuntosSection> {
           );
         }
       }
+    } on AdjuntoTamanioExcedidoException catch (e) {
+      // Rechazo por tamaño: mostrar solo el mensaje limpio, sin "Exception:".
+      if (mounted) _mostrarError(e.toString());
     } catch (e) {
       if (mounted) _mostrarError('Error al subir archivo: $e');
     } finally {
@@ -84,7 +88,10 @@ class _AdjuntosSectionState extends State<AdjuntosSection> {
 
   Future<void> _abrir(Map<String, dynamic> adjunto) async {
     try {
-      final url = await DocumentHelper.urlFirmada(adjunto['storage_path']);
+      final url = await DocumentHelper.urlFirmada(
+        adjunto['storage_path'],
+        tamanioBytes: adjunto['tamanio_bytes'] as int?,
+      );
       final uri = Uri.parse(url);
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
