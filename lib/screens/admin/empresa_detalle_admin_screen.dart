@@ -16,7 +16,7 @@ class EmpresaDetalleAdminScreen extends StatelessWidget {
     // DefaultTabController provee el controller a TabBar y TabBarView
     // automáticamente, evitando el error "No TabController for TabBar".
     return DefaultTabController(
-      length: 5,
+      length: 6,
       child: Scaffold(
         appBar: AppBar(
           backgroundColor: const Color(0xFF1F4E79),
@@ -41,6 +41,7 @@ class EmpresaDetalleAdminScreen extends StatelessWidget {
               Tab(icon: Icon(Icons.inventory_2_outlined, size: 20), text: 'Repuestos'),
               Tab(icon: Icon(Icons.people_outline, size: 20), text: 'Usuarios'),
               Tab(icon: Icon(Icons.storage_outlined, size: 20), text: 'Storage'),
+              Tab(icon: Icon(Icons.swap_vert, size: 20), text: 'Egress'),
             ],
           ),
         ),
@@ -51,6 +52,7 @@ class EmpresaDetalleAdminScreen extends StatelessWidget {
             _TabRepuestos(empresaId: empresaId),
             _TabUsuarios(empresaId: empresaId),
             _TabAlmacenamiento(empresaId: empresaId),
+            _TabEgress(empresaId: empresaId),
           ],
         ),
       ),
@@ -955,6 +957,213 @@ class _TabAlmacenamientoState extends State<_TabAlmacenamiento>
                       Text(_formatMb(mb),
                           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                       Text('${(pctCategoria * 100).toStringAsFixed(0)}% del total',
+                          style: TextStyle(fontSize: 10, color: Colors.grey[400])),
+                    ]),
+                  ]),
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// TAB EGRESS
+// ─────────────────────────────────────────────
+// Usa el RPC uso_egress_empresa. A diferencia de Storage, el egress NO tiene
+// límite por empresa (el techo de 250 GB es de todo el proyecto Supabase, no
+// de un cliente), así que esta tab es puramente informativa: total del mes +
+// desglose por fuente. Sin barra de progreso.
+
+class _TabEgress extends StatefulWidget {
+  final String empresaId;
+  const _TabEgress({required this.empresaId});
+
+  @override
+  State<_TabEgress> createState() => _TabEgressState();
+}
+
+class _TabEgressState extends State<_TabEgress>
+    with AutomaticKeepAliveClientMixin {
+  final _supabase = Supabase.instance.client;
+  Map<String, dynamic>? _datos;
+  bool _cargando = true;
+  String? _error;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargar();
+  }
+
+  Future<void> _cargar() async {
+    if (mounted) setState(() { _cargando = true; _error = null; });
+    try {
+      final data = await _supabase.rpc('uso_egress_empresa',
+          params: {'p_empresa_id': widget.empresaId});
+      if (!mounted) return;
+      setState(() => _datos = Map<String, dynamic>.from(data));
+    } catch (e) {
+      if (mounted) setState(() => _error = 'Error al cargar egress: $e');
+    } finally {
+      if (mounted) setState(() => _cargando = false);
+    }
+  }
+
+  String _formatMb(num mb) {
+    if (mb >= 1024) return '${(mb / 1024).toStringAsFixed(2)} GB';
+    return '${mb.toStringAsFixed(1)} MB';
+  }
+
+  IconData _iconoFuente(String fuente) {
+    switch (fuente) {
+      case 'imagen': return Icons.image_outlined;
+      case 'pdf': return Icons.picture_as_pdf_outlined;
+      case 'export': return Icons.folder_zip_outlined;
+      case 'adjunto': return Icons.attach_file;
+      default: return Icons.insert_drive_file_outlined;
+    }
+  }
+
+  String _labelFuente(String fuente) {
+    switch (fuente) {
+      case 'imagen': return 'Imágenes (portadas)';
+      case 'pdf': return 'PDFs (reportes)';
+      case 'export': return 'Exportaciones';
+      case 'adjunto': return 'Adjuntos';
+      default: return fuente;
+    }
+  }
+
+  // "2026-09" -> "Septiembre 2026"
+  String _nombreMes(String? periodo) {
+    if (periodo == null || !periodo.contains('-')) return 'este mes';
+    final partes = periodo.split('-');
+    final anio = partes[0];
+    final mes = int.tryParse(partes[1]) ?? 0;
+    const meses = [
+      '', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ];
+    if (mes < 1 || mes > 12) return 'este mes';
+    return '${meses[mes]} $anio';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    if (_cargando) return const Center(child: CircularProgressIndicator());
+
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
+            const SizedBox(height: 12),
+            Text(_error!, textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+            const SizedBox(height: 12),
+            TextButton(onPressed: _cargar, child: const Text('Reintentar')),
+          ]),
+        ),
+      );
+    }
+
+    final datos = _datos ?? {};
+    final totalMb = (datos['total_mb'] as num? ?? 0).toDouble();
+    final periodo = datos['periodo'] as String?;
+    final desglose = (datos['desglose'] as Map?)?.cast<String, dynamic>() ?? {};
+
+    // Ordenar el desglose de mayor a menor.
+    final fuentes = desglose.entries.toList()
+      ..sort((a, b) =>
+          (b.value as num? ?? 0).compareTo(a.value as num? ?? 0));
+
+    return RefreshIndicator(
+      onRefresh: _cargar,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _bannerSoloLectura(),
+          const SizedBox(height: 16),
+
+          // ── Resumen del mes ──────────────────────────────────────────────
+          Card(
+            elevation: 1,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  const Icon(Icons.swap_vert, color: Color(0xFF1F4E79), size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Transferencia · ${_nombreMes(periodo)}',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        overflow: TextOverflow.ellipsis),
+                  ),
+                ]),
+                const SizedBox(height: 12),
+                Text(_formatMb(totalMb),
+                    style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Color(0xFF1F4E79))),
+                Text('descargado este mes',
+                    style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+              ]),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // ── Desglose por fuente ──────────────────────────────────────────
+          Text('Desglose por fuente',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey[700])),
+          const SizedBox(height: 8),
+
+          if (fuentes.isEmpty || totalMb == 0)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Center(
+                child: Text('Sin transferencia registrada este mes',
+                    style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+              ),
+            )
+          else
+            ...fuentes.map((entry) {
+              final fuente = entry.key;
+              final mb = (entry.value as num? ?? 0).toDouble();
+              final pctFuente = totalMb == 0 ? 0.0 : mb / totalMb;
+
+              return Card(
+                elevation: 0,
+                color: Colors.grey[50],
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: BorderSide(color: Colors.grey[200]!),
+                ),
+                margin: const EdgeInsets.only(bottom: 8),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(children: [
+                    CircleAvatar(
+                      radius: 18,
+                      backgroundColor: const Color(0xFF1F4E79).withValues(alpha: 0.1),
+                      child: Icon(_iconoFuente(fuente),
+                          color: const Color(0xFF1F4E79), size: 18),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(_labelFuente(fuente),
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    ),
+                    Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                      Text(_formatMb(mb),
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      Text('${(pctFuente * 100).toStringAsFixed(0)}% del total',
                           style: TextStyle(fontSize: 10, color: Colors.grey[400])),
                     ]),
                   ]),
