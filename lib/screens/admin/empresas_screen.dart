@@ -174,8 +174,9 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
         title: const Text('Dar de baja (voluntaria)'),
         content: Text(
           '¿Iniciar la baja voluntaria de "${empresa['empresa_nombre']}"?\n\n'
-          'El acceso se bloquea y comienza el plazo para exportar sus datos. '
-          'Recordá generar y entregar el backup antes de purgar.',
+            'El acceso se bloquea y comienza el plazo de conservación configurado, '
+            'durante el cual la cuenta puede reactivarse recuperando toda la información. '
+            'Recordá generar y entregar el backup antes de purgar.',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
