@@ -1,7 +1,8 @@
 ﻿# IndovexApp - Estructura de Carpetas (auto-generada)
 
-Generado: 2026-07-04 18:03
+Generado: 2026-09-26 17:53
 
+  settings.json
 .env
 .flutter-plugins-dependencies
 .gitignore
@@ -9,6 +10,7 @@ Generado: 2026-07-04 18:03
 analysis_options.yaml
   .gitignore
     build.gradle.kts
+    google-services.json
     indovex.jks
     proguard-rules.pro
         AndroidManifest.xml
@@ -61,11 +63,12 @@ analysis_options.yaml
   local.properties
   settings.gradle.kts
     icon.png
-    Screenshot_20260531_193356_com_indovex_app_MainActivity.jpg
   indovex_logo.svg
+CLAUDE.md
+COMO_ACTUALIZAR_DOCS.md
 devtools_options.yaml
 ESTRUCTURA.md
-estructura2.ps1
+firebase.json
 generar_estructura.ps1
 indovexapp.iml
   .gitignore
@@ -129,15 +132,18 @@ indovexapp.iml
     RunnerTests.swift
     constants.dart
     db_error_helper.dart
+    document_exceptions.dart
     document_helper.dart
     document_helper_mobile.dart
     document_helper_web.dart
     image_upload_helper.dart
     responsive.dart
     supabase_client.dart
+  firebase_options.dart
   main.dart
     audit_log.dart
     categoria_repuesto.dart
+    documento_legal.dart
     lectura_maquina.dart
     maquina.dart
     plan_mantenimiento.dart
@@ -151,6 +157,8 @@ indovexapp.iml
     audit_log_provider.dart
     auth_provider.dart
     lectura_maquina_provider.dart
+    legal_provider.dart
+    notificaciones_provider.dart
     plan_mantenimiento_provider.dart
     repuesto_maquina_provider.dart
     tipo_intervalo_provider.dart
@@ -158,6 +166,7 @@ indovexapp.iml
       empresas_pendientes_screen.dart
       empresas_screen.dart
       gestion_planes_screen.dart
+      legal_cobertura_screen.dart
       cambiar_password_screen.dart
       login_screen.dart
       recuperar_password_screen.dart
@@ -167,6 +176,7 @@ indovexapp.iml
       categorias_repuestos_screen.dart
       configuracion_screen.dart
       destinatarios_whatsapp_screen.dart
+      perfil_empresa_screen.dart
       permisos_rol_screen.dart
       proveedores_screen.dart
       roles_screen.dart
@@ -179,6 +189,9 @@ indovexapp.iml
       maquina_detail_screen.dart
       maquinas_screen.dart
       qr_maquina_screen.dart
+      notificaciones_screen.dart
+      pagos_empresa_screen.dart
+      pagos_screen.dart
       planes_screen.dart
       plan_mantenimiento_detail_screen.dart
       plan_mantenimiento_nuevo_screen.dart
@@ -194,13 +207,16 @@ indovexapp.iml
     audit_log_service.dart
     auditoria_pdf_service.dart
     auth_service.dart
+    egress_service.dart
     export_empresa_service.dart
     lectura_maquina_service.dart
+    legal_service.dart
     maquina_service.dart
     maquinas_pdf_service.dart
     plan_mantenimiento_service.dart
     planes_pdf_service.dart
     proveedor_service.dart
+    push_service.dart
     repuesto_maquina_service.dart
     repuesto_service.dart
     repuestos_pdf_service.dart
@@ -211,6 +227,8 @@ indovexapp.iml
     tipo_intervalo_service.dart
     adjuntos_section.dart
     foto_principal_widget.dart
+    legal_gate.dart
+    notificaciones_bell.dart
     repuestos_maquina_section.dart
     repuestos_ticket_section.dart
   .gitignore
@@ -272,8 +290,8 @@ README.md
       index.ts
       index.ts
       index.ts
-      .npmrc
-      deno.json
+      index.ts
+      index.ts
       index.ts
       .npmrc
       deno.json
@@ -281,12 +299,15 @@ README.md
       .npmrc
       deno.json
       index.ts
-    2026-06-04_audit_log_y_empresa_id.sql
+      .npmrc
+      deno.json
+      index.ts
+    20260604_audit_log_y_empresa_id.sql
     20260604_usuario_sector.sql
-    2026-06-08_audit_log_trigeers_faltantes.sql
-    2026-06-08_ticket_preventivo_correctivo.sql
-    2026-06-08_tickets_preventivo_correctivo.sql
-    2026-06-08_tipos_intervalos.sql
+    20260608_audit_log_trigeers_faltantes.sql
+    20260608_ticket_preventivo_correctivo.sql
+    20260608_tickets_preventivo_correctivo.sql
+    20260608_tipos_intervalos.sql
     20260613_unique_coinstraine.sql
     20260620_whatsapp_destinatarios.sql
     20260621_whatsapp_destinatarios_usuarios.sql
@@ -295,7 +316,19 @@ README.md
     20260626_permiso_kpi_mtbf.sql
     20260626_vw_mtbf_maquinas.sql
     20260702_admin_storage_empresa.sql
-    2026-07-02_purgar_valida-estado.sql
+    20260702_purgar_valida-estado.sql
+    20260705_fix_empresa_id_registrar_stock.sql
+    20260705_notif_storage_90.sql
+    20260707_fix_purga_usuario_sector.sql
+    20260710_pagos_suscripcion.sql
+    20260715_aceptaciones_legales.sql
+    20260715_aceptaciones_legales_rls.sql
+    20260715_enforcement_limites_plan.sql
+    20260715_es_admin-empresa_excluye_sa.sql
+    20260715_legal_gracia_vigencia.sql
+    20260715_planes_tier_ciclo.sql
+    20260715_seed_documentos_legales.sql
+    20260926_pagos_suscripcion_payment_id.sql
   widget_test.dart
   favicon.png
     Icon-192.png
@@ -333,12 +366,6 @@ README.md
 
 ## Alertas del criterio de orden
 
-Se detectaron 7 item(s) para revisar:
+Se detectaron 1 item(s) para revisar:
 
 - [!] ATENCION .env en el repo - verificar que este en .gitignore: .env
-- [!] Migracion con guiones (CLI la saltea): 2026-06-04_audit_log_y_empresa_id.sql
-- [!] Migracion con guiones (CLI la saltea): 2026-06-08_audit_log_trigeers_faltantes.sql
-- [!] Migracion con guiones (CLI la saltea): 2026-06-08_ticket_preventivo_correctivo.sql
-- [!] Migracion con guiones (CLI la saltea): 2026-06-08_tickets_preventivo_correctivo.sql
-- [!] Migracion con guiones (CLI la saltea): 2026-06-08_tipos_intervalos.sql
-- [!] Migracion con guiones (CLI la saltea): 2026-07-02_purgar_valida-estado.sql

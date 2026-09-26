@@ -1,9 +1,20 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+type Supa = ReturnType<typeof createClient>;
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-signature, x-request-id",
 };
+
+// Estados FINALES de un pago de MercadoPago. Solo estos se registran:
+// pending / in_process se ignoran y se espera la notificación siguiente
+// (la fila es inmutable, un estado intermedio quedaría congelado).
+const ESTADOS_FINALES = new Set(["approved", "rejected", "refunded", "cancelled", "charged_back"]);
+
+// Errores de Postgres que no se resuelven reintentando (datos inválidos).
+// Ante estos se responde 200 para que MP no reintente en vano.
+const ERRORES_PERMANENTES = new Set(["23502", "23503", "23514", "22P02"]);
 
 // Valida la firma x-signature que envía MercadoPago.
 async function validarFirma(
@@ -55,6 +66,45 @@ async function validarFirma(
 }
 
 // ─────────────────────────────────────────────────────────────
+// Consulta a la API de MercadoPago distinguiendo errores
+// transitorios (red, 429, 5xx → responder 500 para que MP reintente)
+// de permanentes (404, 400 → responder 200, reintentar no sirve).
+// ─────────────────────────────────────────────────────────────
+type MpResultado =
+  | { ok: true; body: any }
+  | { ok: false; status: number; transitorio: boolean; detalle: unknown };
+
+async function mpGet(path: string, accessToken: string): Promise<MpResultado> {
+  let resp: Response;
+  try {
+    resp = await fetch(`https://api.mercadopago.com${path}`, {
+      headers: { "Authorization": `Bearer ${accessToken}` },
+    });
+  } catch (e) {
+    return { ok: false, status: 0, transitorio: true, detalle: String(e) };
+  }
+
+  if (resp.ok) {
+    return { ok: true, body: await resp.json() };
+  }
+
+  const detalle = await resp.json().catch(() => ({}));
+  const transitorio = resp.status === 429 || resp.status >= 500;
+  return { ok: false, status: resp.status, transitorio, detalle };
+}
+
+function respuestaErrorMp(
+  tag: string,
+  r: { status: number; transitorio: boolean; detalle: unknown }
+): Response {
+  console.log(`>>> ${tag} MP respondió ${r.status} (transitorio=${r.transitorio}):`, JSON.stringify(r.detalle));
+  return jsonResp(
+    { error: "Error consultando MercadoPago", status: r.status },
+    r.transitorio ? 500 : 200
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // RAMA SUSCRIPCIÓN (preapproval).
 // Actualiza el estado de la empresa según el estado de la suscripción.
 //
@@ -66,7 +116,7 @@ async function validarFirma(
 // ─────────────────────────────────────────────────────────────
 async function procesarSuscripcion(
   dataId: string,
-  supabase: ReturnType<typeof createClient>,
+  supabase: Supa,
   accessToken: string
 ): Promise<Response> {
   console.log(`>>> [SUSCRIPCIÓN] Consultando MP: /preapproval/${dataId}`);
@@ -177,127 +227,190 @@ async function procesarSuscripcion(
 }
 
 // ─────────────────────────────────────────────────────────────
-// RAMA PAGO (subscription_authorized_payment).
-// Consulta el pago, resuelve la empresa vía el preapproval
-// (external_reference = empresa_id) e inserta en pagos_suscripcion.
+// REGISTRO DE PAGO (punto único de escritura en pagos_suscripcion).
 //
-// IMPORTANTE sobre el estado (según doc oficial de MercadoPago):
-// El authorized_payment tiene DOS niveles de estado:
-//   • status (nivel cuota): scheduled | processed | recycling | pending.
-//     'processed' NO significa éxito: una cuota rechazada en el último
-//     reintento también queda 'processed'. No sirve para facturar.
-//   • payment.status (nivel pago real): approved | rejected | pending |
-//     in_process | refunded | cancelled. ESTE es el que dice si el dinero
-//     entró. Es el que guardamos como 'estado' para poder facturar.
-// Por eso priorizamos payment.status sobre el status de la cuota.
+// Lo usan las dos ramas:
+//   • type="payment"                          → registrarPago(id, null)
+//   • type="subscription_authorized_payment"  → procesarCuota → registrarPago(payment.id, cuota.id)
+//
+// Clave única: mp_payment_id = id del PAGO real (/v1/payments/{id}).
+// Si llegan ambas notificaciones para el mismo cobro, se registra
+// una sola fila (on conflict do nothing).
+//
+// Datos del pago usados (validados con el pago real 178415774031):
+//   external_reference                       → empresa_id
+//   operation_type = "recurring_payment"      → es de suscripción
+//   metadata.preapproval_id                   → suscripción
+//   metadata.template_id                      → plan de MP
+//   point_of_interaction.transaction_data.subscription_sequence.number → n.º de cuota
+//   fee_details / transaction_details         → comisión y neto
+//
+// PRIVACIDAD: no se guarda ni se loguea nada de card ni de payer.
 // ─────────────────────────────────────────────────────────────
-async function procesarPago(
-  dataId: string,
-  supabase: ReturnType<typeof createClient>,
+async function registrarPago(
+  paymentId: string,
+  cuotaId: string | null,
+  supabase: Supa,
   accessToken: string
 ): Promise<Response> {
-  // 1. Consultar el pago autorizado de la suscripción
-  console.log(`>>> [PAGO] Consultando MP: /authorized_payments/${dataId}`);
-  const payResp = await fetch(
-    `https://api.mercadopago.com/authorized_payments/${dataId}`,
-    { headers: { "Authorization": `Bearer ${accessToken}` } }
-  );
+  console.log(`>>> [PAGO] Consultando MP: /v1/payments/${paymentId}${cuotaId ? ` (cuota ${cuotaId})` : ""}`);
+  const r = await mpGet(`/v1/payments/${paymentId}`, accessToken);
+  if (!r.ok) return respuestaErrorMp("[PAGO]", r);
 
-  console.log(`>>> [PAGO] MP respondió status: ${payResp.status}`);
+  const p = r.body;
+  const td = p?.point_of_interaction?.transaction_data ?? {};
+  const estado = String(p?.status ?? "");
 
-  if (!payResp.ok) {
-    const detalle = await payResp.json().catch(() => ({}));
-    console.log(">>> [PAGO] MP no pudo consultar el pago:", JSON.stringify(detalle));
-    return jsonResp({ error: "No se pudo consultar el pago", detalle }, 200);
+  // Log acotado: sin datos de tarjeta ni del pagador
+  console.log(">>> [PAGO] resumen:", JSON.stringify({
+    id: p?.id,
+    status: p?.status,
+    status_detail: p?.status_detail,
+    operation_type: p?.operation_type,
+    external_reference: p?.external_reference,
+    preapproval_id: p?.metadata?.preapproval_id ?? td?.subscription_id ?? null,
+    cuota_numero: td?.subscription_sequence?.number ?? null,
+    transaction_amount: p?.transaction_amount,
+    currency_id: p?.currency_id,
+  }));
+
+  if (p?.operation_type !== "recurring_payment") {
+    console.log(`>>> [PAGO] operation_type="${p?.operation_type}": no es un pago de suscripción, se ignora`);
+    return jsonResp({ ignored: true, motivo: "no es pago de suscripción" }, 200);
   }
 
-  const pago = await payResp.json();
-  console.log(">>> [PAGO] PAGO MP:", JSON.stringify(pago));
-
-  // Campos del authorized_payment de MercadoPago
-  const mpPaymentId = String(pago.id ?? dataId);
-  const preapprovalId = pago.preapproval_id;
-
-  const monto =
-    pago?.transaction_amount ??
-    pago?.payment?.transaction_amount ??
-    pago?.debit_amount ??
-    null;
-
-  // ── ESTADO: priorizar payment.status (nivel pago real = "approved") ──
-  // sobre el status de la cuota (nivel authorized_payment = "processed").
-  const estadoPago =
-    pago?.payment?.status ??   // approved | rejected | pending | ... (el que importa para facturar)
-    pago?.status ??            // fallback: status de la cuota (scheduled/processed/recycling/pending)
-    "unknown";
-
-  // ── FECHA: priorizar la fecha de acreditación del pago real ──
-  const fechaPago =
-    pago?.payment?.date_approved ??
-    pago?.date_created ??
-    new Date().toISOString();
-
-  const moneda =
-    pago?.currency_id ??
-    pago?.payment?.currency_id ??
-    "UYU";
-
-  console.log(`>>> [PAGO] mpPaymentId="${mpPaymentId}" | preapprovalId="${preapprovalId}" | monto="${monto}" | estado(payment.status)="${estadoPago}"`);
-
-  if (!preapprovalId) {
-    console.log(">>> [PAGO] pago sin preapproval_id, no se puede resolver la empresa");
-    return jsonResp({ error: "Pago sin preapproval_id" }, 200);
+  if (!ESTADOS_FINALES.has(estado)) {
+    console.log(`>>> [PAGO] estado "${estado}" no es final, se espera la siguiente notificación`);
+    return jsonResp({ ignored: true, motivo: "estado no final", estado }, 200);
   }
 
-  // 2. Resolver empresa_id vía el preapproval (fuente de verdad = external_reference)
-  console.log(`>>> [PAGO] Consultando MP: /preapproval/${preapprovalId} para resolver empresa`);
-  const subResp = await fetch(
-    `https://api.mercadopago.com/preapproval/${preapprovalId}`,
-    { headers: { "Authorization": `Bearer ${accessToken}` } }
-  );
+  const preapprovalId = p?.metadata?.preapproval_id ?? td?.subscription_id ?? null;
+  let empresaId: string | null = p?.external_reference ?? null;
+  let mpPlanId: string | null = p?.metadata?.template_id ?? td?.plan_id ?? null;
 
-  if (!subResp.ok) {
-    const detalle = await subResp.json().catch(() => ({}));
-    console.log(">>> [PAGO] no se pudo consultar el preapproval:", JSON.stringify(detalle));
-    return jsonResp({ error: "No se pudo resolver la empresa del pago", detalle }, 200);
+  // Respaldo: si el pago no trae external_reference, resolver por el preapproval
+  if (!empresaId && preapprovalId) {
+    console.log(`>>> [PAGO] sin external_reference, resolviendo por /preapproval/${preapprovalId}`);
+    const s = await mpGet(`/preapproval/${preapprovalId}`, accessToken);
+    if (!s.ok) return respuestaErrorMp("[PAGO]", s);
+    empresaId = s.body?.external_reference ?? null;
+    mpPlanId = mpPlanId ?? s.body?.preapproval_plan_id ?? null;
   }
-
-  const sub = await subResp.json();
-  const empresaId = sub.external_reference;
-  const mpPlanId = sub.preapproval_plan_id ?? null;
-
-  console.log(`>>> [PAGO] empresaId="${empresaId}" | mpPlanId="${mpPlanId}"`);
 
   if (!empresaId) {
-    console.log(">>> [PAGO] preapproval sin external_reference, no se inserta (fila huérfana evitada)");
+    console.log(">>> [PAGO] no se pudo resolver empresa_id, no se inserta (fila huérfana evitada)");
     return jsonResp({ error: "No se pudo resolver empresa_id del pago" }, 200);
   }
 
-  // 3. Insertar el pago (upsert por mp_payment_id para evitar duplicados por reintentos)
-  const registroPago = {
+  const aprobado = estado === "approved";
+  const comision = aprobado && Array.isArray(p?.fee_details)
+    ? p.fee_details
+        .filter((f: any) => f?.fee_payer === "collector")
+        .reduce((suma: number, f: any) => suma + Number(f?.amount ?? 0), 0)
+    : null;
+  const neto = aprobado ? (p?.transaction_details?.net_received_amount ?? null) : null;
+
+  const mpPaymentId = String(p?.id ?? paymentId);
+
+  const registro = {
     empresa_id: empresaId,
     mp_payment_id: mpPaymentId,
-    mp_suscripcion_id: String(preapprovalId),
+    mp_cuota_id: cuotaId,
+    mp_suscripcion_id: preapprovalId ? String(preapprovalId) : null,
     mp_plan_id: mpPlanId,
-    monto: monto,
-    moneda: moneda,
-    estado: estadoPago,
-    fecha_pago: fechaPago,
+    cuota_numero: td?.subscription_sequence?.number ?? null,
+    monto: p?.transaction_amount ?? null,
+    moneda: p?.currency_id ?? "UYU",
+    estado,
+    fecha_pago: p?.date_approved ?? p?.date_created ?? new Date().toISOString(),
+    comision_mp: comision,
+    monto_neto: neto,
   };
 
-  console.log(">>> [PAGO] Insertando en pagos_suscripcion:", JSON.stringify(registroPago));
+  console.log(">>> [PAGO] Insertando en pagos_suscripcion:", JSON.stringify(registro));
 
   const { error: insertError } = await supabase
     .from("pagos_suscripcion")
-    .upsert(registroPago, { onConflict: "mp_payment_id", ignoreDuplicates: true });
+    .upsert(registro, { onConflict: "mp_payment_id", ignoreDuplicates: true });
 
   if (insertError) {
-    console.log(">>> [PAGO] error al insertar pago:", insertError.message);
-    return jsonResp({ error: "Error al registrar el pago", detalle: insertError.message }, 200);
+    const permanente = ERRORES_PERMANENTES.has(insertError.code ?? "");
+    console.log(`>>> [PAGO] error al insertar (code=${insertError.code}, permanente=${permanente}):`, insertError.message);
+    return jsonResp({ error: "Error al registrar el pago", detalle: insertError.message }, permanente ? 200 : 500);
   }
 
-  console.log(`>>> [PAGO] pago ${mpPaymentId} registrado para empresa ${empresaId} con estado ${estadoPago}`);
-  return jsonResp({ ok: true, tipo: "pago", empresa_id: empresaId, mp_payment_id: mpPaymentId, estado: estadoPago }, 200);
+  // Si la fila ya existía (llegó antes el evento payment), completar la cuota
+  if (cuotaId) {
+    const { error } = await supabase
+      .from("pagos_suscripcion")
+      .update({ mp_cuota_id: cuotaId, actualizado: new Date().toISOString() })
+      .eq("mp_payment_id", mpPaymentId)
+      .is("mp_cuota_id", null);
+    if (error) {
+      console.log(">>> [PAGO] error al completar mp_cuota_id:", error.message);
+      return jsonResp({ error: "Error al completar la cuota", detalle: error.message }, 500);
+    }
+  }
+
+  // Reembolso o contracargo de un pago ya registrado como aprobado
+  if (estado === "refunded" || estado === "charged_back") {
+    const { error } = await supabase
+      .from("pagos_suscripcion")
+      .update({ estado, actualizado: new Date().toISOString() })
+      .eq("mp_payment_id", mpPaymentId)
+      .eq("estado", "approved");
+    if (error) {
+      console.log(`>>> [PAGO] error al marcar ${estado}:`, error.message);
+      return jsonResp({ error: `Error al marcar ${estado}`, detalle: error.message }, 500);
+    }
+  }
+
+  console.log(`>>> [PAGO] pago ${mpPaymentId} registrado para empresa ${empresaId} con estado ${estado}`);
+  return jsonResp({ ok: true, tipo: "pago", empresa_id: empresaId, mp_payment_id: mpPaymentId, estado }, 200);
+}
+
+// ─────────────────────────────────────────────────────────────
+// RAMA CUOTA (subscription_authorized_payment).
+//
+// La cuota tiene DOS niveles de estado:
+//   • status (cuota): scheduled | processed | recycling | pending.
+//     'processed' NO significa éxito: una cuota rechazada en el último
+//     reintento también queda 'processed'.
+//   • payment.status (pago real): el que dice si el dinero entró.
+//
+// La cuota solo sirve para llegar al pago real (payment.id) y delegar
+// en registrarPago. Una cuota rechazada sin pago asociado (ej.
+// payment_method_not_ready) no tiene payment.id: se loguea y se ignora;
+// la detección de morosidad sale de la conciliación periódica.
+// ─────────────────────────────────────────────────────────────
+async function procesarCuota(
+  cuotaId: string,
+  supabase: Supa,
+  accessToken: string
+): Promise<Response> {
+  console.log(`>>> [CUOTA] Consultando MP: /authorized_payments/${cuotaId}`);
+  const r = await mpGet(`/authorized_payments/${cuotaId}`, accessToken);
+  if (!r.ok) return respuestaErrorMp("[CUOTA]", r);
+
+  const c = r.body;
+  const paymentId = c?.payment?.id;
+
+  console.log(">>> [CUOTA] resumen:", JSON.stringify({
+    id: c?.id,
+    status: c?.status,
+    payment_id: paymentId ?? null,
+    payment_status: c?.payment?.status ?? null,
+    payment_status_detail: c?.payment?.status_detail ?? null,
+    retry_attempt: c?.retry_attempt ?? null,
+    preapproval_id: c?.preapproval_id ?? null,
+  }));
+
+  if (!paymentId) {
+    console.log(">>> [CUOTA] cuota sin pago asociado, no hay nada que registrar");
+    return jsonResp({ ignored: true, motivo: "cuota sin payment.id", cuota_id: c?.id ?? cuotaId }, 200);
+  }
+
+  return await registrarPago(String(paymentId), String(c?.id ?? cuotaId), supabase, accessToken);
 }
 
 function jsonResp(body: unknown, status: number): Response {
@@ -354,14 +467,20 @@ Deno.serve(async (req) => {
     }
 
     if (tipo === "subscription_authorized_payment") {
-      return await procesarPago(String(dataId), supabase, accessToken);
+      return await procesarCuota(String(dataId), supabase, accessToken);
     }
 
-    console.log(`>>> RESULTADO: tipo "${tipo}" ignorado (no es suscripción ni pago)`);
+    if (tipo === "payment") {
+      return await registrarPago(String(dataId), null, supabase, accessToken);
+    }
+
+    console.log(`>>> RESULTADO: tipo "${tipo}" ignorado`);
     return jsonResp({ ignored: true, tipo }, 200);
 
   } catch (error) {
-    console.log(">>> ERROR CAPTURADO:", error.message);
-    return jsonResp({ error: error.message }, 200);
+    // Error inesperado: 500 para que MercadoPago reintente la notificación
+    const mensaje = error instanceof Error ? error.message : String(error);
+    console.log(">>> ERROR CAPTURADO:", mensaje);
+    return jsonResp({ error: mensaje }, 500);
   }
 });
