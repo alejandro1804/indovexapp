@@ -50,3 +50,6 @@ android/app/indovex.jks
 .env
 
 .env
+
+# Supabase CLI temporales
+supabase/.temp/

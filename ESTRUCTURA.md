@@ -1,6 +1,6 @@
 ﻿# IndovexApp - Estructura de Carpetas (auto-generada)
 
-Generado: 2026-09-26 17:53
+Generado: 2026-09-27 15:02
 
   settings.json
 .env
