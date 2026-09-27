@@ -109,10 +109,23 @@ function respuestaErrorMp(
 // Actualiza el estado de la empresa según el estado de la suscripción.
 //
 // El tier (starter/pro) se resuelve vía planes.tier a partir del
-// preapproval_plan_id de MercadoPago. Antes se seteaba plan='pago',
-// que dejó de ser un tier válido: empresas.plan ahora acepta
-// trial|starter|pro|interno y de él se derivan los límites de uso
-// (usuarios, máquinas, storage) por trigger.
+// preapproval_plan_id de MercadoPago (también en filas inactivas del
+// catálogo, para que las suscripciones a planes viejos sigan resolviendo).
+// empresas.plan acepta trial|starter|pro|interno y de él se derivan
+// los límites de uso por trigger.
+//
+// SUSCRIPCIÓN VIGENTE (empresas.mp_suscripcion_id):
+// Una empresa puede tener más de una suscripción en MP a lo largo del
+// tiempo (cambio de plan, re-suscripción). Solo la vigente puede
+// modificar el estado de la empresa:
+//   • paused / cancelled / otros de una suscripción que NO es la vigente
+//     → se ignoran (no suspenden a la empresa).
+//   • authorized de una suscripción distinta → reemplaza a la vigente
+//     solo si es más nueva (date_created) o si la vigente ya no está
+//     activa. Evita que una notificación tardía de la suscripción vieja
+//     pise a la nueva.
+//   • Si quedan dos suscripciones activas se avisa en el log: hay que
+//     cancelar la anterior para no cobrar dos veces.
 // ─────────────────────────────────────────────────────────────
 async function procesarSuscripcion(
   dataId: string,
@@ -120,32 +133,88 @@ async function procesarSuscripcion(
   accessToken: string
 ): Promise<Response> {
   console.log(`>>> [SUSCRIPCIÓN] Consultando MP: /preapproval/${dataId}`);
-  const mpResp = await fetch(
-    `https://api.mercadopago.com/preapproval/${dataId}`,
-    { headers: { "Authorization": `Bearer ${accessToken}` } }
-  );
+  const r = await mpGet(`/preapproval/${dataId}`, accessToken);
+  if (!r.ok) return respuestaErrorMp("[SUSCRIPCIÓN]", r);
 
-  console.log(`>>> [SUSCRIPCIÓN] MP respondió status: ${mpResp.status}`);
+  const sub = r.body;
+  const empresaId: string | null = sub?.external_reference ?? null;
+  const estadoSub: string = String(sub?.status ?? "");
+  const mpSubId = String(sub?.id ?? dataId);
+  const mpPlanId: string | null = sub?.preapproval_plan_id ?? null;
 
-  if (!mpResp.ok) {
-    const detalle = await mpResp.json().catch(() => ({}));
-    console.log(">>> [SUSCRIPCIÓN] MP no pudo consultar suscripción:", JSON.stringify(detalle));
-    return jsonResp({ error: "No se pudo consultar la suscripción", detalle }, 200);
-  }
-
-  const sub = await mpResp.json();
-  console.log(">>> [SUSCRIPCIÓN] SUSCRIPCIÓN MP:", JSON.stringify(sub));
-
-  const empresaId = sub.external_reference;
-  const estadoSub = sub.status;
-  const mpSubId = sub.id;
-  const mpPlanId = sub.preapproval_plan_id ?? null;
-
-  console.log(`>>> [SUSCRIPCIÓN] empresaId="${empresaId}" | estadoSub="${estadoSub}" | mpSubId="${mpSubId}" | mpPlanId="${mpPlanId}"`);
+  // Log acotado: sin datos del pagador
+  console.log(">>> [SUSCRIPCIÓN] resumen:", JSON.stringify({
+    id: mpSubId,
+    status: estadoSub,
+    external_reference: empresaId,
+    preapproval_plan_id: mpPlanId,
+    date_created: sub?.date_created ?? null,
+    monto: sub?.auto_recurring?.transaction_amount ?? null,
+  }));
 
   if (!empresaId) {
     console.log(">>> [SUSCRIPCIÓN] suscripción sin external_reference");
     return jsonResp({ error: "Suscripción sin external_reference" }, 200);
+  }
+
+  // ── Suscripción vigente de la empresa ──
+  const { data: empresa, error: empError } = await supabase
+    .from("empresas")
+    .select("mp_suscripcion_id")
+    .eq("id", empresaId)
+    .maybeSingle();
+
+  if (empError) {
+    console.log(">>> [SUSCRIPCIÓN] error al leer la empresa:", empError.message);
+    return jsonResp({ error: "Error al leer la empresa", detalle: empError.message }, 500);
+  }
+
+  if (!empresa) {
+    console.log(`>>> [SUSCRIPCIÓN] no existe la empresa ${empresaId}`);
+    return jsonResp({ error: "Empresa no encontrada", empresa_id: empresaId }, 200);
+  }
+
+  const vigente: string | null = empresa.mp_suscripcion_id ?? null;
+
+  if (vigente && vigente !== mpSubId) {
+    if (estadoSub !== "authorized") {
+      console.log(`>>> [SUSCRIPCIÓN] "${estadoSub}" de ${mpSubId} ignorado: la suscripción vigente de la empresa es ${vigente}`);
+      return jsonResp({
+        ignored: true,
+        motivo: "no es la suscripción vigente",
+        mp_suscripcion_id: mpSubId,
+        vigente,
+        estado: estadoSub,
+      }, 200);
+    }
+
+    // authorized de otra suscripción: ¿reemplaza a la vigente?
+    const rv = await mpGet(`/preapproval/${vigente}`, accessToken);
+    if (!rv.ok && rv.transitorio) return respuestaErrorMp("[SUSCRIPCIÓN]", rv);
+
+    if (rv.ok) {
+      const v = rv.body;
+      const vigenteActiva = v?.status === "authorized";
+      const tNueva = new Date(sub?.date_created ?? 0).getTime();
+      const tVigente = new Date(v?.date_created ?? 0).getTime();
+      const esMasNueva = tNueva > tVigente;
+
+      if (vigenteActiva && !esMasNueva) {
+        console.log(`>>> [SUSCRIPCIÓN] ${mpSubId} es anterior a la vigente ${vigente} (activa): se ignora`);
+        return jsonResp({
+          ignored: true,
+          motivo: "suscripción anterior a la vigente",
+          mp_suscripcion_id: mpSubId,
+          vigente,
+        }, 200);
+      }
+
+      if (vigenteActiva && esMasNueva) {
+        console.log(`>>> [SUSCRIPCIÓN] ATENCIÓN: empresa ${empresaId} con DOS suscripciones activas (${vigente} y ${mpSubId}). La nueva pasa a vigente: cancelar ${vigente} para no cobrar dos veces.`);
+      }
+    } else {
+      console.log(`>>> [SUSCRIPCIÓN] la vigente ${vigente} no se pudo consultar (status ${rv.status}): la reemplaza ${mpSubId}`);
+    }
   }
 
   const updateData: Record<string, unknown> = {
@@ -181,7 +250,7 @@ async function procesarSuscripcion(
 
     if (planError) {
       console.log(">>> [SUSCRIPCIÓN] error al consultar planes:", planError.message);
-      return jsonResp({ error: "Error al resolver el plan", detalle: planError.message }, 200);
+      return jsonResp({ error: "Error al resolver el plan", detalle: planError.message }, 500);
     }
 
     if (!planData?.tier) {
@@ -212,8 +281,9 @@ async function procesarSuscripcion(
     .eq("id", empresaId);
 
   if (updateError) {
-    console.log(">>> [SUSCRIPCIÓN] error al actualizar empresa:", updateError.message);
-    return jsonResp({ error: "Error al actualizar empresa", detalle: updateError.message }, 200);
+    const permanente = ERRORES_PERMANENTES.has(updateError.code ?? "");
+    console.log(`>>> [SUSCRIPCIÓN] error al actualizar empresa (code=${updateError.code}, permanente=${permanente}):`, updateError.message);
+    return jsonResp({ error: "Error al actualizar empresa", detalle: updateError.message }, permanente ? 200 : 500);
   }
 
   console.log(`>>> [SUSCRIPCIÓN] empresa ${empresaId} actualizada a estado ${estadoSub}${updateData.plan ? ` con tier ${updateData.plan}` : ""}`);
@@ -221,6 +291,7 @@ async function procesarSuscripcion(
     ok: true,
     tipo: "suscripcion",
     empresa_id: empresaId,
+    mp_suscripcion_id: mpSubId,
     estado: estadoSub,
     tier: updateData.plan ?? null,
   }, 200);
@@ -274,8 +345,22 @@ async function registrarPago(
     currency_id: p?.currency_id,
   }));
 
-  if (p?.operation_type !== "recurring_payment") {
-    console.log(`>>> [PAGO] operation_type="${p?.operation_type}": no es un pago de suscripción, se ignora`);
+  // ¿Es un pago de suscripción? (validado con pagos reales, sept 2026)
+  //   • Cuotas 2 en adelante: operation_type = "recurring_payment",
+  //     con metadata.preapproval_id.
+  //   • PRIMERA cuota: operation_type = "regular_payment" y SIN
+  //     metadata.preapproval_id, pero con point_of_interaction.type =
+  //     "SUBSCRIPTIONS" y transaction_data.subscription_id.
+  // Filtrar solo por recurring_payment descartaba el primer cobro de
+  // cada suscripción nueva.
+  const esSuscripcion =
+    p?.operation_type === "recurring_payment" ||
+    p?.point_of_interaction?.type === "SUBSCRIPTIONS" ||
+    !!p?.metadata?.preapproval_id ||
+    !!td?.subscription_id;
+
+  if (!esSuscripcion) {
+    console.log(`>>> [PAGO] operation_type="${p?.operation_type}" sin datos de suscripción: no es un pago de suscripción, se ignora`);
     return jsonResp({ ignored: true, motivo: "no es pago de suscripción" }, 200);
   }
 
