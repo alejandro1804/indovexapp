@@ -1,6 +1,6 @@
 ﻿# IndovexApp - Estructura de Carpetas (auto-generada)
 
-Generado: 2026-09-27 15:02
+Generado: 2026-09-27 16:09
 
   settings.json
 .env
@@ -329,6 +329,7 @@ README.md
     20260715_planes_tier_ciclo.sql
     20260715_seed_documentos_legales.sql
     20260926_pagos_suscripcion_payment_id.sql
+    20260927_plan_pro_limites_150_600.sql
   widget_test.dart
   favicon.png
     Icon-192.png

@@ -18,7 +18,7 @@ class _GestionPlanesScreenState extends State<GestionPlanesScreen> {
   // fuente de verdad es la función SQL.
   static const _limitesPorTier = {
     'starter': {'usuarios': 10, 'maquinas': 50, 'storage': 200},
-    'pro': {'usuarios': 20, 'maquinas': 200, 'storage': 800},
+    'pro': {'usuarios': 20, 'maquinas': 150, 'storage': 600},
   };
 
   @override
