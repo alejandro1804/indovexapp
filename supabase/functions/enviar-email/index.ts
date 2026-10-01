@@ -89,11 +89,17 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  console.log('>>> [ENVIAR-EMAIL] Invocada')
+
   try {
     // 1. Validar el secreto interno (candado para que no la llame cualquiera)
     const secretoRecibido = req.headers.get('x-internal-secret')
     const secretoEsperado = Deno.env.get('INTERNAL_FUNCTION_SECRET')
     if (!secretoEsperado || secretoRecibido !== secretoEsperado) {
+      console.error(
+        '>>> [ENVIAR-EMAIL] 401: secreto',
+        !secretoEsperado ? 'no configurado en el servidor' : (secretoRecibido ? 'incorrecto' : 'ausente'),
+      )
       return new Response(JSON.stringify({ error: 'No autorizado' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
@@ -102,6 +108,9 @@ Deno.serve(async (req) => {
     // 2. Leer y validar el cuerpo
     const { to, subject, contenido, html, toName, titulo } = await req.json() as EmailRequest
     if (!to || !subject || (!contenido && !html)) {
+      console.error('>>> [ENVIAR-EMAIL] 400: faltan campos', {
+        to: !!to, subject: !!subject, contenido: !!contenido, html: !!html,
+      })
       return new Response(JSON.stringify({ error: 'Faltan campos: to, subject, y contenido (o html)' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
@@ -142,6 +151,8 @@ Deno.serve(async (req) => {
         status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
+
+    console.log('>>> [ENVIAR-EMAIL] OK →', to, '| asunto:', subject)
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
