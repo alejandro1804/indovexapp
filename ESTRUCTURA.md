@@ -1,6 +1,6 @@
 ﻿# IndovexApp - Estructura de Carpetas (auto-generada)
 
-Generado: 2026-09-27 20:57
+Generado: 2026-10-03 14:56
 
   settings.json
 .env
@@ -275,6 +275,7 @@ indovexapp.iml
 pubspec.lock
 pubspec.yaml
 README.md
+  gen_storage_policies.sql
   config.toml
   DB_Esquema.md
       index.ts
@@ -302,35 +303,10 @@ README.md
       .npmrc
       deno.json
       index.ts
-    20260604_audit_log_y_empresa_id.sql
-    20260604_usuario_sector.sql
-    20260608_audit_log_trigeers_faltantes.sql
-    20260608_ticket_preventivo_correctivo.sql
-    20260608_tickets_preventivo_correctivo.sql
-    20260608_tipos_intervalos.sql
-    20260613_unique_coinstraine.sql
-    20260620_whatsapp_destinatarios.sql
-    20260621_whatsapp_destinatarios_usuarios.sql
-    20260624_fix_storage_polices_fotos.sql
-    2026062401_get_empresa_id_valida_estado.sql
-    20260626_permiso_kpi_mtbf.sql
-    20260626_vw_mtbf_maquinas.sql
-    20260702_admin_storage_empresa.sql
-    20260702_purgar_valida-estado.sql
-    20260705_fix_empresa_id_registrar_stock.sql
-    20260705_notif_storage_90.sql
-    20260707_fix_purga_usuario_sector.sql
-    20260710_pagos_suscripcion.sql
-    20260715_aceptaciones_legales.sql
-    20260715_aceptaciones_legales_rls.sql
-    20260715_enforcement_limites_plan.sql
-    20260715_es_admin-empresa_excluye_sa.sql
-    20260715_legal_gracia_vigencia.sql
-    20260715_planes_tier_ciclo.sql
-    20260715_seed_documentos_legales.sql
-    20260926_pagos_suscripcion_payment_id.sql
-    20260927_plan_pro_limites_150_600.sql
-    20260927_proteger_empresa_permite_backend.sql
+    20260929000000_remote_schema.sql
+    20260929000001_storage_policies.sql
+    20261001022531_registrar_privacidad_v1_7.sql
+  seed.sql
   widget_test.dart
   favicon.png
     Icon-192.png
