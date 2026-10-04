@@ -30,6 +30,21 @@ class _TicketsScreenState extends State<TicketsScreen> {
   final _busquedaController = TextEditingController();
   String _textoBusqueda = '';
 
+  // Orden de la lista en pantalla: primero por estado (de arriba a abajo
+  // según este mapa) y dentro de cada estado por número de ticket.
+  // Un estado que no figure acá cae al final.
+  static const Map<String, int> _ordenEstado = {
+    'abierto': 0,
+    'asignado': 1,
+    'en_proceso': 2,
+    'pausado': 3,
+    'resuelto': 4,
+    'cerrado': 5,
+    'rechazado': 6,
+  };
+
+  static final _noDigitos = RegExp(r'[^0-9]');
+
   @override
   void initState() {
     super.initState();
@@ -128,6 +143,19 @@ class _TicketsScreenState extends State<TicketsScreen> {
     return lista;
   }
 
+  // Extrae la parte numérica del número de ticket (TK-0012 -> 12) para
+  // comparar como entero y no depender del padding.
+  int _numeroTicket(Map<String, dynamic> t) =>
+      int.tryParse((t['numero'] ?? '').toString().replaceAll(_noDigitos, '')) ?? 0;
+
+  int _compararTickets(Map<String, dynamic> a, Map<String, dynamic> b) {
+    final ea = _ordenEstado[a['estado']] ?? 99;
+    final eb = _ordenEstado[b['estado']] ?? 99;
+    if (ea != eb) return ea.compareTo(eb);
+    // Ascendente: el número más bajo arriba. Para invertirlo, intercambiar a y b.
+    return _numeroTicket(a).compareTo(_numeroTicket(b));
+  }
+
   List<Map<String, dynamic>> get _ticketsFiltrados {
     final q = _textoBusqueda.trim().toLowerCase();
     return _tickets.where((t) {
@@ -147,7 +175,8 @@ class _TicketsScreenState extends State<TicketsScreen> {
         coincideBusqueda = numero.contains(q) || desc.contains(q) || maqNombre.contains(q) || maqCodigo.contains(q) || sectorNombre.contains(q);
       }
       return coincideEstado && coincideTipo && coincidePrioridad && coincideSector && coincideBusqueda;
-    }).toList();
+    }).toList()
+      ..sort(_compararTickets);
   }
 
   bool get _hayFiltrosActivos =>
