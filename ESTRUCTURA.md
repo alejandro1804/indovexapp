@@ -1,6 +1,6 @@
 ﻿# IndovexApp - Estructura de Carpetas (auto-generada)
 
-Generado: 2026-10-04 20:34
+Generado: 2026-10-04 21:44
 
   settings.json
 .env
@@ -288,6 +288,9 @@ README.md
       .npmrc
       deno.json
       index.ts
+      .npmrc
+      deno.json
+      index.ts
       index.ts
       index.ts
       index.ts
@@ -309,6 +312,7 @@ README.md
     20261003180000_email_usuarios_sync.sql
     20261004120000_proteger_insert_super_admin.sql
     20261004230000_permisos_usuarios_roles.sql
+    20261005003000_sa_nombres_usuarios.sql
   seed.sql
   widget_test.dart
   favicon.png

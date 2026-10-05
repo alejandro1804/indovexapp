@@ -11,6 +11,8 @@ class AuditoriaDetalleScreen extends StatelessWidget {
       case 'INSERT': return Colors.green;
       case 'UPDATE': return Colors.orange;
       case 'DELETE': return Colors.red;
+      case 'CAMBIO_EMAIL': return Colors.blue;
+      case 'EXPORT': return Colors.purple;
       default: return Colors.grey;
     }
   }
@@ -89,7 +91,7 @@ class AuditoriaDetalleScreen extends StatelessWidget {
                 ),
               ]),
               const SizedBox(height: 12),
-              _metaRow('Usuario', log.nombreUsuario ?? 'Sistema'),
+              _metaRow('Usuario', log.actorLabel),
               _metaRow('Fecha', _formatoFecha(log.createdAt)),
               _metaRow('ID registro', log.registroId),
               if (log.ip != null) _metaRow('IP', log.ip!),
@@ -103,7 +105,16 @@ class AuditoriaDetalleScreen extends StatelessWidget {
           else if (log.operacion == 'INSERT')
             _buildSnapshot('Datos creados', log.datosDespues)
           else if (log.operacion == 'DELETE')
-            _buildSnapshot('Datos eliminados', log.datosAntes),
+            _buildSnapshot('Datos eliminados', log.datosAntes)
+          else if (log.operacion == 'CAMBIO_EMAIL')
+            // Solo el email: antes y después. El resto de datos_despues
+            // (evento, cambiado_por) es descriptivo y ya figura en "Usuario".
+            _buildCambios(const ['email'])
+          else if (log.operacion == 'EXPORT')
+            _buildSnapshot('Datos de la exportación', log.datosDespues)
+          else
+            // Operación no prevista: mostrar lo que haya, nunca pantalla vacía.
+            _buildSnapshot('Datos registrados', log.datosDespues ?? log.datosAntes),
 
           const SizedBox(height: 24),
         ],

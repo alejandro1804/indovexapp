@@ -51,6 +51,8 @@ class _AuditoriaScreenState extends State<AuditoriaScreen> {
       case 'INSERT': return Colors.green;
       case 'UPDATE': return Colors.orange;
       case 'DELETE': return Colors.red;
+      case 'CAMBIO_EMAIL': return Colors.blue;
+      case 'EXPORT': return Colors.purple;
       default: return Colors.grey;
     }
   }
@@ -60,6 +62,8 @@ class _AuditoriaScreenState extends State<AuditoriaScreen> {
       case 'INSERT': return Icons.add_circle_outline;
       case 'UPDATE': return Icons.edit_outlined;
       case 'DELETE': return Icons.delete_outline;
+      case 'CAMBIO_EMAIL': return Icons.alternate_email;
+      case 'EXPORT': return Icons.download_outlined;
       default: return Icons.help_outline;
     }
   }
@@ -118,6 +122,8 @@ class _AuditoriaScreenState extends State<AuditoriaScreen> {
       'INSERT': 'Creación',
       'UPDATE': 'Modificación',
       'DELETE': 'Eliminación',
+      'CAMBIO_EMAIL': 'Cambio de email',
+      'EXPORT': 'Exportación de datos',
     };
 
     final tablasMap = <String, String>{'todos': 'Todas las tablas'};
@@ -261,7 +267,7 @@ class _AuditoriaScreenState extends State<AuditoriaScreen> {
                                       ]),
                                       const SizedBox(height: 2),
                                       Text(
-                                        log.nombreUsuario ?? 'Sistema',
+                                        log.actorLabel,
                                         style: TextStyle(fontSize: 10, color: Colors.grey[600]),
                                         overflow: TextOverflow.ellipsis,
                                       ),

@@ -1,7 +1,8 @@
 class AuditLog {
   final int id;
   final String tabla;
-  final String operacion; // INSERT | UPDATE | DELETE
+  // INSERT | UPDATE | DELETE (triggers) | CAMBIO_EMAIL | EXPORT (registros explícitos)
+  final String operacion;
   final String registroId;
   final String? empresaId;
   final String? usuarioId;
@@ -77,7 +78,19 @@ class AuditLog {
       case 'INSERT': return 'Creación';
       case 'UPDATE': return 'Modificación';
       case 'DELETE': return 'Eliminación';
+      case 'CAMBIO_EMAIL': return 'Cambio de email';
+      case 'EXPORT': return 'Exportación de datos';
       default: return operacion;
     }
+  }
+
+  // Quién hizo la operación.
+  // - Con nombre: ese nombre.
+  // - Con usuario registrado pero sin nombre legible: "Usuario no disponible".
+  // - Sin usuario: la hizo el sistema (triggers, tareas automáticas, Auth).
+  String get actorLabel {
+    if (nombreUsuario != null) return nombreUsuario!;
+    if (usuarioId != null) return 'Usuario no disponible';
+    return 'Sistema';
   }
 }

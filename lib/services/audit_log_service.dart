@@ -95,6 +95,24 @@ class AuditLogService {
     for (final u in data as List) {
       mapa[u['id']] = u['nombre'];
     }
+
+    // Los que no se pudieron leer son usuarios de otra empresa (RLS).
+    // Solo el super admin los resuelve, con la RPC sa_nombres_usuarios;
+    // para cualquier otro usuario la RPC devuelve vacío.
+    final faltantes = ids.where((id) => !mapa.containsKey(id)).toList();
+    if (faltantes.isNotEmpty) {
+      try {
+        final extra = await _client
+            .rpc('sa_nombres_usuarios', params: {'p_ids': faltantes});
+        for (final u in extra as List) {
+          mapa[u['id']] = u['nombre'];
+        }
+      } catch (_) {
+        // Si la RPC falla, esos registros quedan sin nombre: la pantalla
+        // muestra "Usuario no disponible" en lugar de "Sistema".
+      }
+    }
+
     return mapa;
   }
 
