@@ -96,24 +96,39 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    // 3. Verificar que el que llama es admin o super admin de su empresa
+    // 3. Autorización: la decide la base, con las mismas funciones que usan
+    //    las políticas RLS y cambiar_email_usuario. Las dos exigen que el
+    //    usuario esté ACTIVO: un admin desactivado con la sesión abierta ya
+    //    no pasa. Se autoriza por permiso (gestionar_usuarios), no por el
+    //    nombre del rol.
+    const { data: esSuperAdmin, error: errSa } = await supabaseUser.rpc('es_super_admin')
+    const { data: puedeGestionar, error: errPermiso } = await supabaseUser.rpc(
+      'tiene_permiso',
+      { p_codigo: 'gestionar_usuarios' },
+    )
+
+    if (errSa || errPermiso) {
+      console.error('>>> [CREAR-USUARIO] Error verificando permisos:', errSa ?? errPermiso)
+      return new Response(JSON.stringify({ error: 'No se pudieron verificar tus permisos' }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    if (esSuperAdmin !== true && puedeGestionar !== true) {
+      return new Response(JSON.stringify({ error: 'No tenés permisos para crear usuarios' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    // 3.1 Perfil del que llama (para saber a qué empresa pertenece el alta)
     const { data: perfilCaller, error: errPerfil } = await supabaseAdmin
       .from('usuarios')
-      .select('empresa_id, es_super_admin, roles(nombre)')
+      .select('empresa_id')
       .eq('id', caller.id)
       .single()
 
     if (errPerfil || !perfilCaller) {
       return new Response(JSON.stringify({ error: 'No se encontró tu perfil' }), {
-        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
-    }
-
-    const esAdmin = perfilCaller.es_super_admin === true ||
-                    (perfilCaller.roles as any)?.nombre === 'admin'
-
-    if (!esAdmin) {
-      return new Response(JSON.stringify({ error: 'No tenés permisos para crear usuarios' }), {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }

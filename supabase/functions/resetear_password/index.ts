@@ -32,24 +32,40 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    // 3. Verificar que el que llama es admin o super admin
+    // 3. Autorizacion: la decide la base, con las mismas funciones que usan
+    //    las politicas RLS y cambiar_email_usuario. Las dos exigen que el
+    //    usuario este ACTIVO: un admin desactivado con la sesion abierta ya
+    //    no pasa. Se autoriza por permiso (gestionar_usuarios), no por el
+    //    nombre del rol.
+    const { data: esSuperAdmin, error: errSa } = await supabaseUser.rpc('es_super_admin')
+    const { data: puedeGestionar, error: errPermiso } = await supabaseUser.rpc(
+      'tiene_permiso',
+      { p_codigo: 'gestionar_usuarios' },
+    )
+
+    if (errSa || errPermiso) {
+      console.error('>>> [RESETEAR-PASSWORD] Error verificando permisos:', errSa ?? errPermiso)
+      return new Response(JSON.stringify({ error: 'No se pudieron verificar tus permisos' }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    const callerEsSuperAdmin = esSuperAdmin === true
+    if (!callerEsSuperAdmin && puedeGestionar !== true) {
+      return new Response(JSON.stringify({ error: 'No tenes permisos para resetear contrasenas' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    // 3.1 Perfil del que llama (para comparar la empresa con la del objetivo)
     const { data: perfilCaller, error: errPerfil } = await supabaseAdmin
       .from('usuarios')
-      .select('empresa_id, es_super_admin, roles(nombre)')
+      .select('empresa_id')
       .eq('id', caller.id)
       .single()
 
     if (errPerfil || !perfilCaller) {
       return new Response(JSON.stringify({ error: 'No se encontro tu perfil' }), {
-        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
-    }
-
-    const esAdmin = perfilCaller.es_super_admin === true ||
-                    (perfilCaller.roles as any)?.nombre === 'admin'
-
-    if (!esAdmin) {
-      return new Response(JSON.stringify({ error: 'No tenes permisos para resetear contrasenas' }), {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
@@ -77,14 +93,14 @@ Deno.serve(async (req) => {
     }
 
     // Un admin normal solo puede resetear usuarios de SU empresa
-    if (!perfilCaller.es_super_admin && objetivo.empresa_id !== perfilCaller.empresa_id) {
+    if (!callerEsSuperAdmin && objetivo.empresa_id !== perfilCaller.empresa_id) {
       return new Response(JSON.stringify({ error: 'No podes resetear usuarios de otra empresa' }), {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
     // Nadie (salvo super admin) puede resetear a un super admin
-    if (objetivo.es_super_admin && !perfilCaller.es_super_admin) {
+    if (objetivo.es_super_admin && !callerEsSuperAdmin) {
       return new Response(JSON.stringify({ error: 'No autorizado' }), {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
