@@ -320,8 +320,6 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
     return null;
   }
 
-
-
   Future<void> _crearUsuario({
     required String email,
     required String nombre,
@@ -525,6 +523,200 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
         ],
       ),
     );
+  }
+
+  /// Cambia el email de acceso de un usuario.
+  /// El cambio lo hace la Edge Function cambiar_email_usuario (en Auth); la
+  /// base replica el email a la tabla usuarios. Acá solo se pide el dato.
+  Future<void> _cambiarEmail(Map<String, dynamic> usuario) async {
+    final emailActual = (usuario['email'] ?? '').toString();
+    final esYo = context.read<AuthProvider>().usuario?.id == usuario['id'];
+    final emailController = TextEditingController();
+    final repetirController = TextEditingController();
+    String? error;
+
+    final emailNuevo = await showDialog<String>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Cambiar email de ${usuario['nombre']}'),
+          content: SizedBox(
+            width: Responsive.isDesktop(context) ? 440 : double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Email actual',
+                      style: TextStyle(fontSize: 10, color: Colors.grey[600])),
+                  const SizedBox(height: 2),
+                  Text(emailActual,
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: emailController,
+                    style: const TextStyle(fontSize: 13),
+                    decoration: const InputDecoration(
+                        labelText: 'Email nuevo *',
+                        labelStyle: TextStyle(fontSize: 13),
+                        border: OutlineInputBorder()),
+                    keyboardType: TextInputType.emailAddress,
+                    maxLength: 255,
+                    autofocus: true,
+                    onChanged: (_) {
+                      if (error != null) {
+                        setDialogState(() => error = null);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 4),
+                  // Se pide dos veces: un error de tipeo deja al usuario sin
+                  // poder ingresar.
+                  TextField(
+                    controller: repetirController,
+                    style: const TextStyle(fontSize: 13),
+                    decoration: const InputDecoration(
+                        labelText: 'Repetir email nuevo *',
+                        labelStyle: TextStyle(fontSize: 13),
+                        border: OutlineInputBorder()),
+                    keyboardType: TextInputType.emailAddress,
+                    maxLength: 255,
+                    onChanged: (_) {
+                      if (error != null) {
+                        setDialogState(() => error = null);
+                      }
+                    },
+                  ),
+                  if (error != null) ...[
+                    Text(error!,
+                        style:
+                            const TextStyle(fontSize: 11, color: Colors.red)),
+                    const SizedBox(height: 8),
+                  ],
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                        color: Colors.blue[50],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blue[200]!)),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline,
+                            color: Colors.blue[700], size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(
+                            child: Text(
+                                'El usuario va a ingresar con el email nuevo. Su contraseña no cambia. Se envía un aviso al email anterior y al nuevo.',
+                                style: TextStyle(
+                                    fontSize: 10, color: Colors.blue[700]))),
+                      ],
+                    ),
+                  ),
+                  if (esYo) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                          color: Colors.orange[50],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.orange[200]!)),
+                      child: Row(
+                        children: [
+                          Icon(Icons.warning_amber_outlined,
+                              color: Colors.orange[700], size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(
+                              child: Text(
+                                  'Estás cambiando tu propio email. Revisalo bien: desde ahora vas a ingresar con el email nuevo.',
+                                  style: TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.orange[800]))),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancelar')),
+            ElevatedButton(
+              onPressed: () {
+                final email =
+                    normalizarEmail(emailController.text).toLowerCase();
+                final repetido =
+                    normalizarEmail(repetirController.text).toLowerCase();
+                String? problema;
+                if (email.isEmpty || repetido.isEmpty) {
+                  problema = 'Completá los dos campos.';
+                } else if (!esEmailValido(email)) {
+                  problema = 'El email ingresado no tiene un formato válido.';
+                } else if (email != repetido) {
+                  problema = 'Los dos emails no coinciden.';
+                } else if (email == emailActual.trim().toLowerCase()) {
+                  problema = 'El email nuevo es igual al actual.';
+                }
+                if (problema != null) {
+                  setDialogState(() => error = problema);
+                  return;
+                }
+                Navigator.pop(context, email);
+              },
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1F4E79),
+                  foregroundColor: Colors.white),
+              child: const Text('Cambiar email'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (emailNuevo == null) return;
+
+    try {
+      final response = await _supabase.functions.invoke(
+        'cambiar_email_usuario',
+        body: {
+          'usuario_id': usuario['id'],
+          'email': emailNuevo,
+        },
+      );
+
+      final data = response.data;
+      if (data != null && data['success'] == true) {
+        await _cargarDatos();
+        if (data['aviso_nuevo_enviado'] == true) {
+          _mostrarExito(esYo
+              ? 'Email actualizado. Desde ahora ingresás con $emailNuevo'
+              : 'Email actualizado. Se avisó al usuario por email.');
+        } else {
+          _mostrarError(
+              'Email actualizado, pero no se pudo enviar el aviso. Avisale al usuario que ahora ingresa con $emailNuevo');
+        }
+      } else {
+        final mensaje =
+            data?['error'] ?? 'Error desconocido al cambiar el email';
+        _mostrarError(mensaje.toString());
+      }
+    } catch (e) {
+      String mensaje = 'Error al cambiar el email';
+      if (e is FunctionException) {
+        final details = e.details;
+        if (details is Map && details['error'] != null) {
+          mensaje = details['error'].toString();
+        } else {
+          mensaje = e.toString();
+        }
+      } else {
+        mensaje = e.toString();
+      }
+      _mostrarError(mensaje);
+    }
   }
 
   Future<void> _cambiarRol(Map<String, dynamic> usuario) async {
@@ -959,6 +1151,12 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
     final esYo = myId == usuario['id'];
     final activo = usuario['estado'] == 'activo';
     final primerLogin = usuario['primer_login'] == true;
+    // El email de un super admin solo lo cambia otro super admin
+    // (la Edge Function lo valida igual; acá solo se oculta la opción).
+    final soySuperAdmin =
+        context.read<AuthProvider>().usuario?.esSuperAdmin == true;
+    final puedeCambiarEmail =
+        usuario['es_super_admin'] != true || soySuperAdmin;
 
     return Card(
       elevation: 1,
@@ -1117,6 +1315,16 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                 Text('Editar teléfono')
               ]),
             ),
+            // "Cambiar email" aparece también sobre el propio usuario.
+            if (puedeCambiarEmail)
+              const PopupMenuItem(
+                value: 'cambiar_email',
+                child: Row(children: [
+                  Icon(Icons.alternate_email, size: 18),
+                  SizedBox(width: 8),
+                  Text('Cambiar email')
+                ]),
+              ),
             if (!esYo)
               const PopupMenuItem(
                 value: 'cambiar_rol',
@@ -1167,6 +1375,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
           onSelected: (value) {
             if (value == 'editar_nombre') _editarNombre(usuario);
             if (value == 'editar_telefono') _editarTelefono(usuario);
+            if (value == 'cambiar_email') _cambiarEmail(usuario);
             if (value == 'cambiar_rol') _cambiarRol(usuario);
             if (value == 'asignar_sectores') _asignarSectores(usuario);
             if (value == 'resetear_pass') _resetearPassword(usuario);
