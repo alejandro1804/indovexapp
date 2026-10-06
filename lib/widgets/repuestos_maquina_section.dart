@@ -7,11 +7,15 @@ import '../providers/repuesto_maquina_provider.dart';
 class RepuestosMaquinaSection extends StatefulWidget {
   final String modo; // 'desde_maquina' o 'desde_repuesto'
   final String entidadId; // id de la máquina o del repuesto según el modo
+  // false oculta el botón (+). Se usa desde el detalle de un repuesto dado de
+  // baja: los vínculos existentes se ven y se pueden quitar, pero no se suman.
+  final bool permiteAgregar;
 
   const RepuestosMaquinaSection({
     super.key,
     required this.modo,
     required this.entidadId,
+    this.permiteAgregar = true,
   });
 
   @override
@@ -41,6 +45,7 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
   // Carga las opciones disponibles para vincular (repuestos o activos según modo)
   Future<List<Map<String, dynamic>>> _cargarOpciones() async {
     if (_desdeMaquina) {
+      // Solo repuestos activos: los dados de baja no se ofrecen para vincular.
       final data = await _supabase
           .from('repuestos')
           .select('id, codigo, descripcion')
@@ -289,15 +294,17 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(width: 4),
-                IconButton(
-                  visualDensity: VisualDensity.compact,
-                  constraints: const BoxConstraints(),
-                  padding: const EdgeInsets.all(4),
-                  tooltip: _desdeMaquina ? 'Agregar repuesto' : 'Asociar activo',
-                  icon: const Icon(Icons.add_circle_outline, color: Color(0xFF1F4E79)),
-                  onPressed: () => _mostrarFormulario(),
-                ),
+                if (widget.permiteAgregar) ...[
+                  const SizedBox(width: 4),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    constraints: const BoxConstraints(),
+                    padding: const EdgeInsets.all(4),
+                    tooltip: _desdeMaquina ? 'Agregar repuesto' : 'Asociar activo',
+                    icon: const Icon(Icons.add_circle_outline, color: Color(0xFF1F4E79)),
+                    onPressed: () => _mostrarFormulario(),
+                  ),
+                ],
               ],
             ),
             const Divider(),

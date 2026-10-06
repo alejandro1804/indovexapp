@@ -6,6 +6,7 @@ import '../../models/categoria_repuesto.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/responsive.dart';
 import '../../core/db_error_helper.dart';
+import '../../services/repuesto_service.dart';
 import '../../widgets/adjuntos_section.dart';
 import '../../widgets/foto_principal_widget.dart';
 import '../../widgets/repuestos_maquina_section.dart';
@@ -23,8 +24,11 @@ class RepuestoDetailScreen extends StatefulWidget {
 
 class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
   final _supabase = Supabase.instance.client;
+  final _repuestoService = RepuestoService();
   late Repuesto _repuesto;
   List<CategoriaRepuesto> _categorias = [];
+  // true mientras se está dando de baja o reactivando (evita doble toque).
+  bool _procesandoBaja = false;
 
   @override
   void initState() {
@@ -63,6 +67,73 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
       MaterialPageRoute(builder: (_) => SalidaRepuestoScreen(repuesto: _repuesto)),
     );
     if (resultado == true) await _recargarRepuesto();
+  }
+
+  /// Pide confirmación antes de dar de baja. Si queda stock, lo muestra:
+  /// la baja no lo descuenta, pero el repuesto deja de admitir movimientos.
+  Future<void> _confirmarBaja() async {
+    final stock = _repuesto.stockActual;
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Dar de baja repuesto', style: TextStyle(fontSize: 18)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (stock > 0) ...[
+              Text(
+                'Todavía tiene $stock ${_repuesto.unidadMedida} en stock.',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.orange),
+              ),
+              const SizedBox(height: 10),
+            ],
+            const Text(
+              'El repuesto deja de aparecer en los listados y no admite ingresos ni salidas. '
+              'Su historial se conserva y se puede reactivar más adelante.',
+              style: TextStyle(fontSize: 13),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancelar')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red[700], foregroundColor: Colors.white),
+            child: const Text('Dar de baja'),
+          ),
+        ],
+      ),
+    );
+    if (confirmar != true || !mounted) return;
+    await _cambiarActivo(false);
+  }
+
+  /// Da de baja ([activar] false) o reactiva ([activar] true) el repuesto.
+  /// La base valida el permiso dar_baja_repuestos.
+  Future<void> _cambiarActivo(bool activar) async {
+    if (_procesandoBaja) return;
+    setState(() => _procesandoBaja = true);
+    try {
+      if (activar) {
+        await _repuestoService.reactivar(_repuesto.id);
+      } else {
+        await _repuestoService.darDeBaja(_repuesto.id);
+      }
+      await _recargarRepuesto();
+      _mostrarExito(activar ? 'Repuesto reactivado' : 'Repuesto dado de baja');
+    } catch (e) {
+      _mostrarError(_mensajeErrorBaja(e));
+    } finally {
+      if (mounted) setState(() => _procesandoBaja = false);
+    }
+  }
+
+  String _mensajeErrorBaja(Object e) {
+    if (e.toString().toLowerCase().contains('no autorizado')) {
+      return 'No tenés permiso para dar de baja o reactivar repuestos.';
+    }
+    return mensajeAmigableDb(e, entidad: 'repuesto', campos: 'descripción o código');
   }
 
   Future<void> _mostrarFormularioEdicion() async {
@@ -223,13 +294,15 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
 
   /// Traduce los dos índices únicos de repuestos a mensajes claros.
   /// Distingue código vs. descripción; si no es ninguno, cae al helper.
+  /// Los índices también cuentan los repuestos dados de baja (se reactivan,
+  /// no se duplican), por eso el mensaje lo aclara.
   String _mensajeErrorRepuesto(Object e) {
     final texto = e.toString().toLowerCase();
     if (texto.contains('uq_repuestos_empresa_codigo_norm')) {
-      return 'Ya existe un repuesto con ese código. Elegí otro o dejalo vacío.';
+      return 'Ya existe un repuesto con ese código. Elegí otro o dejalo vacío. Si no lo ves en el listado, puede estar dado de baja.';
     }
     if (texto.contains('uq_repuestos_empresa_descripcion_norm')) {
-      return 'Ya existe un repuesto con esa descripción.';
+      return 'Ya existe un repuesto con esa descripción. Si no lo ves en el listado, puede estar dado de baja.';
     }
     return mensajeAmigableDb(e, entidad: 'repuesto', campos: 'descripción o código');
   }
@@ -254,11 +327,18 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final stockBajo = _repuesto.stockBajo;
+    // Un repuesto dado de baja es de solo lectura: sin ingresos, salidas,
+    // edición ni alerta de stock bajo. Lo único disponible es reactivarlo.
+    final activo = _repuesto.activo;
+    final stockBajo = _repuesto.stockBajo && activo;
     final usuario = context.read<AuthProvider>().usuario;
-    final puedeIngreso = usuario?.tienePermiso('registrar_ingreso') ?? false;
-    final puedeSalida = usuario?.tienePermiso('registrar_salida') ?? false;
-    final puedeGestionar = usuario?.tienePermiso('gestionar_repuestos') ?? false;
+    final puedeIngreso = activo && (usuario?.tienePermiso('registrar_ingreso') ?? false);
+    final puedeSalida = activo && (usuario?.tienePermiso('registrar_salida') ?? false);
+    final puedeGestionar = activo && (usuario?.tienePermiso('gestionar_repuestos') ?? false);
+    final puedeDarBaja = usuario?.tienePermiso('dar_baja_repuestos') ?? false;
+    final Color colorStock = !activo
+        ? Colors.grey
+        : (stockBajo ? Colors.orange : const Color(0xFF1F4E79));
 
     return Scaffold(
       appBar: AppBar(
@@ -272,11 +352,56 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
               tooltip: 'Editar repuesto',
               onPressed: _mostrarFormularioEdicion,
             ),
+          // Dar de baja: solo sobre repuestos activos. La reactivación se
+          // ofrece desde el aviso que aparece en el cuerpo de la pantalla.
+          if (puedeDarBaja && activo)
+            _procesandoBaja
+                ? const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                  )
+                : IconButton(
+                    icon: const Icon(Icons.archive_outlined),
+                    tooltip: 'Dar de baja',
+                    onPressed: _confirmarBaja,
+                  ),
         ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // ── Aviso de repuesto dado de baja ─────────────────────────────
+          if (!activo) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.grey.shade400),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.archive_outlined, size: 20, color: Colors.grey[700]),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Repuesto dado de baja. No admite ingresos, salidas ni edición.',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[800]),
+                    ),
+                  ),
+                  if (puedeDarBaja) ...[
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: _procesandoBaja ? null : () => _cambiarActivo(true),
+                      child: const Text('Reactivar', style: TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
           // ── Foto principal ──────────────────────────────────────────────
           Center(
             child: FotoPrincipalWidget(
@@ -316,10 +441,10 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: stockBajo ? Colors.orange.withValues(alpha: 0.1) : const Color(0xFF1F4E79).withValues(alpha: 0.1),
+              color: colorStock.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: stockBajo ? Colors.orange.withValues(alpha: 0.3) : const Color(0xFF1F4E79).withValues(alpha: 0.3),
+                color: colorStock.withValues(alpha: 0.3),
               ),
             ),
             child: Row(
@@ -331,7 +456,7 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
                     Text('Stock actual', style: TextStyle(color: Colors.grey[600], fontSize: 11)),
                     Text(
                       '${_repuesto.stockActual} ${_repuesto.unidadMedida}',
-                      style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: stockBajo ? Colors.orange : const Color(0xFF1F4E79)),
+                      style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: colorStock),
                     ),
                     if (stockBajo)
                       const Text('⚠ Stock bajo', style: TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.w600)),
@@ -402,7 +527,8 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
           const SizedBox(height: 16),
 
           // ── Activos que usan este repuesto ────────────────────────────
-          RepuestosMaquinaSection(modo: 'desde_repuesto', entidadId: _repuesto.id),
+          // Dado de baja: se ven y se pueden quitar los vínculos, pero no agregar.
+          RepuestosMaquinaSection(modo: 'desde_repuesto', entidadId: _repuesto.id, permiteAgregar: activo),
           const SizedBox(height: 16),
 
           // ── Adjuntos (PDFs, manuales, etc.) ────────────────────────────

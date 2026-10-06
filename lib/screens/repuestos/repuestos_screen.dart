@@ -10,6 +10,10 @@ import '../../services/repuestos_pdf_service.dart';
 import '../../widgets/foto_principal_widget.dart';
 import 'repuesto_detail_screen.dart';
 
+/// Opciones del segundo desplegable. Son excluyentes entre sí.
+/// deBaja cambia el origen de datos: lista los repuestos con activo = false.
+enum _FiltroStock { todo, bajo, deBaja }
+
 class RepuestosScreen extends StatefulWidget {
   const RepuestosScreen({super.key});
   @override
@@ -23,9 +27,12 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
   bool _cargando = true;
   bool _exportando = false;
   String _filtroCategoriaId = 'todos';
-  bool _soloStockBajo = false;
+  _FiltroStock _filtroStock = _FiltroStock.todo;
   final _busquedaController = TextEditingController();
   String _textoBusqueda = '';
+
+  bool get _soloStockBajo => _filtroStock == _FiltroStock.bajo;
+  bool get _verBaja => _filtroStock == _FiltroStock.deBaja;
 
   @override
   void initState() { super.initState(); _cargarDatos(); }
@@ -36,7 +43,8 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
   Future<void> _cargarDatos() async {
     setState(() => _cargando = true);
     try {
-      final repuestosData = await _supabase.from('repuestos').select().eq('activo', true).order('descripcion', ascending: true);
+      // En modo "Dados de baja" se traen solo los inactivos; si no, solo los activos.
+      final repuestosData = await _supabase.from('repuestos').select().eq('activo', !_verBaja).order('descripcion', ascending: true);
       final categoriasData = await _supabase.from('categorias_repuestos').select().order('nombre', ascending: true);
       setState(() {
         _repuestos = (repuestosData as List).map((e) => Repuesto.fromMap(e)).toList();
@@ -60,15 +68,27 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
   }
 
   bool get _hayFiltrosActivos =>
-      _filtroCategoriaId != 'todos' || _soloStockBajo || _textoBusqueda.trim().isNotEmpty;
+      _filtroCategoriaId != 'todos' || _filtroStock != _FiltroStock.todo || _textoBusqueda.trim().isNotEmpty;
+
+  /// Cambia el filtro de stock. Entrar o salir de "Dados de baja" cambia
+  /// qué repuestos se consultan, así que en ese caso se recarga.
+  void _cambiarFiltroStock(_FiltroStock nuevo) {
+    if (nuevo == _filtroStock) return;
+    final cambiaOrigen = (nuevo == _FiltroStock.deBaja) != _verBaja;
+    setState(() => _filtroStock = nuevo);
+    if (cambiaOrigen) _cargarDatos();
+  }
 
   void _limpiarFiltros() {
+    final estabaEnBaja = _verBaja;
     setState(() {
       _filtroCategoriaId = 'todos';
-      _soloStockBajo = false;
+      _filtroStock = _FiltroStock.todo;
       _textoBusqueda = '';
       _busquedaController.clear();
     });
+    // Al salir del modo "Dados de baja" hay que volver a traer los activos.
+    if (estabaEnBaja) _cargarDatos();
   }
 
   String _nombreCategoria(String? categoriaId) {
@@ -84,32 +104,32 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
     return usuario?.tienePermiso('exportar_pdf_repuestos') ?? false;
   }
 
-Future<void> _exportarPdf() async {
-  final usuario = context.read<AuthProvider>().usuario;
-  if (usuario == null) return;
-  setState(() => _exportando = true);
-  try {
-    final empresa = await _supabase
-        .from('empresas')
-        .select('nombre')
-        .eq('id', usuario.empresaId)
-        .single();
-    final nombreEmpresa = empresa['nombre'] as String? ?? '';
-    final categoriasMap = { for (final c in _categorias) c.id: c.nombre };
-    await RepuestosPdfService.generarYCompartir(
-      repuestos: _repuestosFiltrados,
-      nombreEmpresa: nombreEmpresa,
-      categorias: categoriasMap,
-      filtroCategoria: _filtroCategoriaId,
-      soloStockBajo: _soloStockBajo,
-      busqueda: _textoBusqueda,
-    );
-  } catch (e) {
-    _mostrarError('Error al generar PDF: $e');
-  } finally {
-    if (mounted) setState(() => _exportando = false);
+  Future<void> _exportarPdf() async {
+    final usuario = context.read<AuthProvider>().usuario;
+    if (usuario == null) return;
+    setState(() => _exportando = true);
+    try {
+      final empresa = await _supabase
+          .from('empresas')
+          .select('nombre')
+          .eq('id', usuario.empresaId)
+          .single();
+      final nombreEmpresa = empresa['nombre'] as String? ?? '';
+      final categoriasMap = { for (final c in _categorias) c.id: c.nombre };
+      await RepuestosPdfService.generarYCompartir(
+        repuestos: _repuestosFiltrados,
+        nombreEmpresa: nombreEmpresa,
+        categorias: categoriasMap,
+        filtroCategoria: _filtroCategoriaId,
+        soloStockBajo: _soloStockBajo,
+        busqueda: _textoBusqueda,
+      );
+    } catch (e) {
+      _mostrarError('Error al generar PDF: $e');
+    } finally {
+      if (mounted) setState(() => _exportando = false);
+    }
   }
-}
 
   Future<void> _mostrarFormulario({Repuesto? repuesto}) async {
     final codigoController = TextEditingController(text: repuesto?.codigo ?? '');
@@ -217,13 +237,15 @@ Future<void> _exportarPdf() async {
 
   /// Traduce los dos índices únicos de repuestos a mensajes claros.
   /// Distingue código vs. descripción; si no es ninguno, cae al helper.
+  /// Los índices también cuentan los repuestos dados de baja (se reactivan,
+  /// no se duplican), por eso el mensaje lo aclara.
   String _mensajeErrorRepuesto(Object e) {
     final texto = e.toString().toLowerCase();
     if (texto.contains('uq_repuestos_empresa_codigo_norm')) {
-      return 'Ya existe un repuesto con ese código. Elegí otro o dejalo vacío.';
+      return 'Ya existe un repuesto con ese código. Elegí otro o dejalo vacío. Si no lo ves en el listado, puede estar dado de baja.';
     }
     if (texto.contains('uq_repuestos_empresa_descripcion_norm')) {
-      return 'Ya existe un repuesto con esa descripción.';
+      return 'Ya existe un repuesto con esa descripción. Si no lo ves en el listado, puede estar dado de baja.';
     }
     return mensajeAmigableDb(e, entidad: 'repuesto', campos: 'descripción o código');
   }
@@ -232,7 +254,9 @@ Future<void> _exportarPdf() async {
   void _mostrarError(String m) { if (!mounted) return; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating)); }
 
   Widget _buildCard(Repuesto repuesto) {
-    final stockBajo = repuesto.stockBajo;
+    // Un repuesto dado de baja se muestra atenuado y sin alerta de stock bajo.
+    final deBaja = !repuesto.activo;
+    final stockBajo = repuesto.stockBajo && !deBaja;
     final titleSize = Responsive.cardTitleSize(context);
     final subtitleSize = Responsive.cardSubtitleSize(context);
     final stockSize = Responsive.stockNumberSize(context);
@@ -240,6 +264,9 @@ Future<void> _exportarPdf() async {
     final cardPadding = Responsive.cardPadding(context);
     final thumbSize = avatarRadius * 2;
     final tieneCodigo = repuesto.codigo.trim().isNotEmpty;
+    final Color colorStock = deBaja
+        ? Colors.grey
+        : (stockBajo ? Colors.orange : const Color(0xFF1F4E79));
 
     return Card(
       elevation: 1,
@@ -259,14 +286,17 @@ Future<void> _exportarPdf() async {
             children: [
               Stack(
                 children: [
-                  FotoPrincipalWidget(
-                    storagePath: repuesto.imagenUrl,
-                    tipo: 'repuesto',
-                    empresaId: repuesto.empresaId,
-                    entidadId: repuesto.id,
-                    size: thumbSize,
-                    tamanioBytes: repuesto.tamanioBytes,
-                    puedeEditar: false,
+                  Opacity(
+                    opacity: deBaja ? 0.45 : 1,
+                    child: FotoPrincipalWidget(
+                      storagePath: repuesto.imagenUrl,
+                      tipo: 'repuesto',
+                      empresaId: repuesto.empresaId,
+                      entidadId: repuesto.id,
+                      size: thumbSize,
+                      tamanioBytes: repuesto.tamanioBytes,
+                      puedeEditar: false,
+                    ),
                   ),
                   if (stockBajo)
                     Positioned(
@@ -286,7 +316,7 @@ Future<void> _exportarPdf() async {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(repuesto.descripcion, style: TextStyle(fontWeight: FontWeight.w600, fontSize: titleSize), maxLines: 2, overflow: TextOverflow.ellipsis),
+                    Text(repuesto.descripcion, style: TextStyle(fontWeight: FontWeight.w600, fontSize: titleSize, color: deBaja ? Colors.grey[600] : null), maxLines: 2, overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 2),
                     // La línea de código solo aparece si el repuesto tiene uno.
                     if (tieneCodigo)
@@ -300,9 +330,10 @@ Future<void> _exportarPdf() async {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text('${repuesto.stockActual}', style: TextStyle(fontSize: stockSize, fontWeight: FontWeight.bold, color: stockBajo ? Colors.orange : const Color(0xFF1F4E79))),
+                  Text('${repuesto.stockActual}', style: TextStyle(fontSize: stockSize, fontWeight: FontWeight.bold, color: colorStock)),
                   Text(repuesto.unidadMedida, style: TextStyle(fontSize: subtitleSize, color: Colors.grey[500])),
                   if (stockBajo) Text('Stock bajo', style: TextStyle(fontSize: subtitleSize - 1, color: Colors.orange, fontWeight: FontWeight.w600)),
+                  if (deBaja) Text('Dado de baja', style: TextStyle(fontSize: subtitleSize - 1, color: Colors.grey[600], fontWeight: FontWeight.w600)),
                 ],
               ),
             ],
@@ -365,8 +396,13 @@ Future<void> _exportarPdf() async {
   Widget build(BuildContext context) {
     final usuario = context.read<AuthProvider>().usuario;
     final puedeGestionar = usuario?.tienePermiso('gestionar_repuestos') ?? false;
+    // Solo quien puede dar de baja o reactivar ve la opción "Dados de baja".
+    final puedeDarBaja = usuario?.tienePermiso('dar_baja_repuestos') ?? false;
     final repuestosFiltrados = _repuestosFiltrados;
-    final stockBajoCount = _repuestos.where((r) => r.stockBajo).length;
+    final cantidad = repuestosFiltrados.length;
+    // En modo "Dados de baja" no se cuenta stock bajo: son repuestos inactivos.
+    final stockBajoCount = _verBaja ? 0 : _repuestos.where((r) => r.stockBajo).length;
+    final filtroStockActivo = _filtroStock != _FiltroStock.todo;
     final padding = Responsive.pagePadding(context);
 
     return Scaffold(
@@ -378,7 +414,7 @@ Future<void> _exportarPdf() async {
         actions: [
           if (stockBajoCount > 0)
             Stack(children: [
-              IconButton(icon: const Icon(Icons.warning_amber_outlined), onPressed: () => setState(() => _soloStockBajo = !_soloStockBajo), tooltip: 'Stock bajo'),
+              IconButton(icon: const Icon(Icons.warning_amber_outlined), onPressed: () => _cambiarFiltroStock(_soloStockBajo ? _FiltroStock.todo : _FiltroStock.bajo), tooltip: 'Stock bajo'),
               Positioned(right: 6, top: 6, child: Container(
                 padding: const EdgeInsets.all(2),
                 decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
@@ -394,8 +430,9 @@ Future<void> _exportarPdf() async {
                   )
                 : IconButton(
                     icon: const Icon(Icons.picture_as_pdf_outlined),
-                    tooltip: 'Exportar PDF',
-                    onPressed: _repuestos.isEmpty ? null : _exportarPdf,
+                    // El PDF describe el stock vigente: no se exporta la lista de bajas.
+                    tooltip: _verBaja ? 'No disponible para dados de baja' : 'Exportar PDF',
+                    onPressed: _repuestos.isEmpty || _verBaja ? null : _exportarPdf,
                   ),
         ],
       ),
@@ -448,32 +485,37 @@ Future<void> _exportarPdf() async {
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: DropdownButtonFormField<bool>(
-                      initialValue: _soloStockBajo,
+                    child: DropdownButtonFormField<_FiltroStock>(
+                      initialValue: _filtroStock,
                       isExpanded: true,
                       isDense: true,
                       style: const TextStyle(fontSize: 12, color: Colors.black87),
                       icon: const Icon(Icons.arrow_drop_down, size: 20),
                       decoration: InputDecoration(
                         isDense: true,
-                        prefixIcon: Icon(Icons.tune, size: 18, color: _soloStockBajo ? const Color(0xFF1F4E79) : Colors.grey[600]),
+                        prefixIcon: Icon(Icons.tune, size: 18, color: filtroStockActivo ? const Color(0xFF1F4E79) : Colors.grey[600]),
                         prefixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(color: _soloStockBajo ? const Color(0xFF1F4E79) : Colors.grey.shade300),
+                          borderSide: BorderSide(color: filtroStockActivo ? const Color(0xFF1F4E79) : Colors.grey.shade300),
                         ),
                       ),
+                      // Debe tener la misma cantidad y el mismo orden que items.
                       selectedItemBuilder: (context) => [
                         Align(alignment: Alignment.centerLeft, child: Text('Stock', style: TextStyle(fontSize: 12, color: Colors.grey[600]), overflow: TextOverflow.ellipsis)),
                         const Align(alignment: Alignment.centerLeft, child: Text('Solo stock bajo', style: TextStyle(fontSize: 12, color: Colors.black87), overflow: TextOverflow.ellipsis)),
+                        if (puedeDarBaja)
+                          const Align(alignment: Alignment.centerLeft, child: Text('Dados de baja', style: TextStyle(fontSize: 12, color: Colors.black87), overflow: TextOverflow.ellipsis)),
                       ],
-                      items: const [
-                        DropdownMenuItem(value: false, child: Text('Todo el stock', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
-                        DropdownMenuItem(value: true, child: Text('Solo stock bajo', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                      items: [
+                        const DropdownMenuItem(value: _FiltroStock.todo, child: Text('Todo el stock', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                        const DropdownMenuItem(value: _FiltroStock.bajo, child: Text('Solo stock bajo', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
+                        if (puedeDarBaja)
+                          const DropdownMenuItem(value: _FiltroStock.deBaja, child: Text('Dados de baja', style: TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
                       ],
-                      onChanged: (v) => setState(() => _soloStockBajo = v ?? false),
+                      onChanged: (v) => _cambiarFiltroStock(v ?? _FiltroStock.todo),
                     ),
                   ),
                 ]),
@@ -483,7 +525,12 @@ Future<void> _exportarPdf() async {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 color: Colors.grey[100],
                 child: Row(children: [
-                  Text('${repuestosFiltrados.length} repuesto${repuestosFiltrados.length != 1 ? 's' : ''}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                  Text(
+                    _verBaja
+                        ? '$cantidad repuesto${cantidad != 1 ? 's' : ''} dado${cantidad != 1 ? 's' : ''} de baja'
+                        : '$cantidad repuesto${cantidad != 1 ? 's' : ''}',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
                   const Spacer(),
                   if (_hayFiltrosActivos)
                     GestureDetector(
@@ -501,8 +548,13 @@ Future<void> _exportarPdf() async {
                     ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                         Icon(Icons.inventory_2_outlined, size: 80, color: Colors.grey[400]),
                         const SizedBox(height: 16),
-                        Text(_repuestos.isEmpty ? 'No hay repuestos cargados' : 'No hay repuestos con ese filtro', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
-                        if (_repuestos.isNotEmpty && _hayFiltrosActivos) ...[
+                        Text(
+                          _repuestos.isEmpty
+                              ? (_verBaja ? 'No hay repuestos dados de baja' : 'No hay repuestos cargados')
+                              : 'No hay repuestos con ese filtro',
+                          style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                        ),
+                        if ((_repuestos.isNotEmpty || _verBaja) && _hayFiltrosActivos) ...[
                           const SizedBox(height: 8),
                           TextButton(onPressed: _limpiarFiltros, child: const Text('Limpiar filtros')),
                         ],
@@ -518,7 +570,8 @@ Future<void> _exportarPdf() async {
                       ),
               ),
             ]),
-      floatingActionButton: puedeGestionar
+      // No se crean repuestos mientras se miran los dados de baja.
+      floatingActionButton: puedeGestionar && !_verBaja
           ? FloatingActionButton(onPressed: () => _mostrarFormulario(), backgroundColor: const Color(0xFF1F4E79), foregroundColor: Colors.white, child: const Icon(Icons.add))
           : null,
     );

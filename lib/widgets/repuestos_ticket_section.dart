@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../providers/auth_provider.dart';
 
 class RepuestosTicketSection extends StatefulWidget {
   final String ticketId;
@@ -44,7 +46,8 @@ class _RepuestosTicketSectionState extends State<RepuestosTicketSection> {
     }
   }
 
-  // Carga repuestos: primero los asociados al activo, después el resto
+  // Carga repuestos: primero los asociados al activo, después el resto.
+  // Solo activos: los dados de baja no admiten salidas (la base las rechaza).
   Future<List<Map<String, dynamic>>> _cargarRepuestosDisponibles() async {
     final asociadosRaw = await _supabase
         .from('repuestos_maquinas')
@@ -197,9 +200,15 @@ class _RepuestosTicketSectionState extends State<RepuestosTicketSection> {
       await _cargarConsumos();
     } catch (e) {
       if (!mounted) return;
+      // Mensajes que devuelve registrar_salida_stock desde la base.
+      final texto = e.toString();
       String msg = 'Error al registrar consumo';
-      if (e.toString().contains('Stock insuficiente')) {
+      if (texto.contains('Stock insuficiente')) {
         msg = 'Stock insuficiente para este repuesto';
+      } else if (texto.contains('dado de baja')) {
+        msg = 'Ese repuesto está dado de baja. Reactivalo para registrar consumos.';
+      } else if (texto.contains('No autorizado')) {
+        msg = 'No tenés permiso para registrar salidas de stock';
       }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(msg), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
@@ -209,6 +218,10 @@ class _RepuestosTicketSectionState extends State<RepuestosTicketSection> {
 
   @override
   Widget build(BuildContext context) {
+    // Consumir un repuesto es una salida de stock: la base exige el permiso
+    // registrar_salida, así que el botón solo se muestra a quien lo tiene.
+    final puedeSalida = context.read<AuthProvider>().usuario?.tienePermiso('registrar_salida') ?? false;
+
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -228,7 +241,7 @@ class _RepuestosTicketSectionState extends State<RepuestosTicketSection> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              if (widget.editable) ...[
+              if (widget.editable && puedeSalida) ...[
                 const SizedBox(width: 4),
                 IconButton(
                   visualDensity: VisualDensity.compact,
