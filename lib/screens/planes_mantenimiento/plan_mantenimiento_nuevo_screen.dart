@@ -61,10 +61,19 @@ class _PlanMantenimientoNuevoScreenState extends State<PlanMantenimientoNuevoScr
 
   Future<void> _cargarMaquinas() async {
     try {
-      final data = await _supabase
-          .from('maquinas')
-          .select('id, nombre, codigo, sectores(nombre)')
-          .order('nombre');
+      // Al crear un plan no se ofrecen activos dados de baja. Al editar no se
+      // filtra: el selector está bloqueado y tiene que seguir conteniendo el
+      // activo del plan aunque haya sido dado de baja.
+      final data = _esEdicion
+          ? await _supabase
+              .from('maquinas')
+              .select('id, nombre, codigo, sectores(nombre)')
+              .order('nombre')
+          : await _supabase
+              .from('maquinas')
+              .select('id, nombre, codigo, sectores(nombre)')
+              .neq('estado', 'dada_de_baja')
+              .order('nombre');
       setState(() {
         _maquinas = List<Map<String, dynamic>>.from(data);
         if (_maquinaSeleccionada == null && _maquinas.isNotEmpty) {

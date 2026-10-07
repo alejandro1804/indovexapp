@@ -53,9 +53,11 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
           .order('descripcion');
       return List<Map<String, dynamic>>.from(data);
     } else {
+      // Solo activos vigentes: los dados de baja no se ofrecen para vincular.
       final data = await _supabase
           .from('maquinas')
           .select('id, nombre, codigo')
+          .neq('estado', 'dada_de_baja')
           .order('nombre');
       return List<Map<String, dynamic>>.from(data);
     }

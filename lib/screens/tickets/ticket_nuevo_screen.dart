@@ -63,12 +63,16 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
             .from('maquinas')
             .select('id, nombre, codigo, sector_id, sectores(nombre)')
             .inFilter('sector_id', sectorIds)
+            // Sin activos dados de baja: no admiten tickets nuevos.
+            .neq('estado', 'dada_de_baja')
             .order('nombre');
         maquinas = List<Map<String, dynamic>>.from(data);
       } else {
         final data = await _supabase
             .from('maquinas')
             .select('id, nombre, codigo, sector_id, sectores(nombre)')
+            // Sin activos dados de baja: no admiten tickets nuevos.
+            .neq('estado', 'dada_de_baja')
             .order('nombre');
         maquinas = List<Map<String, dynamic>>.from(data);
       }
@@ -163,7 +167,13 @@ class _TicketNuevoScreenState extends State<TicketNuevoScreen> {
       );
       navigator.pop();
     } catch (e) {
-      _mostrarError('Error al crear ticket: $e');
+      // La base rechaza tickets sobre un activo dado de baja
+      // (trg_validar_maquina_no_baja_ticket).
+      if (e.toString().contains('dado de baja')) {
+        _mostrarError('Ese activo está dado de baja y no admite tickets nuevos.');
+      } else {
+        _mostrarError('Error al crear ticket: $e');
+      }
     } finally {
       if (mounted) setState(() => _cargando = false);
     }

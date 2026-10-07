@@ -51,6 +51,8 @@ class _MaquinaDetailScreenState extends State<MaquinaDetailScreen> {
         return 'En mantenimiento';
       case 'fuera_de_servicio':
         return 'Fuera de servicio';
+      case 'dada_de_baja':
+        return 'Dado de baja';
       default:
         return estado;
     }
@@ -58,6 +60,11 @@ class _MaquinaDetailScreenState extends State<MaquinaDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Un activo dado de baja es de solo lectura: se ve su ficha, su QR y sus
+    // adjuntos, pero no se le cambia la foto ni se le asocian repuestos.
+    // Dar de baja y reactivar se hacen desde el listado de activos.
+    final deBaja = _maquina.dadaDeBaja;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(_maquina.nombre, style: const TextStyle(fontSize: 18)),
@@ -90,7 +97,7 @@ class _MaquinaDetailScreenState extends State<MaquinaDetailScreen> {
               entidadId: _maquina.id,
               size: 120,
               tamanioBytes: _maquina.tamanioBytes,
-              puedeEditar: _puedeGestionar,
+              puedeEditar: _puedeGestionar && !deBaja,
               onFotoActualizada: (nuevoPath) {
                 setState(() {
                   _maquina = Maquina(
@@ -137,6 +144,15 @@ class _MaquinaDetailScreenState extends State<MaquinaDetailScreen> {
               ],
             ),
           ),
+          // ── Aviso de activo dado de baja ───────────────────────────────
+          if (deBaja) ...[
+            const SizedBox(height: 8),
+            Text(
+              'No admite tickets nuevos y no ocupa lugar del plan. '
+              'Su historial se conserva. Se reactiva desde el listado de activos.',
+              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+            ),
+          ],
           const SizedBox(height: 16),
 
           // ── Información ─────────────────────────────────────────────────
@@ -164,9 +180,11 @@ class _MaquinaDetailScreenState extends State<MaquinaDetailScreen> {
           const SizedBox(height: 16),
 
           // ── Repuestos asociados ─────────────────────────────────────────
+          // Dado de baja: se ven y se pueden quitar los vínculos, pero no agregar.
           RepuestosMaquinaSection(
             modo: 'desde_maquina',
             entidadId: _maquina.id,
+            permiteAgregar: !deBaja,
           ),
           const SizedBox(height: 16),
 

@@ -1,4 +1,8 @@
 class Maquina {
+  /// Estado de un activo dado de baja (baja lógica: no se borra, deja de
+  /// participar). Es un valor más de la columna estado de la tabla maquinas.
+  static const String estadoDadaDeBaja = 'dada_de_baja';
+
   final String id;
   final String empresaId;
   final String sectorId;
@@ -20,6 +24,9 @@ class Maquina {
     this.imagenUrl,
     this.tamanioBytes,
   });
+
+  /// true si el activo está dado de baja.
+  bool get dadaDeBaja => estado == estadoDadaDeBaja;
 
   factory Maquina.fromMap(Map<String, dynamic> map) {
     return Maquina(

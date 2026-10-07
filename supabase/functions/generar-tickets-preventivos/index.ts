@@ -11,7 +11,7 @@ Deno.serve(async (req) => {
 
     const { data: planes, error: errorPlanes } = await supabase
       .from('planes_mantenimiento')
-      .select('*, maquinas(empresa_id, sector_id)')
+      .select('*, maquinas(empresa_id, sector_id, estado)')
       .eq('activo', true)
       .eq('tipo_intervalo', 'dias')
 
@@ -27,6 +27,14 @@ Deno.serve(async (req) => {
       const maquinaData = Array.isArray(plan.maquinas) ? plan.maquinas[0] : plan.maquinas
       const empresaId = maquinaData?.empresa_id
       if (!empresaId) {
+        omitidos++
+        continue
+      }
+
+      // Un activo dado de baja no genera tickets preventivos. El plan no se
+      // toca: si el activo se reactiva, vuelve a evaluarse en la corrida siguiente.
+      // (La base tambien lo rechaza: trg_validar_maquina_no_baja_ticket.)
+      if (maquinaData?.estado === 'dada_de_baja') {
         omitidos++
         continue
       }
