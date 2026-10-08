@@ -12,6 +12,10 @@ class TicketDetallePdfService {
     required String nombreCreadoPor,
     required String nombreTecnico,
     List<Map<String, dynamic>> comentarios = const [],
+    // false cuando quien exporta no tiene permiso de lectura del hilo
+    // (ver_comentarios_ticket / comentar_ticket). En ese caso la lista llega
+    // vacía por RLS y NO debe leerse como "sin comentarios".
+    bool incluirComentarios = true,
   }) async {
     final pdf = pw.Document();
     final ahora = DateTime.now();
@@ -185,7 +189,11 @@ class TicketDetallePdfService {
             ),
           pw.SizedBox(height: 16),
           _seccion('Comentarios', colorAzul),
-          if (comentarios.isEmpty)
+          if (!incluirComentarios)
+            pw.Text(
+                'No incluidos: el usuario que generó este reporte no tiene permiso para ver los comentarios del ticket.',
+                style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey))
+          else if (comentarios.isEmpty)
             pw.Text('Sin comentarios registrados.',
                 style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey))
           else

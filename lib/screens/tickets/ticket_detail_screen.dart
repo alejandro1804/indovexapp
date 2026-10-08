@@ -28,6 +28,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
   String _nombreTecnico = '';
   bool _cargando = true;
   bool _puedeComentar = false;
+  bool _puedeVerComentarios = false;
   bool _enviandoComentario = false;
   final _comentarioController = TextEditingController();
 
@@ -133,11 +134,23 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
         ejecutoresRaw = List<Map<String, dynamic>>.from(data);
       }
 
-      final comentariosRaw = await _supabase
-          .from('ticket_comentarios')
-          .select('*, usuarios(nombre)')
-          .eq('ticket_id', widget.ticketId)
-          .order('created_at', ascending: true);
+      // Lectura del hilo: 'ver_comentarios_ticket' (solo ve) o
+      // 'comentar_ticket' (ve y comenta; incluye la lectura). Espeja la
+      // policy ticket_comentarios_select; la RLS es la autoridad final.
+      // Sin permiso no se consulta y la sección no se muestra.
+      final puedeVerComentarios = usuarioActual != null &&
+          (usuarioActual.tienePermiso('ver_comentarios_ticket') ||
+              usuarioActual.tienePermiso('comentar_ticket'));
+
+      List<Map<String, dynamic>> comentariosRaw = [];
+      if (puedeVerComentarios) {
+        final data = await _supabase
+            .from('ticket_comentarios')
+            .select('*, usuarios(nombre)')
+            .eq('ticket_id', widget.ticketId)
+            .order('created_at', ascending: true);
+        comentariosRaw = List<Map<String, dynamic>>.from(data);
+      }
 
       // Gate de UI: permiso + pertenencia + estado no terminal.
       // La RLS es la autoridad final; esto solo evita mostrar un campo que fallaría.
@@ -167,7 +180,8 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
         _nombreCreadoPor = nombreCreadoPor;
         _nombreTecnico = nombreTecnico;
         _historial = List<Map<String, dynamic>>.from(historialRaw);
-        _comentarios = List<Map<String, dynamic>>.from(comentariosRaw);
+        _comentarios = comentariosRaw;
+        _puedeVerComentarios = puedeVerComentarios;
         _puedeComentar = puedeComentar;
         _tecnicos = ejecutoresRaw;
       });
@@ -680,6 +694,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
         nombreCreadoPor: _nombreCreadoPor,
         nombreTecnico: _nombreTecnico,
         comentarios: _comentarios,
+        incluirComentarios: _puedeVerComentarios,
       );
     } catch (e) {
       _mostrarError('Error al exportar PDF: $e');
@@ -923,9 +938,11 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
           ),
           const SizedBox(height: 16),
 
-          // Comentarios
-          _buildComentarios(estado),
-          const SizedBox(height: 16),
+          // Comentarios (solo si tiene permiso de lectura del hilo)
+          if (_puedeVerComentarios) ...[
+            _buildComentarios(estado),
+            const SizedBox(height: 16),
+          ],
 
           // Adjuntos
           AdjuntosSection(
