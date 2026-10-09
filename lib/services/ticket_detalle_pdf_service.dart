@@ -84,7 +84,9 @@ class TicketDetallePdfService {
                           fontSize: 18,
                           fontWeight: pw.FontWeight.bold,
                           color: colorAzul)),
-                  pw.Text('Detalle de Ticket — $numero',
+                  // Guion común: la fuente por defecto del PDF (Helvetica)
+                  // no tiene la raya larga y la dibuja como glifo faltante.
+                  pw.Text('Detalle de Ticket - $numero',
                       style: const pw.TextStyle(
                           fontSize: 11, color: PdfColors.grey700)),
 
@@ -105,7 +107,7 @@ class TicketDetallePdfService {
           alignment: pw.Alignment.centerRight,
           margin: const pw.EdgeInsets.only(top: 12),
           child: pw.Text(
-            'Página ${context.pageNumber} de ${context.pagesCount}  —  IndovexApp',
+            'Página ${context.pageNumber} de ${context.pagesCount}  -  IndovexApp',
             style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey500),
           ),
         ),
@@ -128,7 +130,7 @@ class TicketDetallePdfService {
           _seccion('Información general', colorAzul),
           _fila('Activo', maquina?['nombre'] ?? '-'),
           _fila('Código', maquina?['codigo'] ?? '-'),
-          _fila('Ubicacion', sector),
+          _fila('Ubicación', sector),
           _fila('Creado por', nombreCreadoPor.isNotEmpty ? nombreCreadoPor : '-'),
           if (nombreTecnico.isNotEmpty) _fila('Técnico', nombreTecnico),
           _fila('Fecha apertura', fmtAuditoria(fecha)),
@@ -175,8 +177,9 @@ class TicketDetallePdfService {
                 ),
                 ...historial.reversed.map((h) {
                   final fechaH = DateTime.tryParse(h['fecha'] ?? '');
+                  // '->' en ASCII: la flecha Unicode no existe en Helvetica.
                   final estadoAnterior = h['estado_anterior'] != null
-                      ? '${labelEstado(h['estado_anterior'])} → '
+                      ? '${labelEstado(h['estado_anterior'])} -> '
                       : '';
                   return pw.TableRow(children: [
                     _celda('$estadoAnterior${labelEstado(h['estado_nuevo'])}'),

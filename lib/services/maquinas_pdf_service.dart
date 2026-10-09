@@ -34,7 +34,7 @@ class MaquinasPdfService {
 
     final filtros = <String>[];
     if (filtroEstado != null && filtroEstado != 'todos') filtros.add('Estado: ${labelEstado(filtroEstado)}');
-    if (filtroSector != null && filtroSector != 'todos') filtros.add('Ubicacion: ${sectores[filtroSector] ?? filtroSector}');
+    if (filtroSector != null && filtroSector != 'todos') filtros.add('Ubicación: ${sectores[filtroSector] ?? filtroSector}');
     if (busqueda != null && busqueda.trim().isNotEmpty) filtros.add('Búsqueda: "${busqueda.trim()}"');
     final filtrosTexto = filtros.isEmpty ? 'Sin filtros (todos los activos)' : filtros.join('  |  ');
 
@@ -73,8 +73,10 @@ class MaquinasPdfService {
         footer: (context) => pw.Container(
           alignment: pw.Alignment.centerRight,
           margin: const pw.EdgeInsets.only(top: 12),
+          // Guion común: la fuente por defecto del PDF (Helvetica) no tiene
+          // la raya larga y la dibuja como glifo faltante.
           child: pw.Text(
-            'Página ${context.pageNumber} de ${context.pagesCount}  —  IndovexApp',
+            'Página ${context.pageNumber} de ${context.pagesCount}  -  IndovexApp',
             style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey500),
           ),
         ),
@@ -111,7 +113,7 @@ class MaquinasPdfService {
                 children: [
                   _celda('Nombre', header: true),
                   _celda('Código', header: true),
-                  _celda('Ubicacion', header: true),
+                  _celda('Ubicación', header: true),
                   _celda('Estado', header: true),
                 ],
               ),

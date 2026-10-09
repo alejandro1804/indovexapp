@@ -86,8 +86,10 @@ class PlanesPdfService {
         footer: (context) => pw.Container(
           alignment: pw.Alignment.centerRight,
           margin: const pw.EdgeInsets.only(top: 12),
+          // Guion común: la fuente por defecto del PDF (Helvetica) no tiene
+          // la raya larga y la dibuja como glifo faltante.
           child: pw.Text(
-            'Página ${context.pageNumber} de ${context.pagesCount}  —  IndovexApp',
+            'Página ${context.pageNumber} de ${context.pagesCount}  -  IndovexApp',
             style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey500),
           ),
         ),

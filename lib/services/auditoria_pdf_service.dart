@@ -73,8 +73,10 @@ class AuditoriaPdfService {
         footer: (context) => pw.Container(
           alignment: pw.Alignment.centerRight,
           margin: const pw.EdgeInsets.only(top: 12),
+          // Guion común: la fuente por defecto del PDF (Helvetica) no tiene
+          // la raya larga y la dibuja como glifo faltante.
           child: pw.Text(
-            'Página ${context.pageNumber} de ${context.pagesCount}  —  Documento de trazabilidad ALCOA+',
+            'Página ${context.pageNumber} de ${context.pagesCount}  -  Documento de trazabilidad ALCOA+',
             style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey500),
           ),
         ),
@@ -135,7 +137,7 @@ class AuditoriaPdfService {
     await EgressService.registrar(EgressOrigen.pdf, bytes.length);
     await Printing.sharePdf(
       bytes: Uint8List.fromList(bytes),
-      filename: 'auditoria_indovex_${ahora.millisecondsSinceEpoch}.pdf',
+      filename: 'auditoria_indovexapp_${ahora.millisecondsSinceEpoch}.pdf',
     );
   }
 

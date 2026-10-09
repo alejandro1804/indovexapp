@@ -66,8 +66,10 @@ class RepuestosPdfService {
         footer: (context) => pw.Container(
           alignment: pw.Alignment.centerRight,
           margin: const pw.EdgeInsets.only(top: 12),
+          // Guion común: la fuente por defecto del PDF (Helvetica) no tiene
+          // la raya larga y la dibuja como glifo faltante.
           child: pw.Text(
-            'Página ${context.pageNumber} de ${context.pagesCount}  —  IndovexApp',
+            'Página ${context.pageNumber} de ${context.pagesCount}  -  IndovexApp',
             style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey500),
           ),
         ),
@@ -86,8 +88,10 @@ class RepuestosPdfService {
                 pw.SizedBox(height: 2),
                 pw.Text(filtrosTexto, style: const pw.TextStyle(fontSize: 9)),
                 pw.SizedBox(height: 2),
+                // Sin el símbolo de advertencia: no existe en Helvetica y se
+                // dibujaba como glifo faltante.
                 pw.Text(
-                  'Total: ${repuestos.length} repuesto${repuestos.length != 1 ? 's' : ''}${stockBajoCount > 0 ? '  |  ⚠ $stockBajoCount con stock bajo' : ''}',
+                  'Total: ${repuestos.length} repuesto${repuestos.length != 1 ? 's' : ''}${stockBajoCount > 0 ? '  |  $stockBajoCount con stock bajo' : ''}',
                   style: const pw.TextStyle(fontSize: 9),
                 ),
               ],
@@ -137,7 +141,7 @@ class RepuestosPdfService {
             pw.Container(
               margin: const pw.EdgeInsets.only(top: 8),
               child: pw.Text(
-                '⚠ Las filas resaltadas tienen stock por debajo del mínimo.',
+                'Atención: las filas resaltadas tienen stock por debajo del mínimo.',
                 style: const pw.TextStyle(fontSize: 8, color: PdfColors.orange),
               ),
             ),

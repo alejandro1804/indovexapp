@@ -28,6 +28,7 @@ class TicketsPdfService {
         case 'abierto':    return 'Abierto';
         case 'asignado':   return 'Asignado';
         case 'en_proceso': return 'En proceso';
+        case 'pausado':    return 'Pausado';
         case 'resuelto':   return 'Resuelto';
         case 'cerrado':    return 'Cerrado';
         case 'rechazado':  return 'Rechazado';
@@ -51,7 +52,7 @@ class TicketsPdfService {
     if (filtroEstado != null && filtroEstado != 'todos') filtros.add('Estado: ${labelEstado(filtroEstado)}');
     if (filtroTipo != null && filtroTipo != 'todos') filtros.add('Tipo: ${labelTipo(filtroTipo)}');
     if (filtroPrioridad != null && filtroPrioridad != 'todos') filtros.add('Prioridad: ${labelPrioridad(filtroPrioridad)}');
-    if (filtroSector != null && filtroSector != 'todos') filtros.add('Ubicacion filtrada');
+    if (filtroSector != null && filtroSector != 'todos') filtros.add('Ubicación filtrada');
     if (busqueda != null && busqueda.trim().isNotEmpty) filtros.add('Búsqueda: "${busqueda.trim()}"');
     final filtrosTexto = filtros.isEmpty ? 'Sin filtros (todos los tickets)' : filtros.join('  |  ');
 
@@ -91,8 +92,10 @@ class TicketsPdfService {
         footer: (context) => pw.Container(
           alignment: pw.Alignment.centerRight,
           margin: const pw.EdgeInsets.only(top: 12),
+          // Guion común: la fuente por defecto del PDF (Helvetica) no tiene
+          // la raya larga y la dibuja como glifo faltante.
           child: pw.Text(
-            'Página ${context.pageNumber} de ${context.pagesCount}  —  IndovexApp',
+            'Página ${context.pageNumber} de ${context.pagesCount}  -  IndovexApp',
             style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey500),
           ),
         ),
@@ -134,7 +137,7 @@ class TicketsPdfService {
                 children: [
                   _celda('Nº', header: true),
                   _celda('Activo', header: true),
-                  _celda('Ubicacion', header: true),
+                  _celda('Ubicación', header: true),
                   _celda('Descripción', header: true),
                   _celda('Tipo', header: true),
                   _celda('Prioridad', header: true),
