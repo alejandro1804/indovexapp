@@ -1,6 +1,6 @@
 ﻿# IndovexApp - Estructura de Carpetas (auto-generada)
 
-Generado: 2026-10-04 23:05
+Generado: 2026-10-09 01:48
 
   settings.json
 .env
@@ -314,6 +314,10 @@ README.md
     20261004230000_permisos_usuarios_roles.sql
     20261005003000_sa_nombres_usuarios.sql
     20261005020000_stock_atribucion_y_funciones_internas.sql
+    20261005150000_repuestos_baja_logica.sql
+    20261006233000_maquinas_baja_logica.sql
+    20261008_ver_comentarios_tickets.sql
+    20261008214800_planes_mantenimiento_rls_sector.sql
   seed.sql
   widget_test.dart
   favicon.png

@@ -164,12 +164,14 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
               ),
               const SizedBox(height: 12),
 
-              // Ubicación en activo
+              // Posición en el activo (dónde va montado el repuesto).
+              // En pantalla es "Posición"; "Ubicación" queda reservado para el
+              // sector. La columna sigue siendo ubicacion_en_maquina.
               TextField(
                 controller: ubicacionController,
                 style: const TextStyle(fontSize: 13),
                 decoration: const InputDecoration(
-                  labelText: 'Ubicación en activo',
+                  labelText: 'Posición en el activo',
                   border: OutlineInputBorder(),
                   hintText: 'Ej: eje principal, motor...',
                   prefixIcon: Icon(Icons.place_outlined),
@@ -379,7 +381,7 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
                         ],
                       ),
                       const SizedBox(height: 4),
-                      // Línea 3: ubicación en activo + íconos editar / eliminar
+                      // Línea 3: posición en el activo + íconos editar / eliminar
                       Row(
                         children: [
                           Expanded(
@@ -403,7 +405,7 @@ class _RepuestosMaquinaSectionState extends State<RepuestosMaquinaSection> {
                                   )
                                 else
                                   Text(
-                                    'Sin ubicación',
+                                    'Sin posición',
                                     style: TextStyle(fontSize: 10, color: Colors.grey[400], fontStyle: FontStyle.italic),
                                   ),
                                 if (v.observacion != null && v.observacion!.isNotEmpty)

@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/repuesto.dart';
 import '../../models/categoria_repuesto.dart';
+import '../../models/maquina.dart';
+import '../../models/sector.dart';
 import '../../providers/auth_provider.dart';
 import '../../core/responsive.dart';
 import '../../core/db_error_helper.dart';
@@ -31,6 +33,24 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
   final _busquedaController = TextEditingController();
   String _textoBusqueda = '';
 
+  // ── Filtro por ubicación ────────────────────────────────────────────────
+  // Muestra los repuestos de los activos de una ubicación (sector). No es el
+  // "Lugar de guardado" del repuesto: el vínculo sale de repuestos_maquinas.
+  /// Valor del filtro para los repuestos que no están vinculados a ningún activo.
+  static const _sinActivo = 'sin_activo';
+  String _filtroSector = 'todos';
+  // Ubicaciones que el usuario puede elegir (solo las asignadas si su rol
+  // restringe por ubicación).
+  List<Sector> _sectores = [];
+  // Por ubicación: ids de los repuestos vinculados a algún activo vigente de ella.
+  Map<String, Set<String>> _repuestosPorSector = {};
+  // Ids de los repuestos vinculados a al menos un activo vigente.
+  Set<String> _repuestosConActivo = {};
+  // "Sin activo asignado" solo se ofrece a quien ve todos los activos: un
+  // usuario restringido no ve los de otras ubicaciones, y un repuesto que solo
+  // se usa allá le aparecería como "sin activo" sin serlo.
+  bool _puedeVerSinActivo = false;
+
   bool get _soloStockBajo => _filtroStock == _FiltroStock.bajo;
   bool get _verBaja => _filtroStock == _FiltroStock.deBaja;
 
@@ -42,16 +62,113 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
 
   Future<void> _cargarDatos() async {
     setState(() => _cargando = true);
+    // Capturamos el usuario del provider ANTES de los await, para no leer el
+    // context tras los gaps async.
+    final usuario = context.read<AuthProvider>().usuario;
+    // Los datos del filtro por ubicación se piden en paralelo con la lista,
+    // para no alargar la carga. Ese método maneja sus propios errores.
+    final ubicaciones = _cargarUbicaciones(
+      usuarioId: usuario?.id,
+      restringido: usuario?.restringePorSector ?? true,
+    );
     try {
       // En modo "Dados de baja" se traen solo los inactivos; si no, solo los activos.
       final repuestosData = await _supabase.from('repuestos').select().eq('activo', !_verBaja).order('descripcion', ascending: true);
       final categoriasData = await _supabase.from('categorias_repuestos').select().order('nombre', ascending: true);
+      if (!mounted) return;
       setState(() {
         _repuestos = (repuestosData as List).map((e) => Repuesto.fromMap(e)).toList();
         _categorias = (categoriasData as List).map((e) => CategoriaRepuesto.fromMap(e)).toList();
       });
     } catch (e) { _mostrarError('Error al cargar repuestos: $e'); }
-    finally { setState(() => _cargando = false); }
+    await ubicaciones;
+    if (mounted) setState(() => _cargando = false);
+  }
+
+  /// Carga lo que necesita el filtro por ubicación: las ubicaciones que el
+  /// usuario puede elegir y qué repuestos usa cada una, a través de sus activos
+  /// vigentes. Es secundario: si falla, la lista de repuestos sigue funcionando
+  /// y el filtro simplemente no se muestra.
+  Future<void> _cargarUbicaciones({required String? usuarioId, required bool restringido}) async {
+    try {
+      // Mismo criterio que la pantalla de activos:
+      // - rol restringido: solo sus ubicaciones asignadas (usuario_sector).
+      // - resto: catálogo completo de la empresa.
+      List<Sector> sectores = [];
+      if (!restringido) {
+        final sectoresData = await _supabase.from('sectores').select().order('nombre', ascending: true);
+        sectores = List<Map<String, dynamic>>.from(sectoresData).map((e) => Sector.fromMap(e)).toList();
+      } else if (usuarioId != null) {
+        final asignadas = await _supabase.from('usuario_sector').select('sector_id').eq('usuario_id', usuarioId);
+        final sectorIds = List<Map<String, dynamic>>.from(asignadas).map((e) => e['sector_id'] as String).toList();
+        if (sectorIds.isNotEmpty) {
+          final sectoresData = await _supabase.from('sectores').select().inFilter('id', sectorIds).order('nombre', ascending: true);
+          sectores = List<Map<String, dynamic>>.from(sectoresData).map((e) => Sector.fromMap(e)).toList();
+        }
+      }
+
+      // Activos vigentes (sin los dados de baja). La policy de maquinas ya los
+      // limita a las ubicaciones asignadas cuando el rol restringe: ese es el
+      // control del lado de Supabase.
+      final maquinasData = await _supabase.from('maquinas').select('id, sector_id').neq('estado', Maquina.estadoDadaDeBaja);
+      final sectorPorMaquina = <String, String?>{};
+      for (final m in List<Map<String, dynamic>>.from(maquinasData)) {
+        sectorPorMaquina[m['id'] as String] = m['sector_id'] as String?;
+      }
+
+      final porSector = <String, Set<String>>{};
+      final conActivo = <String>{};
+      for (final v in await _traerVinculos()) {
+        final maquinaId = v['maquina_id'] as String;
+        // Vínculo a un activo dado de baja o fuera del alcance del usuario.
+        if (!sectorPorMaquina.containsKey(maquinaId)) continue;
+        final repuestoId = v['repuesto_id'] as String;
+        conActivo.add(repuestoId);
+        final sectorId = sectorPorMaquina[maquinaId];
+        if (sectorId != null) porSector.putIfAbsent(sectorId, () => <String>{}).add(repuestoId);
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _sectores = sectores;
+        _repuestosPorSector = porSector;
+        _repuestosConActivo = conActivo;
+        _puedeVerSinActivo = !restringido;
+        // Si la opción elegida ya no existe en el desplegable, se vuelve a "todas".
+        final sigueDisponible = _filtroSector == 'todos' ||
+            (_filtroSector == _sinActivo ? !restringido : sectores.any((s) => s.id == _filtroSector));
+        if (!sigueDisponible) _filtroSector = 'todos';
+      });
+    } catch (e) {
+      debugPrint('ERROR _cargarUbicaciones: $e');
+      if (!mounted) return;
+      setState(() {
+        _sectores = [];
+        _repuestosPorSector = {};
+        _repuestosConActivo = {};
+        _puedeVerSinActivo = false;
+        _filtroSector = 'todos';
+      });
+    }
+  }
+
+  /// Vínculos repuesto-activo de la empresa. Se piden de a bloques porque la
+  /// API devuelve como máximo 1000 filas por consulta: sin esto, una empresa
+  /// con muchos vínculos vería el filtro incompleto sin ningún aviso.
+  Future<List<Map<String, dynamic>>> _traerVinculos() async {
+    const bloque = 1000;
+    final filas = <Map<String, dynamic>>[];
+    for (var desde = 0; ; desde += bloque) {
+      final data = await _supabase
+          .from('repuestos_maquinas')
+          .select('repuesto_id, maquina_id')
+          .order('id', ascending: true)
+          .range(desde, desde + bloque - 1);
+      final lote = List<Map<String, dynamic>>.from(data);
+      filas.addAll(lote);
+      if (lote.length < bloque) break;
+    }
+    return filas;
   }
 
   List<Repuesto> get _repuestosFiltrados {
@@ -61,21 +178,39 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
           r.codigo.toLowerCase().contains(_textoBusqueda.toLowerCase());
       final coincideCategoria = _filtroCategoriaId == 'todos' || r.categoriaId == _filtroCategoriaId;
       final coincideStock = !_soloStockBajo || r.stockBajo;
-      return coincideBusqueda && coincideCategoria && coincideStock;
+      final coincideSector = _filtroSector == 'todos' ||
+          (_filtroSector == _sinActivo
+              ? !_repuestosConActivo.contains(r.id)
+              : (_repuestosPorSector[_filtroSector]?.contains(r.id) ?? false));
+      return coincideBusqueda && coincideCategoria && coincideStock && coincideSector;
     }).toList();
     resultado.sort((a, b) => a.descripcion.toLowerCase().compareTo(b.descripcion.toLowerCase()));
     return resultado;
   }
 
   bool get _hayFiltrosActivos =>
-      _filtroCategoriaId != 'todos' || _filtroStock != _FiltroStock.todo || _textoBusqueda.trim().isNotEmpty;
+      _filtroCategoriaId != 'todos' || _filtroSector != 'todos' || _filtroStock != _FiltroStock.todo || _textoBusqueda.trim().isNotEmpty;
+
+  /// Texto del filtro por ubicación para el encabezado del PDF; null si no hay.
+  String? get _textoFiltroSector {
+    if (_filtroSector == 'todos') return null;
+    if (_filtroSector == _sinActivo) return 'Sin activo asignado';
+    for (final s in _sectores) {
+      if (s.id == _filtroSector) return 'Ubicación: ${s.nombre}';
+    }
+    return null;
+  }
 
   /// Cambia el filtro de stock. Entrar o salir de "Dados de baja" cambia
   /// qué repuestos se consultan, así que en ese caso se recarga.
   void _cambiarFiltroStock(_FiltroStock nuevo) {
     if (nuevo == _filtroStock) return;
     final cambiaOrigen = (nuevo == _FiltroStock.deBaja) != _verBaja;
-    setState(() => _filtroStock = nuevo);
+    setState(() {
+      _filtroStock = nuevo;
+      // El filtro por ubicación no aplica a los dados de baja.
+      if (nuevo == _FiltroStock.deBaja) _filtroSector = 'todos';
+    });
     if (cambiaOrigen) _cargarDatos();
   }
 
@@ -83,6 +218,7 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
     final estabaEnBaja = _verBaja;
     setState(() {
       _filtroCategoriaId = 'todos';
+      _filtroSector = 'todos';
       _filtroStock = _FiltroStock.todo;
       _textoBusqueda = '';
       _busquedaController.clear();
@@ -121,6 +257,7 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
         nombreEmpresa: nombreEmpresa,
         categorias: categoriasMap,
         filtroCategoria: _filtroCategoriaId,
+        filtroUbicacion: _textoFiltroSector,
         soloStockBajo: _soloStockBajo,
         busqueda: _textoBusqueda,
       );
@@ -184,7 +321,10 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
                   Expanded(child: TextField(controller: stockMinimoController, decoration: const InputDecoration(labelText: 'Stock mínimo', border: OutlineInputBorder()), keyboardType: TextInputType.number)),
                 ]),
                 const SizedBox(height: 12),
-                TextField(controller: ubicacionController, decoration: const InputDecoration(labelText: 'Ubicación', border: OutlineInputBorder(), hintText: 'Ej: Estante A, Cajón 3'), textCapitalization: TextCapitalization.sentences, maxLength: 100),
+                // En pantalla es "Lugar de guardado" (dónde se guarda el repuesto);
+                // "Ubicación" queda reservado para el sector. La columna sigue
+                // siendo repuestos.ubicacion.
+                TextField(controller: ubicacionController, decoration: const InputDecoration(labelText: 'Lugar de guardado', border: OutlineInputBorder(), hintText: 'Ej: Estante A, Cajón 3'), textCapitalization: TextCapitalization.sentences, maxLength: 100),
                 const SizedBox(height: 12),
                 TextField(controller: notasController, decoration: const InputDecoration(labelText: 'Notas', border: OutlineInputBorder()), maxLines: 2, maxLength: 500),
               ]),
@@ -403,6 +543,9 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
     // En modo "Dados de baja" no se cuenta stock bajo: son repuestos inactivos.
     final stockBajoCount = _verBaja ? 0 : _repuestos.where((r) => r.stockBajo).length;
     final filtroStockActivo = _filtroStock != _FiltroStock.todo;
+    // El filtro por ubicación no se muestra en "Dados de baja" ni cuando el
+    // usuario no tiene ubicaciones para elegir.
+    final mostrarFiltroSector = !_verBaja && _sectores.isNotEmpty;
     final padding = Responsive.pagePadding(context);
 
     return Scaffold(
@@ -520,6 +663,24 @@ class _RepuestosScreenState extends State<RepuestosScreen> {
                   ),
                 ]),
               ),
+              // Repuestos de los activos de una ubicación. Va en fila propia:
+              // tres desplegables en la misma fila no entran en el celular.
+              if (mostrarFiltroSector)
+                Container(
+                  color: Colors.white,
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+                  child: _buildDropdown(
+                    value: _filtroSector,
+                    contexto: 'Ubicación',
+                    icono: Icons.apartment_outlined,
+                    items: [
+                      _item('todos', 'Todas las ubicaciones'),
+                      ..._sectores.map((s) => _item(s.id, s.nombre)),
+                      if (_puedeVerSinActivo) _item(_sinActivo, 'Sin activo asignado'),
+                    ],
+                    onChanged: (v) => setState(() => _filtroSector = v),
+                  ),
+                ),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),

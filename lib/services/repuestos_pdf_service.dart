@@ -11,6 +11,9 @@ class RepuestosPdfService {
     required String nombreEmpresa,
     required Map<String, String> categorias,
     String? filtroCategoria,
+    // Texto ya armado del filtro por ubicación (ej.: "Ubicación: Envasado" o
+    // "Sin activo asignado"); null si no se filtró por ubicación.
+    String? filtroUbicacion,
     bool soloStockBajo = false,
     String? busqueda,
   }) async {
@@ -25,6 +28,7 @@ class RepuestosPdfService {
 
     final filtros = <String>[];
     if (filtroCategoria != null && filtroCategoria != 'todos') filtros.add('Categoría: ${categorias[filtroCategoria] ?? filtroCategoria}');
+    if (filtroUbicacion != null && filtroUbicacion.trim().isNotEmpty) filtros.add(filtroUbicacion.trim());
     if (soloStockBajo) filtros.add('Solo stock bajo');
     if (busqueda != null && busqueda.trim().isNotEmpty) filtros.add('Búsqueda: "${busqueda.trim()}"');
     final filtrosTexto = filtros.isEmpty ? 'Sin filtros (todos los repuestos)' : filtros.join('  |  ');

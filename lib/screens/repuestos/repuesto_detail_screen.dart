@@ -217,10 +217,13 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
+                // En pantalla es "Lugar de guardado" (dónde se guarda el repuesto);
+                // "Ubicación" queda reservado para el sector. La columna sigue
+                // siendo repuestos.ubicacion.
                 TextField(
                   controller: ubicacionController,
                   style: const TextStyle(fontSize: 13),
-                  decoration: const InputDecoration(labelText: 'Ubicación', border: OutlineInputBorder(), hintText: 'Ej: Estante A, Cajón 3'),
+                  decoration: const InputDecoration(labelText: 'Lugar de guardado', border: OutlineInputBorder(), hintText: 'Ej: Estante A, Cajón 3'),
                   textCapitalization: TextCapitalization.sentences,
                   maxLength: 100,
                 ),
@@ -517,7 +520,7 @@ class _RepuestoDetailScreenState extends State<RepuestoDetailScreen> {
                     _infoRow('Código', _repuesto.codigo),
                   _infoRow('Categoría', _nombreCategoria(_repuesto.categoriaId)),
                   if (_repuesto.ubicacion != null && _repuesto.ubicacion!.isNotEmpty)
-                    _infoRow('Ubicación', _repuesto.ubicacion!),
+                    _infoRow('Lugar de guardado', _repuesto.ubicacion!),
                   if (_repuesto.notas != null && _repuesto.notas!.isNotEmpty)
                     _infoRow('Notas', _repuesto.notas!),
                 ],
