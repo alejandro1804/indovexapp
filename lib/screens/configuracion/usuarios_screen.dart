@@ -19,6 +19,10 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
   List<Map<String, dynamic>> _roles = [];
   bool _cargando = true;
 
+  // Filtro por rol de la lista: 'todos' o el id del rol (mismo criterio que
+  // los filtros de Activos y Repuestos).
+  String _filtroRolId = 'todos';
+
   @override
   void initState() {
     super.initState();
@@ -39,12 +43,45 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
       setState(() {
         _usuarios = List<Map<String, dynamic>>.from(usuariosData);
         _roles = List<Map<String, dynamic>>.from(rolesData);
+        // Si el rol filtrado ya no existe (se eliminó), se vuelve a "todos".
+        if (_filtroRolId != 'todos' &&
+            !_roles.any((r) => r['id'] == _filtroRolId)) {
+          _filtroRolId = 'todos';
+        }
       });
     } catch (e) {
       _mostrarError('Error al cargar usuarios: $e');
     } finally {
       setState(() => _cargando = false);
     }
+  }
+
+  /// Usuarios a mostrar según el filtro de rol.
+  /// Se filtra en memoria: no hace consultas nuevas.
+  List<Map<String, dynamic>> get _usuariosFiltrados {
+    if (_filtroRolId == 'todos') return _usuarios;
+    return _usuarios.where((u) => u['rol_id'] == _filtroRolId).toList();
+  }
+
+  /// Roles para el desplegable de filtro: orden alfabético ascendente, sin
+  /// distinguir mayúsculas/minúsculas ni tildes. Es una copia: no cambia el
+  /// orden de _roles, que usan los formularios de alta y de cambio de rol.
+  List<Map<String, dynamic>> get _rolesOrdenados {
+    final lista = List<Map<String, dynamic>>.from(_roles);
+    lista.sort((a, b) =>
+        _claveOrden(a['nombre']).compareTo(_claveOrden(b['nombre'])));
+    return lista;
+  }
+
+  /// Texto en minúsculas y sin tildes, para comparar al ordenar.
+  String _claveOrden(dynamic texto) {
+    const conTilde = 'áéíóúü';
+    const sinTilde = 'aeiouu';
+    var clave = (texto ?? '').toString().trim().toLowerCase();
+    for (var i = 0; i < conTilde.length; i++) {
+      clave = clave.replaceAll(conTilde[i], sinTilde[i]);
+    }
+    return clave;
   }
 
   /// Devuelve true si el rol indicado (por id) restringe por ubicación.
@@ -1076,6 +1113,8 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
     final usuarioActual = context.read<AuthProvider>().usuario;
     final columns = Responsive.gridColumns(context);
     final padding = Responsive.pagePadding(context);
+    final filtrados = _usuariosFiltrados;
+    final cantidad = filtrados.length;
 
     return Scaffold(
       appBar: AppBar(
@@ -1113,35 +1152,179 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
                     ],
                   ),
                 )
-              : RefreshIndicator(
-                  onRefresh: _cargarDatos,
-                  child: columns == 1
-                      ? ListView.separated(
-                          padding: padding,
-                          itemCount: _usuarios.length,
-                          separatorBuilder: (_, _) =>
-                              const SizedBox(height: 8),
-                          itemBuilder: (context, index) => _buildCard(
-                              _usuarios[index], usuarioActual?.id),
-                        )
-                      : GridView.builder(
-                          padding: padding,
-                          gridDelegate:
-                              SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: columns,
-                                  crossAxisSpacing: 12,
-                                  mainAxisSpacing: 12,
-                                  childAspectRatio: 2.2),
-                          itemCount: _usuarios.length,
-                          itemBuilder: (context, index) => _buildCard(
-                              _usuarios[index], usuarioActual?.id),
-                        ),
+              : Column(
+                  children: [
+                    // Filtro por rol: desplegable, igual que en Activos y
+                    // Repuestos.
+                    Container(
+                      color: Colors.white,
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
+                      child: _buildDropdown(
+                        value: _filtroRolId,
+                        contexto: 'Rol',
+                        icono: Icons.manage_accounts_outlined,
+                        items: [
+                          _item('todos', 'Todos los roles'),
+                          ..._rolesOrdenados.map((r) => _item(
+                              r['id'] as String,
+                              (r['nombre'] ?? '').toString())),
+                        ],
+                        onChanged: (v) => setState(() => _filtroRolId = v),
+                      ),
+                    ),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 6),
+                      color: Colors.grey[100],
+                      child: Row(
+                        children: [
+                          Text(
+                            '$cantidad usuario${cantidad != 1 ? 's' : ''}',
+                            style: TextStyle(
+                                fontSize: 12, color: Colors.grey[600]),
+                          ),
+                          const Spacer(),
+                          if (_filtroRolId != 'todos')
+                            GestureDetector(
+                              onTap: () =>
+                                  setState(() => _filtroRolId = 'todos'),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.filter_alt_off_outlined,
+                                      size: 14, color: Colors.grey[600]),
+                                  const SizedBox(width: 4),
+                                  Text('Limpiar filtro',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600],
+                                          fontWeight: FontWeight.w500)),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: filtrados.isEmpty
+                          ? _buildSinResultados()
+                          : RefreshIndicator(
+                              onRefresh: _cargarDatos,
+                              child: columns == 1
+                                  ? ListView.separated(
+                                      padding: padding,
+                                      itemCount: filtrados.length,
+                                      separatorBuilder: (_, _) =>
+                                          const SizedBox(height: 8),
+                                      itemBuilder: (context, index) =>
+                                          _buildCard(filtrados[index],
+                                              usuarioActual?.id),
+                                    )
+                                  : GridView.builder(
+                                      padding: padding,
+                                      gridDelegate:
+                                          SliverGridDelegateWithFixedCrossAxisCount(
+                                              crossAxisCount: columns,
+                                              crossAxisSpacing: 12,
+                                              mainAxisSpacing: 12,
+                                              childAspectRatio: 2.2),
+                                      itemCount: filtrados.length,
+                                      itemBuilder: (context, index) =>
+                                          _buildCard(filtrados[index],
+                                              usuarioActual?.id),
+                                    ),
+                            ),
+                    ),
+                  ],
                 ),
       floatingActionButton: FloatingActionButton(
           onPressed: _mostrarFormularioNuevo,
           backgroundColor: const Color(0xFF1F4E79),
           foregroundColor: Colors.white,
           child: const Icon(Icons.person_add_outlined)),
+    );
+  }
+
+  /// Desplegable de filtro, con el mismo criterio visual que Activos y
+  /// Repuestos: palabra de contexto en gris cuando no se filtra; valor elegido
+  /// con ícono y borde azul cuando hay filtro activo.
+  Widget _buildDropdown({
+    required String value,
+    required String contexto,
+    required IconData icono,
+    required List<DropdownMenuItem<String>> items,
+    required ValueChanged<String> onChanged,
+  }) {
+    final activo = value != 'todos';
+    return DropdownButtonFormField<String>(
+      // La key hace que el campo refleje el valor cuando el filtro se cambia
+      // desde afuera ("Limpiar filtro" o rol eliminado).
+      key: ValueKey(value),
+      initialValue: value,
+      isExpanded: true,
+      isDense: true,
+      style: const TextStyle(fontSize: 12, color: Colors.black87),
+      icon: const Icon(Icons.arrow_drop_down, size: 20),
+      decoration: InputDecoration(
+        isDense: true,
+        prefixIcon: Icon(icono,
+            size: 18,
+            color: activo ? const Color(0xFF1F4E79) : Colors.grey[600]),
+        prefixIconConstraints:
+            const BoxConstraints(minWidth: 32, minHeight: 32),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(
+              color:
+                  activo ? const Color(0xFF1F4E79) : Colors.grey.shade300),
+        ),
+      ),
+      selectedItemBuilder: (context) => items.map((item) {
+        final esTodos = item.value == 'todos';
+        final texto = esTodos ? contexto : _labelDeItem(item);
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: Text(texto,
+              style: TextStyle(
+                  fontSize: 12,
+                  color: esTodos ? Colors.grey[600] : Colors.black87),
+              overflow: TextOverflow.ellipsis),
+        );
+      }).toList(),
+      items: items,
+      onChanged: (v) => onChanged(v ?? 'todos'),
+    );
+  }
+
+  String _labelDeItem(DropdownMenuItem<String> item) {
+    final child = item.child;
+    if (child is Text) return child.data ?? '';
+    return '';
+  }
+
+  DropdownMenuItem<String> _item(String value, String label) =>
+      DropdownMenuItem(
+        value: value,
+        child: Text(label,
+            style: const TextStyle(fontSize: 12),
+            overflow: TextOverflow.ellipsis),
+      );
+
+  /// Estado vacío cuando el rol filtrado no tiene usuarios.
+  Widget _buildSinResultados() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.people_outline, size: 56, color: Colors.grey[400]),
+          const SizedBox(height: 12),
+          Text('No hay usuarios con este rol',
+              style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+        ],
+      ),
     );
   }
 
