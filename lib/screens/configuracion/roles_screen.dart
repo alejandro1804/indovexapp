@@ -161,21 +161,9 @@ class _RolesScreenState extends State<RolesScreen> {
     }
   }
 
-  Future<void> _toggleRestriccion(Map<String, dynamic> rol, bool valor) async {
-    // Optimista: actualizamos la UI de inmediato y revertimos si falla.
-    setState(() => rol['restringe_por_sector'] = valor);
-    try {
-      await _supabase
-          .from('roles')
-          .update({'restringe_por_sector': valor}).eq('id', rol['id']);
-      _mostrarExito(valor
-          ? 'Los usuarios con rol "${rol['nombre']}" verán solo sus ubicaciones asignados'
-          : 'El rol "${rol['nombre']}" vuelve a ver todas las ubicaciones');
-    } catch (e) {
-      setState(() => rol['restringe_por_sector'] = !valor); // revertir
-      _mostrarError(mensajeAmigableDb(e, entidad: 'rol'));
-    }
-  }
+  // "3 usuarios" / "1 usuario"
+  String _cantidad(int n, String singular, String plural) =>
+      '$n ${n == 1 ? singular : plural}';
 
   void _mostrarExito(String m) {
     if (!mounted) return;
@@ -229,101 +217,89 @@ class _RolesScreenState extends State<RolesScreen> {
                 itemBuilder: (context, index) {
                   final rol = _roles[index];
                   final esProtegido = _rolesProtegidos.contains(rol['nombre']);
-                  final esAdmin = rol['nombre'] == 'admin';
+                  // El alcance se cambia desde Permisos o desde la Grilla
+                  // ("Ver todas las ubicaciones"); acá solo se informa.
                   final restringido = rol['restringe_por_sector'] == true;
                   return Card(
                     elevation: 1,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10)),
-                    child: Column(
-                      children: [
-                        ListTile(
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 4),
-                          leading: CircleAvatar(
-                            radius: 18,
-                            backgroundColor:
-                                const Color(0xFF1F4E79).withValues(alpha: 0.1),
-                            child: Icon(
-                              esProtegido
-                                  ? Icons.shield_outlined
-                                  : Icons.badge_outlined,
-                              color: const Color(0xFF1F4E79),
-                              size: 18,
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 4),
+                      leading: CircleAvatar(
+                        radius: 18,
+                        backgroundColor:
+                            const Color(0xFF1F4E79).withValues(alpha: 0.1),
+                        child: Icon(
+                          esProtegido
+                              ? Icons.shield_outlined
+                              : Icons.badge_outlined,
+                          color: const Color(0xFF1F4E79),
+                          size: 18,
+                        ),
+                      ),
+                      title: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              rol['nombre'],
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600, fontSize: 12),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          title: Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  rol['nombre'],
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w600, fontSize: 12),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              if (esProtegido) ...[
-                                const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                      color: Colors.grey[200],
-                                      borderRadius: BorderRadius.circular(8)),
-                                  child: const Text('sistema',
-                                      style: TextStyle(
-                                          fontSize: 8, color: Colors.grey)),
-                                ),
-                              ],
-                            ],
-                          ),
-                          subtitle: Text(
-                            '${rol['permisos']} permisos · ${rol['usuarios']} usuarios',
-                            style: const TextStyle(fontSize: 10),
-                          ),
-                          trailing: PopupMenuButton<String>(
-                            itemBuilder: (_) => [
-                              const PopupMenuItem(
-                                  value: 'permisos',
-                                  child: Row(children: [
-                                    Icon(Icons.tune, size: 18),
-                                    SizedBox(width: 8),
-                                    Text('Permisos')
-                                  ])),
-                              if (!esProtegido)
-                                const PopupMenuItem(
-                                    value: 'renombrar',
-                                    child: Row(children: [
-                                      Icon(Icons.edit_outlined, size: 18),
-                                      SizedBox(width: 8),
-                                      Text('Renombrar')
-                                    ])),
-                              if (!esProtegido)
-                                const PopupMenuItem(
-                                    value: 'eliminar',
-                                    child: Row(children: [
-                                      Icon(Icons.delete_outline,
-                                          size: 18, color: Colors.red),
-                                      SizedBox(width: 8),
-                                      Text('Eliminar',
-                                          style: TextStyle(color: Colors.red))
-                                    ])),
-                            ],
-                            onSelected: (v) {
-                              if (v == 'permisos') {
-                                Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (_) => PermisosRolScreen(
-                                            rolId: rol['id'],
-                                            rolNombre: rol['nombre']))).then(
-                                    (_) => _cargar());
-                              }
-                              if (v == 'renombrar') _renombrarRol(rol);
-                              if (v == 'eliminar') _eliminarRol(rol);
-                            },
-                          ),
-                          onTap: () {
+                          if (esProtegido) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                  color: Colors.grey[200],
+                                  borderRadius: BorderRadius.circular(8)),
+                              child: const Text('sistema',
+                                  style: TextStyle(
+                                      fontSize: 8, color: Colors.grey)),
+                            ),
+                          ],
+                        ],
+                      ),
+                      subtitle: Text(
+                        '${_cantidad(rol['permisos'] as int, 'permiso', 'permisos')}'
+                        ' · ${_cantidad(rol['usuarios'] as int, 'usuario', 'usuarios')}'
+                        '${restringido ? ' · solo ubicaciones asignadas' : ''}',
+                        style: const TextStyle(fontSize: 10),
+                      ),
+                      trailing: PopupMenuButton<String>(
+                        itemBuilder: (_) => [
+                          const PopupMenuItem(
+                              value: 'permisos',
+                              child: Row(children: [
+                                Icon(Icons.tune, size: 18),
+                                SizedBox(width: 8),
+                                Text('Permisos')
+                              ])),
+                          if (!esProtegido)
+                            const PopupMenuItem(
+                                value: 'renombrar',
+                                child: Row(children: [
+                                  Icon(Icons.edit_outlined, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('Renombrar')
+                                ])),
+                          if (!esProtegido)
+                            const PopupMenuItem(
+                                value: 'eliminar',
+                                child: Row(children: [
+                                  Icon(Icons.delete_outline,
+                                      size: 18, color: Colors.red),
+                                  SizedBox(width: 8),
+                                  Text('Eliminar',
+                                      style: TextStyle(color: Colors.red))
+                                ])),
+                        ],
+                        onSelected: (v) {
+                          if (v == 'permisos') {
                             Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -331,47 +307,20 @@ class _RolesScreenState extends State<RolesScreen> {
                                         rolId: rol['id'],
                                         rolNombre: rol['nombre']))).then(
                                 (_) => _cargar());
-                          },
-                        ),
-                        // Toggle de restricción por sector.
-                        // El rol admin nunca se restringe (protegido además por CHECK en la BD).
-                        if (!esAdmin)
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(12, 0, 8, 4),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  restringido
-                                      ? Icons.location_on_outlined
-                                      : Icons.public,
-                                  size: 16,
-                                  color: restringido
-                                      ? const Color(0xFF1F4E79)
-                                      : Colors.grey,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    restringido
-                                        ? 'Ve solo las ubicaciones asignados'
-                                        : 'Ve todas las ubicaciones',
-                                    style: TextStyle(
-                                        fontSize: 10,
-                                        color: Colors.grey[700]),
-                                  ),
-                                ),
-                                Transform.scale(
-                                  scale: 0.8,
-                                  child: Switch(
-                                    value: restringido,
-                                    activeThumbColor: const Color(0xFF1F4E79),
-                                    onChanged: (v) => _toggleRestriccion(rol, v),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
+                          }
+                          if (v == 'renombrar') _renombrarRol(rol);
+                          if (v == 'eliminar') _eliminarRol(rol);
+                        },
+                      ),
+                      onTap: () {
+                        Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => PermisosRolScreen(
+                                    rolId: rol['id'],
+                                    rolNombre: rol['nombre']))).then(
+                            (_) => _cargar());
+                      },
                     ),
                   );
                 },

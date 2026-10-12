@@ -8,8 +8,11 @@ import 'egress_service.dart';
 ///
 /// Filas: permisos agrupados por módulo. Columnas: roles, con la cantidad
 /// de usuarios que tiene cada uno. Una X marca que el rol tiene el permiso.
+/// La primera fila es el alcance ("Ver todas las ubicaciones"), que sale de
+/// roles.restringe_por_sector mostrado al revés.
 class RolesPermisosPdfService {
-  /// [roles]: mapas con id, nombre y usuarios (cantidad), ya ordenados.
+  /// [roles]: mapas con id, nombre, usuarios (cantidad) y
+  /// restringe_por_sector, ya ordenados.
   /// [permisos]: mapas con id, nombre y modulo, ya ordenados por módulo.
   /// [permisosPorRol]: ids de permisos asignados a cada rol (clave: id de rol).
   static Future<void> generarYCompartir({
@@ -57,6 +60,23 @@ class RolesPermisosPdfService {
         ],
       ),
     ];
+
+    // Alcance: grupo propio arriba de los permisos.
+    filas.add(pw.TableRow(
+      decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+      children: [
+        _celdaModulo('ALCANCE', azul),
+        for (final _ in roles) pw.SizedBox(),
+      ],
+    ));
+    filas.add(pw.TableRow(
+      verticalAlignment: pw.TableCellVerticalAlignment.middle,
+      children: [
+        _celda('Ver todas las ubicaciones'),
+        for (final r in roles)
+          _celdaMarca(r['restringe_por_sector'] != true, azul),
+      ],
+    ));
 
     String? moduloActual;
     for (final p in permisos) {
@@ -140,6 +160,9 @@ class RolesPermisosPdfService {
                 pw.Text('Referencias', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
                 pw.SizedBox(height: 2),
                 pw.Text('X = el rol tiene el permiso. Debajo de cada rol, la cantidad de usuarios que lo tienen asignado.',
+                    style: const pw.TextStyle(fontSize: 9)),
+                pw.SizedBox(height: 2),
+                pw.Text('Alcance: un rol sin "Ver todas las ubicaciones" ve solo las ubicaciones asignadas a cada usuario.',
                     style: const pw.TextStyle(fontSize: 9)),
                 pw.SizedBox(height: 2),
                 pw.Text('Total: ${roles.length} rol${roles.length != 1 ? 'es' : ''}  |  ${permisos.length} permiso${permisos.length != 1 ? 's' : ''}',

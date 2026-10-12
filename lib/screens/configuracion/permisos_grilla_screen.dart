@@ -10,6 +10,10 @@ import '../../services/roles_permisos_pdf_service.dart';
 ///
 /// Filas: permisos agrupados por módulo. Columnas: roles de la empresa, con
 /// la cantidad de usuarios que tiene cada uno.
+/// La primera fila es el alcance ("Ver todas las ubicaciones"): no es un
+/// permiso de la tabla permisos, es la columna roles.restringe_por_sector
+/// mostrada al revés (marcada = el rol NO está restringido). Las reglas de
+/// la base siguen leyendo esa columna.
 /// Se marcan y desmarcan casillas y se guarda todo junto; por cada rol
 /// modificado se llama a la RPC establecer_permisos_rol, la misma que usa
 /// la pantalla de permisos por rol (la base valida gestionar_roles).
@@ -39,6 +43,12 @@ class _PermisosGrillaScreenState extends State<PermisosGrillaScreen> {
   // Permisos que el rol admin conserva siempre (los fuerza la base).
   static const _permisosFijosAdmin = ['gestionar_roles', 'gestionar_usuarios'];
 
+  // Fila de alcance: se muestra arriba de los permisos, en un grupo propio.
+  static const _grupoAlcance = 'alcance';
+  static const _nombreAlcance = 'Ver todas las ubicaciones';
+  static const _ayudaAlcance =
+      'Sin esto, el rol ve solo las ubicaciones asignadas a cada usuario';
+
   static const double _altoEncabezado = 48;
   static const double _altoFila = 40;
   static const double _altoModulo = 28;
@@ -57,6 +67,10 @@ class _PermisosGrillaScreenState extends State<PermisosGrillaScreen> {
   // Permisos por rol: lo que hay en la base y lo que se ve en pantalla.
   final Map<String, Set<String>> _original = {};
   final Map<String, Set<String>> _actual = {};
+
+  // Alcance por rol tal como se ve en pantalla (true = solo ubicaciones
+  // asignadas). El valor guardado en la base queda en el mapa de cada rol.
+  final Map<String, bool> _restringe = {};
 
   bool _cargando = true;
   bool _guardando = false;
@@ -96,7 +110,8 @@ class _PermisosGrillaScreenState extends State<PermisosGrillaScreen> {
     final empresaId = context.read<AuthProvider>().usuario?.empresaId;
     setState(() => _cargando = true);
     try {
-      var consultaRoles = _supabase.from('roles').select('id, nombre');
+      var consultaRoles =
+          _supabase.from('roles').select('id, nombre, restringe_por_sector');
       if (empresaId != null) {
         consultaRoles = consultaRoles.eq('empresa_id', empresaId);
       }
@@ -153,10 +168,14 @@ class _PermisosGrillaScreenState extends State<PermisosGrillaScreen> {
         _permisos = permisos;
         _original.clear();
         _actual.clear();
+        _restringe.clear();
         porRol.forEach((rolId, ids) {
           _original[rolId] = Set<String>.from(ids);
           _actual[rolId] = Set<String>.from(ids);
         });
+        for (final r in roles) {
+          _restringe[r['id'] as String] = r['restringe_por_sector'] == true;
+        }
       });
     } catch (e) {
       _mostrarError('Error al cargar la grilla: $e');
@@ -174,13 +193,29 @@ class _PermisosGrillaScreenState extends State<PermisosGrillaScreen> {
     String? primerError;
 
     for (final rolId in pendientes) {
-      final ids = _actual[rolId] ?? <String>{};
       try {
-        await _supabase.rpc('establecer_permisos_rol', params: {
-          'p_rol_id': rolId,
-          'p_permiso_ids': ids.toList(),
-        });
-        _original[rolId] = Set<String>.from(ids);
+        if (_diferenciasPermisos(rolId) > 0) {
+          final ids = _actual[rolId] ?? <String>{};
+          await _supabase.rpc('establecer_permisos_rol', params: {
+            'p_rol_id': rolId,
+            'p_permiso_ids': ids.toList(),
+          });
+          _original[rolId] = Set<String>.from(ids);
+        }
+        if (_cambioAlcance(rolId)) {
+          final valor = _restringeActual(rolId);
+          // Se pide la fila de vuelta: si la base no deja modificar el rol,
+          // el update no da error, simplemente no devuelve nada.
+          final filas = await _supabase
+              .from('roles')
+              .update({'restringe_por_sector': valor})
+              .eq('id', rolId)
+              .select('id');
+          if (filas.isEmpty) {
+            throw Exception('No se pudo cambiar el alcance del rol');
+          }
+          _rol(rolId)?['restringe_por_sector'] = valor;
+        }
       } catch (e) {
         fallidos.add(_titulo(_nombreRol(rolId)));
         primerError ??= mensajeAmigableDb(e, entidad: 'rol');
@@ -191,7 +226,7 @@ class _PermisosGrillaScreenState extends State<PermisosGrillaScreen> {
     setState(() => _guardando = false);
 
     if (fallidos.isEmpty) {
-      _mostrarExito('Permisos guardados');
+      _mostrarExito('Cambios guardados');
     } else {
       // Los roles que fallaron quedan marcados como pendientes.
       _mostrarError('No se pudo guardar: ${fallidos.join(', ')}. $primerError');
@@ -243,8 +278,15 @@ class _PermisosGrillaScreenState extends State<PermisosGrillaScreen> {
     setState(() {
       for (final rolId in _original.keys) {
         _actual[rolId] = Set<String>.from(_original[rolId] ?? <String>{});
+        _restringe[rolId] = _restringeGuardado(rolId);
       }
     });
+  }
+
+  void _alternarAlcance(Map<String, dynamic> rol) {
+    if (_guardando || _alcanceBloqueado(rol)) return;
+    final rolId = rol['id'] as String;
+    setState(() => _restringe[rolId] = !_restringeActual(rolId));
   }
 
   void _alternar(Map<String, dynamic> rol, Map<String, dynamic> permiso) {
@@ -276,12 +318,26 @@ class _PermisosGrillaScreenState extends State<PermisosGrillaScreen> {
     return i == -1 ? _rolesSistema.length : i;
   }
 
-  String _nombreRol(String rolId) {
+  Map<String, dynamic>? _rol(String rolId) {
     for (final r in _roles) {
-      if (r['id'] == rolId) return _texto(r['nombre']);
+      if (r['id'] == rolId) return r;
     }
-    return '';
+    return null;
   }
+
+  String _nombreRol(String rolId) => _texto(_rol(rolId)?['nombre']);
+
+  // Alcance: true = el rol ve solo las ubicaciones asignadas.
+  bool _restringeGuardado(String rolId) =>
+      _rol(rolId)?['restringe_por_sector'] == true;
+
+  bool _restringeActual(String rolId) => _restringe[rolId] ?? false;
+
+  bool _cambioAlcance(String rolId) =>
+      _restringeActual(rolId) != _restringeGuardado(rolId);
+
+  /// El rol admin nunca se restringe (la base además lo impide).
+  bool _alcanceBloqueado(Map<String, dynamic> rol) => rol['nombre'] == 'admin';
 
   bool _tiene(String rolId, String permisoId) =>
       _actual[rolId]?.contains(permisoId) ?? false;
@@ -297,11 +353,15 @@ class _PermisosGrillaScreenState extends State<PermisosGrillaScreen> {
       _permisosFijosAdmin.contains(permiso['codigo']) &&
       _tiene(rol['id'] as String, permiso['id'] as String);
 
-  int _diferencias(String rolId) {
+  int _diferenciasPermisos(String rolId) {
     final a = _actual[rolId] ?? <String>{};
     final o = _original[rolId] ?? <String>{};
     return a.difference(o).length + o.difference(a).length;
   }
+
+  /// Casillas cambiadas del rol: permisos más la de alcance.
+  int _diferencias(String rolId) =>
+      _diferenciasPermisos(rolId) + (_cambioAlcance(rolId) ? 1 : 0);
 
   List<String> get _rolesModificados => [
         for (final r in _roles)
@@ -466,6 +526,8 @@ class _PermisosGrillaScreenState extends State<PermisosGrillaScreen> {
                   width: anchoPermiso,
                   child: Column(
                     children: [
+                      _moduloIzquierda(_grupoAlcance),
+                      _celdaNombre(_nombreAlcance, _ayudaAlcance),
                       for (final e in porModulo.entries) ...[
                         _moduloIzquierda(e.key),
                         for (final p in e.value) _celdaPermiso(p),
@@ -480,6 +542,13 @@ class _PermisosGrillaScreenState extends State<PermisosGrillaScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        _moduloDerecha(),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (final r in _roles) _casillaAlcance(r),
+                          ],
+                        ),
                         for (final e in porModulo.entries) ...[
                           _moduloDerecha(),
                           for (final p in e.value)
@@ -577,10 +646,13 @@ class _PermisosGrillaScreenState extends State<PermisosGrillaScreen> {
     );
   }
 
-  Widget _celdaPermiso(Map<String, dynamic> permiso) {
-    final nombre = _texto(permiso['nombre']);
+  Widget _celdaPermiso(Map<String, dynamic> permiso) =>
+      _celdaNombre(_texto(permiso['nombre']), _texto(permiso['codigo']));
+
+  /// Celda de la columna fija de la izquierda.
+  Widget _celdaNombre(String nombre, String detalle) {
     return Tooltip(
-      message: '$nombre\n${_texto(permiso['codigo'])}',
+      message: '$nombre\n$detalle',
       child: Container(
         height: _altoFila,
         padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -600,12 +672,36 @@ class _PermisosGrillaScreenState extends State<PermisosGrillaScreen> {
   Widget _casilla(Map<String, dynamic> rol, Map<String, dynamic> permiso) {
     final rolId = rol['id'] as String;
     final permisoId = permiso['id'] as String;
-    final marcada = _tiene(rolId, permisoId);
-    final bloqueada = _bloqueada(rol, permiso);
-    final cambio = _cambio(rolId, permisoId);
+    return _casillaBase(
+      marcada: _tiene(rolId, permisoId),
+      bloqueada: _bloqueada(rol, permiso),
+      cambio: _cambio(rolId, permisoId),
+      alTocar: () => _alternar(rol, permiso),
+      avisoBloqueo: 'El rol admin siempre conserva este permiso',
+    );
+  }
 
+  /// Casilla de alcance: marcada = el rol ve todas las ubicaciones.
+  Widget _casillaAlcance(Map<String, dynamic> rol) {
+    final rolId = rol['id'] as String;
+    return _casillaBase(
+      marcada: !_restringeActual(rolId),
+      bloqueada: _alcanceBloqueado(rol),
+      cambio: _cambioAlcance(rolId),
+      alTocar: () => _alternarAlcance(rol),
+      avisoBloqueo: 'El rol admin siempre ve todas las ubicaciones',
+    );
+  }
+
+  Widget _casillaBase({
+    required bool marcada,
+    required bool bloqueada,
+    required bool cambio,
+    required VoidCallback alTocar,
+    required String avisoBloqueo,
+  }) {
     final celda = InkWell(
-      onTap: (bloqueada || _guardando) ? null : () => _alternar(rol, permiso),
+      onTap: (bloqueada || _guardando) ? null : alTocar,
       child: Container(
         width: _anchoRol,
         height: _altoFila,
@@ -627,10 +723,7 @@ class _PermisosGrillaScreenState extends State<PermisosGrillaScreen> {
     );
 
     if (!bloqueada) return celda;
-    return Tooltip(
-      message: 'El rol admin siempre conserva este permiso',
-      child: celda,
-    );
+    return Tooltip(message: avisoBloqueo, child: celda);
   }
 
   Widget _barraInferior() {

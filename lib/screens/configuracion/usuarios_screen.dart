@@ -5,6 +5,7 @@ import '../../providers/auth_provider.dart';
 import '../../core/responsive.dart';
 import '../../core/db_error_helper.dart';
 import 'destinatarios_whatsapp_screen.dart';
+import 'usuario_detail_screen.dart';
 
 class UsuariosScreen extends StatefulWidget {
   const UsuariosScreen({super.key});
@@ -23,10 +24,20 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
   // los filtros de Activos y Repuestos).
   String _filtroRolId = 'todos';
 
+  // Avisa a la ficha del usuario (si está abierta) que algo cambió, para que
+  // vuelva a leer sus datos.
+  final _cambios = ValueNotifier<int>(0);
+
   @override
   void initState() {
     super.initState();
     _cargarDatos();
+  }
+
+  @override
+  void dispose() {
+    _cambios.dispose();
+    super.dispose();
   }
 
   Future<void> _cargarDatos() async {
@@ -49,6 +60,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
           _filtroRolId = 'todos';
         }
       });
+      _cambios.value++;
     } catch (e) {
       _mostrarError('Error al cargar usuarios: $e');
     } finally {
@@ -935,6 +947,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
         await _supabase.from('usuario_sector').insert(filas);
       }
       _mostrarExito('Ubicaciones actualizadas');
+      if (mounted) _cambios.value++;
     } catch (e) {
       _mostrarError(mensajeAmigableDb(e, entidad: 'asignación de ubicación'));
     }
@@ -974,6 +987,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
       if (data != null && data['success'] == true) {
         final temporal = data['temporal'] as String;
         if (!mounted) return;
+        _cambios.value++;
         await showDialog(
           context: context,
           builder: (context) => AlertDialog(
@@ -1334,12 +1348,6 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
     final esYo = myId == usuario['id'];
     final activo = usuario['estado'] == 'activo';
     final primerLogin = usuario['primer_login'] == true;
-    // El email de un super admin solo lo cambia otro super admin
-    // (la Edge Function lo valida igual; acá solo se oculta la opción).
-    final soySuperAdmin =
-        context.read<AuthProvider>().usuario?.esSuperAdmin == true;
-    final puedeCambiarEmail =
-        usuario['es_super_admin'] != true || soySuperAdmin;
 
     return Card(
       elevation: 1,
@@ -1480,90 +1488,128 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
           ],
         ),
         isThreeLine: true,
-        trailing: PopupMenuButton(
-          itemBuilder: (_) => [
-            const PopupMenuItem(
-              value: 'editar_nombre',
-              child: Row(children: [
-                Icon(Icons.edit_outlined, size: 18),
-                SizedBox(width: 8),
-                Text('Editar nombre')
-              ]),
-            ),
-            const PopupMenuItem(
-              value: 'editar_telefono',
-              child: Row(children: [
-                Icon(Icons.phone_outlined, size: 18),
-                SizedBox(width: 8),
-                Text('Editar teléfono')
-              ]),
-            ),
-            // "Cambiar email" aparece también sobre el propio usuario.
-            if (puedeCambiarEmail)
-              const PopupMenuItem(
-                value: 'cambiar_email',
-                child: Row(children: [
-                  Icon(Icons.alternate_email, size: 18),
-                  SizedBox(width: 8),
-                  Text('Cambiar email')
-                ]),
-              ),
-            if (!esYo)
-              const PopupMenuItem(
-                value: 'cambiar_rol',
-                child: Row(children: [
-                  Icon(Icons.manage_accounts_outlined, size: 18),
-                  SizedBox(width: 8),
-                  Text('Cambiar rol')
-                ]),
-              ),
-            // "Asignar ubicaciones" aparece si el rol del usuario restringe por ubicación.
-            if (!esYo && rolRestringe)
-              const PopupMenuItem(
-                value: 'asignar_sectores',
-                child: Row(children: [
-                  Icon(Icons.domain_outlined, size: 18),
-                  SizedBox(width: 8),
-                  Text('Asignar ubicaciones')
-                ]),
-              ),
-            if (!esYo)
-              const PopupMenuItem(
-                value: 'resetear_pass',
-                child: Row(children: [
-                  Icon(Icons.lock_reset_outlined, size: 18),
-                  SizedBox(width: 8),
-                  Text('Resetear contraseña')
-                ]),
-              ),
-            if (!esYo)
-              PopupMenuItem(
-                value: 'toggle_estado',
-                child: Row(
-                  children: [
-                    Icon(
-                        activo
-                            ? Icons.person_off_outlined
-                            : Icons.person_outlined,
-                        size: 18,
-                        color: activo ? Colors.orange : Colors.green),
-                    const SizedBox(width: 8),
-                    Text(activo ? 'Desactivar' : 'Activar',
-                        style: TextStyle(
-                            color: activo ? Colors.orange : Colors.green)),
-                  ],
-                ),
-              ),
-          ],
-          onSelected: (value) {
-            if (value == 'editar_nombre') _editarNombre(usuario);
-            if (value == 'editar_telefono') _editarTelefono(usuario);
-            if (value == 'cambiar_email') _cambiarEmail(usuario);
-            if (value == 'cambiar_rol') _cambiarRol(usuario);
-            if (value == 'asignar_sectores') _asignarSectores(usuario);
-            if (value == 'resetear_pass') _resetearPassword(usuario);
-            if (value == 'toggle_estado') _toggleEstado(usuario);
-          },
+        trailing: PopupMenuButton<String>(
+          itemBuilder: (_) => _itemsMenu(usuario, myId),
+          onSelected: (value) => _ejecutarAccion(value, usuario),
+        ),
+        onTap: () => _abrirFicha(usuario, myId),
+      ),
+    );
+  }
+
+  /// Opciones del menú de un usuario. Las usan la tarjeta de la lista y la
+  /// ficha del usuario, para que las reglas queden en un solo lugar.
+  List<PopupMenuEntry<String>> _itemsMenu(
+      Map<String, dynamic> usuario, String? myId) {
+    final rolRestringe = usuario['roles']?['restringe_por_sector'] == true;
+    final esYo = myId == usuario['id'];
+    final activo = usuario['estado'] == 'activo';
+    // El email de un super admin solo lo cambia otro super admin
+    // (la Edge Function lo valida igual; acá solo se oculta la opción).
+    final soySuperAdmin =
+        context.read<AuthProvider>().usuario?.esSuperAdmin == true;
+    final puedeCambiarEmail =
+        usuario['es_super_admin'] != true || soySuperAdmin;
+
+    return [
+      const PopupMenuItem(
+        value: 'editar_nombre',
+        child: Row(children: [
+          Icon(Icons.edit_outlined, size: 18),
+          SizedBox(width: 8),
+          Text('Editar nombre')
+        ]),
+      ),
+      const PopupMenuItem(
+        value: 'editar_telefono',
+        child: Row(children: [
+          Icon(Icons.phone_outlined, size: 18),
+          SizedBox(width: 8),
+          Text('Editar teléfono')
+        ]),
+      ),
+      // "Cambiar email" aparece también sobre el propio usuario.
+      if (puedeCambiarEmail)
+        const PopupMenuItem(
+          value: 'cambiar_email',
+          child: Row(children: [
+            Icon(Icons.alternate_email, size: 18),
+            SizedBox(width: 8),
+            Text('Cambiar email')
+          ]),
+        ),
+      if (!esYo)
+        const PopupMenuItem(
+          value: 'cambiar_rol',
+          child: Row(children: [
+            Icon(Icons.manage_accounts_outlined, size: 18),
+            SizedBox(width: 8),
+            Text('Cambiar rol')
+          ]),
+        ),
+      // "Asignar ubicaciones" aparece si el rol del usuario restringe por ubicación.
+      if (!esYo && rolRestringe)
+        const PopupMenuItem(
+          value: 'asignar_sectores',
+          child: Row(children: [
+            Icon(Icons.domain_outlined, size: 18),
+            SizedBox(width: 8),
+            Text('Asignar ubicaciones')
+          ]),
+        ),
+      if (!esYo)
+        const PopupMenuItem(
+          value: 'resetear_pass',
+          child: Row(children: [
+            Icon(Icons.lock_reset_outlined, size: 18),
+            SizedBox(width: 8),
+            Text('Resetear contraseña')
+          ]),
+        ),
+      if (!esYo)
+        PopupMenuItem(
+          value: 'toggle_estado',
+          child: Row(
+            children: [
+              Icon(
+                  activo
+                      ? Icons.person_off_outlined
+                      : Icons.person_outlined,
+                  size: 18,
+                  color: activo ? Colors.orange : Colors.green),
+              const SizedBox(width: 8),
+              Text(activo ? 'Desactivar' : 'Activar',
+                  style: TextStyle(
+                      color: activo ? Colors.orange : Colors.green)),
+            ],
+          ),
+        ),
+    ];
+  }
+
+  void _ejecutarAccion(String value, Map<String, dynamic> usuario) {
+    if (value == 'editar_nombre') _editarNombre(usuario);
+    if (value == 'editar_telefono') _editarTelefono(usuario);
+    if (value == 'cambiar_email') _cambiarEmail(usuario);
+    if (value == 'cambiar_rol') _cambiarRol(usuario);
+    if (value == 'asignar_sectores') _asignarSectores(usuario);
+    if (value == 'resetear_pass') _resetearPassword(usuario);
+    if (value == 'toggle_estado') _toggleEstado(usuario);
+  }
+
+  /// Abre la ficha del usuario. Las acciones de la ficha se ejecutan acá
+  /// (mismos diálogos que el menú de la lista).
+  void _abrirFicha(Map<String, dynamic> usuario, String? myId) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => UsuarioDetailScreen(
+          usuarioId: usuario['id'] as String,
+          miId: myId,
+          cambios: _cambios,
+          colorRol: _colorRol,
+          itemsMenu: (u) => _itemsMenu(u, myId),
+          onAccion: _ejecutarAccion,
         ),
       ),
     );

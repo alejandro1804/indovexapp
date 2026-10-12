@@ -13,11 +13,16 @@ import 'egress_service.dart';
 ///
 /// Columnas: Módulo, Permiso y una por rol. Una X marca que el rol tiene el
 /// permiso. La planilla sale con filtros y con los encabezados inmovilizados.
+/// La primera fila de datos es el alcance ("Ver todas las ubicaciones"), que
+/// sale de roles.restringe_por_sector mostrado al revés.
 class RolesPermisosExcelService {
   static const _hoja = 'Grilla';
 
   // Fila del encabezado de la tabla (arriba van título y fecha).
   static const _filaEncabezado = 5;
+
+  // Fila de alcance: la primera de datos, antes de los permisos.
+  static const _filaAlcance = _filaEncabezado + 1;
 
   // Índices de estilo: tienen que coincidir con el orden de cellXfs en _estilos.
   static const _sTitulo = 1;
@@ -27,7 +32,8 @@ class RolesPermisosExcelService {
   static const _sTexto = 5;
   static const _sMarca = 6;
 
-  /// [roles]: mapas con id, nombre y usuarios (cantidad), ya ordenados.
+  /// [roles]: mapas con id, nombre, usuarios (cantidad) y
+  /// restringe_por_sector, ya ordenados.
   /// [permisos]: mapas con id, nombre y modulo, ya ordenados por módulo.
   /// [permisosPorRol]: ids de permisos asignados a cada rol (clave: id de rol).
   ///
@@ -116,7 +122,7 @@ class RolesPermisosExcelService {
       ..write('<row r="1">${_celdaTexto(0, 1, nombreEmpresa, _sTitulo)}</row>')
       ..write('<row r="2">${_celdaTexto(0, 2, 'Roles y permisos', _sSubtitulo)}</row>')
       ..write('<row r="3">'
-          '${_celdaTexto(0, 3, 'Generado: ${_fechaHora(ahora)} - IndovexApp. X = el rol tiene el permiso.', _sNota)}'
+          '${_celdaTexto(0, 3, 'Generado: ${_fechaHora(ahora)} - IndovexApp. X = el rol tiene el permiso. Sin "Ver todas las ubicaciones", el rol ve solo las asignadas a cada usuario.', _sNota)}'
           '</row>')
       // Encabezado de la tabla.
       ..write('<row r="$_filaEncabezado" ht="32" customHeight="1">')
@@ -134,10 +140,23 @@ class RolesPermisosExcelService {
     }
     x.write('</row>');
 
+    // Alcance: primera fila de datos.
+    x
+      ..write('<row r="$_filaAlcance">')
+      ..write(_celdaTexto(0, _filaAlcance, 'Alcance', _sTexto))
+      ..write(_celdaTexto(
+          1, _filaAlcance, 'Ver todas las ubicaciones', _sTexto));
+    for (var c = 0; c < roles.length; c++) {
+      x.write(roles[c]['restringe_por_sector'] != true
+          ? _celdaTexto(c + 2, _filaAlcance, 'X', _sMarca)
+          : '<c r="${_columna(c + 2)}$_filaAlcance" s="$_sMarca"/>');
+    }
+    x.write('</row>');
+
     // Una fila por permiso.
     for (var f = 0; f < permisos.length; f++) {
       final p = permisos[f];
-      final fila = _filaEncabezado + 1 + f;
+      final fila = _filaAlcance + 1 + f;
       x
         ..write('<row r="$fila">')
         ..write(_celdaTexto(0, fila, _titulo(_modulo(p)), _sTexto))
@@ -192,7 +211,7 @@ class RolesPermisosExcelService {
   }
 
   static int _ultimaFilaDatos(int cantidadPermisos) =>
-      _filaEncabezado + cantidadPermisos;
+      _filaAlcance + cantidadPermisos;
 
   /// Rango de la tabla (encabezado + datos), por ejemplo A5:H40.
   static String _rangoTabla(int cantidadRoles, int cantidadPermisos,

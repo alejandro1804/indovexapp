@@ -17,6 +17,12 @@ class _PermisosRolScreenState extends State<PermisosRolScreen> {
   bool _cargando = true;
   bool _guardando = false;
 
+  // Alcance del rol: true = ve solo las ubicaciones asignadas. Es la columna
+  // roles.restringe_por_sector; en pantalla se muestra al revés, como
+  // "Ver todas las ubicaciones".
+  bool _restringe = false;
+  bool _restringeGuardado = false;
+
   bool get _esAdmin => widget.rolNombre == 'admin';
 
   @override
@@ -30,12 +36,15 @@ class _PermisosRolScreenState extends State<PermisosRolScreen> {
     try {
       final permisos = await _supabase.from('permisos').select('id, codigo, nombre, modulo').order('modulo');
       final asignados = await _supabase.from('rol_permisos').select('permiso_id').eq('rol_id', widget.rolId);
+      final rol = await _supabase.from('roles').select('restringe_por_sector').eq('id', widget.rolId).single();
       setState(() {
         _permisos = List<Map<String, dynamic>>.from(permisos);
         _seleccionados.clear();
         for (final a in asignados) {
           _seleccionados.add(a['permiso_id'] as String);
         }
+        _restringeGuardado = rol['restringe_por_sector'] == true;
+        _restringe = _restringeGuardado;
       });
     } catch (e) {
       _mostrarError('Error al cargar permisos: $e');
@@ -51,9 +60,17 @@ class _PermisosRolScreenState extends State<PermisosRolScreen> {
         'p_rol_id': widget.rolId,
         'p_permiso_ids': _seleccionados.toList(),
       });
+      if (_restringe != _restringeGuardado) {
+        // Se pide la fila de vuelta: si la base no deja modificar el rol,
+        // el update no da error, simplemente no devuelve nada.
+        final filas = await _supabase.from('roles').update({'restringe_por_sector': _restringe}).eq('id', widget.rolId).select('id');
+        if (filas.isEmpty) {
+          throw Exception('No se pudo cambiar el alcance del rol');
+        }
+      }
       if (!mounted) return;
       _mostrarExito('Permisos guardados');
-      await _cargar(); // recargar para reflejar los permisos forzados del admin
+      await _cargar(); // recargar para reflejar los permisos forzados del admin y el alcance
     } catch (e) {
       _mostrarError('Error al guardar: $e');
     } finally {
@@ -69,6 +86,40 @@ class _PermisosRolScreenState extends State<PermisosRolScreen> {
   void _mostrarError(String m) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating));
+  }
+
+  // Grupo "Alcance": va arriba de los permisos porque define sobre qué
+  // ubicaciones aplican todos los demás.
+  Widget _grupoAlcance() {
+    final veTodas = !_restringe;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 12, bottom: 4, left: 4),
+          child: Text('ALCANCE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey[600])),
+        ),
+        Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide(color: Colors.grey[200]!)),
+          child: SwitchListTile(
+            title: const Text('Ver todas las ubicaciones', style: TextStyle(fontSize: 12)),
+            subtitle: Text(
+              _esAdmin
+                  ? 'El rol admin siempre ve todas las ubicaciones'
+                  : veTodas
+                      ? 'El rol ve todas las ubicaciones'
+                      : 'El rol ve solo las ubicaciones asignadas a cada usuario',
+              style: const TextStyle(fontSize: 10),
+            ),
+            value: veTodas,
+            activeThumbColor: const Color(0xFF1F4E79),
+            // El rol admin nunca se restringe (la base además lo impide).
+            onChanged: _esAdmin ? null : (v) => setState(() => _restringe = !v),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -106,41 +157,44 @@ class _PermisosRolScreenState extends State<PermisosRolScreen> {
                 Expanded(
                   child: ListView(
                     padding: const EdgeInsets.all(16),
-                    children: porModulo.entries.map((entry) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(top: 12, bottom: 4, left: 4),
-                            child: Text(entry.key.toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey[600])),
-                          ),
-                          Card(
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide(color: Colors.grey[200]!)),
-                            child: Column(
-                              children: entry.value.map((p) {
-                                final id = p['id'] as String;
-                                final marcado = _seleccionados.contains(id);
-                                return SwitchListTile(
-                                  title: Text(p['nombre'], style: const TextStyle(fontSize: 12)),
-                                  value: marcado,
-                                  activeThumbColor: const Color(0xFF1F4E79),
-                                  onChanged: (v) {
-                                    setState(() {
-                                      if (v) {
-                                        _seleccionados.add(id);
-                                      } else {
-                                        _seleccionados.remove(id);
-                                      }
-                                    });
-                                  },
-                                );
-                              }).toList(),
+                    children: [
+                      _grupoAlcance(),
+                      ...porModulo.entries.map((entry) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(top: 12, bottom: 4, left: 4),
+                              child: Text(entry.key.toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey[600])),
                             ),
-                          ),
-                        ],
-                      );
-                    }).toList(),
+                            Card(
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide(color: Colors.grey[200]!)),
+                              child: Column(
+                                children: entry.value.map((p) {
+                                  final id = p['id'] as String;
+                                  final marcado = _seleccionados.contains(id);
+                                  return SwitchListTile(
+                                    title: Text(p['nombre'], style: const TextStyle(fontSize: 12)),
+                                    value: marcado,
+                                    activeThumbColor: const Color(0xFF1F4E79),
+                                    onChanged: (v) {
+                                      setState(() {
+                                        if (v) {
+                                          _seleccionados.add(id);
+                                        } else {
+                                          _seleccionados.remove(id);
+                                        }
+                                      });
+                                    },
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                          ],
+                        );
+                      }),
+                    ],
                   ),
                 ),
                 Padding(

@@ -1,6 +1,6 @@
 ﻿# IndovexApp - Estructura de Carpetas (auto-generada)
 
-Generado: 2026-10-09 01:48
+Generado: 2026-10-11 22:29
 
   settings.json
 .env
@@ -177,11 +177,13 @@ indovexapp.iml
       configuracion_screen.dart
       destinatarios_whatsapp_screen.dart
       perfil_empresa_screen.dart
+      permisos_grilla_screen.dart
       permisos_rol_screen.dart
       proveedores_screen.dart
       roles_screen.dart
       sectores_screen.dart
       tipos_intervalo_screen.dart
+      usuario_detail_screen.dart
       usuarios_screen.dart
       dashboard_screen.dart
       home_screen.dart
@@ -220,6 +222,8 @@ indovexapp.iml
     repuesto_maquina_service.dart
     repuesto_service.dart
     repuestos_pdf_service.dart
+    roles_permisos_excel_service.dart
+    roles_permisos_pdf_service.dart
     sector_service.dart
     ticket_detalle_pdf_service.dart
     ticket_service.dart
@@ -318,6 +322,9 @@ README.md
     20261006233000_maquinas_baja_logica.sql
     20261008_ver_comentarios_tickets.sql
     20261008214800_planes_mantenimiento_rls_sector.sql
+    20261011164000_vistas_security_invoker.sql
+    20261011165500_stock_trazabilidad.sql
+    20261011171500_tickets_permisos.sql
   seed.sql
   widget_test.dart
   favicon.png
