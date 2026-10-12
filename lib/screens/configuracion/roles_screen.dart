@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/db_error_helper.dart';
+import 'permisos_grilla_screen.dart';
 import 'permisos_rol_screen.dart';
 
 class RolesScreen extends StatefulWidget {
@@ -200,6 +201,22 @@ class _RolesScreenState extends State<RolesScreen> {
         toolbarHeight: 48,
         backgroundColor: const Color(0xFF1F4E79),
         foregroundColor: Colors.white,
+        actions: [
+          // Grilla de roles x permisos (desde ahí se exporta a PDF y Excel).
+          TextButton.icon(
+            onPressed: () {
+              Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const PermisosGrillaScreen()))
+                  .then((_) => _cargar());
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.white),
+            icon: const Icon(Icons.grid_on_outlined, size: 18),
+            label: const Text('Grilla', style: TextStyle(fontSize: 12)),
+          ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: _cargando
           ? const Center(child: CircularProgressIndicator())
